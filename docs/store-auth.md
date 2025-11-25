@@ -1,6 +1,6 @@
 # Store Auth Configuration (Apple & Google Sign-In)
 
-This app already supports email/password and guest access through the local SQLite layer. To ship first‑party sign-in options on the stores, we need to configure both Apple and Google providers. The codebase is ready to consume social logins (see `handleSocialLogin` inside `src/hooks/useAppScreen.ts`), but the native/platform setup must be completed manually following the steps below.
+This app already supports email/password and guest access through the local SQLite layer. Because the previous “social login” UX was a fake local shortcut, it has been removed from production builds until real Apple/Google OAuth is wired up. The steps below outline how to safely re-enable those providers once the native/platform configuration is complete.
 
 ---
 
@@ -88,7 +88,7 @@ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
 ## 3. Wiring the UI (future work)
 
 1. Install the chosen auth SDKs (`expo-apple-authentication`, `expo-auth-session`, etc.).
-2. In `LoginScreen.tsx`, replace/augment `SocialLoginButtons` to call the providers and pass the resulting profile into `handleSocialLogin` (already defined in `useAppScreen`).
+2. In `LoginScreen.tsx`, reintroduce a dedicated social-login entry point that calls the providers and forwards the verified profile/token to the server (or to a rebuilt client handler).
 3. Remember to handle cases where Apple accounts don’t expose email/display name (prompt users to confirm).
 4. Add fallbacks for devices where Apple/Google sign-in isn’t available (already partly covered by guest login).
 

@@ -9,29 +9,17 @@ import { RememberMeToggle } from "@/screens/Auth/components/RememberMeToggle";
 import { PrimaryActionButton } from "@/screens/Auth/components/PrimaryActionButton";
 import { GuestButton } from "@/screens/Auth/components/GuestButton";
 import { AuthModeSwitch } from "@/screens/Auth/components/AuthModeSwitch";
-import { SocialLoginButtons } from "@/screens/Auth/components/SocialLoginButtons";
-import { EmailVerificationSection } from "@/screens/Auth/components/EmailVerificationSection";
 import { getLoginCopy } from "@/screens/Auth/constants/loginCopy";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 import { t } from "@/shared/i18n";
-import {
-	EMAIL_VERIFICATION_CODE_REQUIRED_MESSAGE,
-	EMAIL_VERIFICATION_INVALID_ERROR_MESSAGE,
-	EMAIL_VERIFICATION_REQUIRED_ERROR_MESSAGE,
-	EMAIL_VERIFICATION_SENT_MESSAGE,
-} from "@/screens/App/AppScreen.constants";
 
 export function LoginScreen({
 	onLogin,
 	onSignUp,
 	onGuest,
-	onSocialLogin,
-	onSendVerificationCode,
-	onVerifyEmailCode,
 	loading = false,
 	errorMessage,
 	initialMode = "login",
-	onRequestPasswordReset,
 }: LoginScreenProps) {
 	const styles = useThemedStyles(createLoginScreenStyles);
 	const [username, setUsername] = useState("");
@@ -40,64 +28,27 @@ export function LoginScreen({
 	const [displayName, setDisplayName] = useState("");
 	const [mode, setMode] = useState<"login" | "signup">(initialMode);
 	const [rememberMe, setRememberMe] = useState(false);
-	const [verificationCode, setVerificationCode] = useState("");
-	const [verificationStatus, setVerificationStatus] = useState<"idle" | "sent" | "verified">("idle");
-	const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
-	const [verificationError, setVerificationError] = useState<string | null>(null);
-	const [verificationHint, setVerificationHint] = useState<string | null>(null);
-	const [verificationSending, setVerificationSending] = useState(false);
-	const [verificationChecking, setVerificationChecking] = useState(false);
-
-	const resetVerificationState = useCallback(() => {
-		setVerificationCode("");
-		setVerificationStatus("idle");
-		setVerificationError(null);
-		setVerificationHint(null);
-		setVerificationEmail(null);
-		setVerificationSending(false);
-		setVerificationChecking(false);
-	}, []);
-
 	useEffect(() => {
 		setMode(initialMode);
 		setUsername("");
 		setPassword("");
 		setConfirmPassword("");
 		setDisplayName("");
-		resetVerificationState();
-	}, [initialMode, resetVerificationState]);
+	}, [initialMode]);
 
 	const trimmedUsername = useMemo(() => username.trim(), [username]);
 	const trimmedPassword = useMemo(() => password.trim(), [password]);
 	const trimmedDisplayName = useMemo(() => displayName.trim(), [displayName]);
 	const trimmedConfirmPassword = useMemo(() => confirmPassword.trim(), [confirmPassword]);
 
-	useEffect(() => {
-		if (mode !== "signup") {
-			return;
-		}
-		if (!verificationEmail) {
-			return;
-		}
-		const normalizedInput = trimmedUsername.toLowerCase();
-		if (!normalizedInput || normalizedInput !== verificationEmail) {
-			resetVerificationState();
-		}
-	}, [mode, trimmedUsername, verificationEmail, resetVerificationState]);
-
 	const copy = useMemo(() => getLoginCopy(mode), [mode]);
-	const isVerificationIncomplete = mode === "signup" && verificationStatus !== "verified";
 	const passwordMismatchMessage =
 		mode === "signup" && trimmedConfirmPassword.length > 0 && trimmedPassword !== trimmedConfirmPassword
 			? "비밀번호가 일치하지 않아요."
 			: null;
 	const isPasswordMismatch = Boolean(passwordMismatchMessage);
 	const isPrimaryDisabled =
-		loading ||
-		trimmedUsername.length === 0 ||
-		trimmedPassword.length === 0 ||
-		isVerificationIncomplete ||
-		isPasswordMismatch;
+		loading || trimmedUsername.length === 0 || trimmedPassword.length === 0 || isPasswordMismatch;
 
 	const handlePrimaryPress = useCallback(() => {
 		if (isPrimaryDisabled) {
@@ -113,11 +64,6 @@ export function LoginScreen({
 			return;
 		}
 
-		if (verificationStatus !== "verified") {
-			setVerificationError(EMAIL_VERIFICATION_REQUIRED_ERROR_MESSAGE);
-			return;
-		}
-
 		onSignUp(trimmedUsername, trimmedPassword, trimmedDisplayName, { rememberMe });
 	}, [
 		isPasswordMismatch,
@@ -129,7 +75,6 @@ export function LoginScreen({
 		trimmedDisplayName,
 		trimmedPassword,
 		trimmedUsername,
-		verificationStatus,
 	]);
 
 	const handleGuestPress = useCallback(() => {
@@ -137,53 +82,6 @@ export function LoginScreen({
 			onGuest();
 		}
 	}, [loading, onGuest]);
-
-	const handleSendVerificationCodeRequest = useCallback(async () => {
-		if (mode !== "signup" || verificationSending || loading) {
-			return;
-		}
-		setVerificationSending(true);
-		setVerificationError(null);
-		try {
-			const payload = await onSendVerificationCode(trimmedUsername);
-			const normalizedEmail = trimmedUsername.toLowerCase();
-			setVerificationStatus("sent");
-			setVerificationCode("");
-			setVerificationEmail(normalizedEmail || null);
-			setVerificationHint(`테스트용 인증 코드: ${payload.code} (10분 동안 유효해요.)`);
-			Alert.alert("인증 코드 발송", `${EMAIL_VERIFICATION_SENT_MESSAGE}\n테스트용 코드: ${payload.code}`);
-		} catch (error) {
-			const message = error instanceof Error ? error.message : "인증 코드를 보내지 못했어요.";
-			setVerificationError(message);
-		} finally {
-			setVerificationSending(false);
-		}
-	}, [loading, mode, onSendVerificationCode, trimmedUsername, verificationSending]);
-
-	const handleVerifyEmailCode = useCallback(async () => {
-		if (mode !== "signup" || verificationChecking || loading || verificationStatus === "verified") {
-			return;
-		}
-		const trimmedCode = verificationCode.trim();
-		if (!trimmedCode) {
-			setVerificationError(EMAIL_VERIFICATION_CODE_REQUIRED_MESSAGE);
-			return;
-		}
-		setVerificationChecking(true);
-		setVerificationError(null);
-		try {
-			await onVerifyEmailCode(trimmedUsername, trimmedCode);
-			setVerificationStatus("verified");
-			setVerificationHint("이메일 인증이 완료되었어요.");
-			setVerificationCode(trimmedCode);
-			setVerificationEmail(trimmedUsername.toLowerCase() || null);
-		} catch (error) {
-			const message = error instanceof Error ? error.message : EMAIL_VERIFICATION_INVALID_ERROR_MESSAGE;
-			setVerificationError(message);
-		} finally {
-			setVerificationChecking(false);
-		}
-	}, [loading, mode, onVerifyEmailCode, trimmedUsername, verificationChecking, verificationCode, verificationStatus]);
 
 	const handleToggleMode = useCallback(() => {
 		if (loading) {
@@ -193,16 +91,17 @@ export function LoginScreen({
 		setPassword("");
 		setConfirmPassword("");
 		setDisplayName("");
-		resetVerificationState();
-	}, [loading, resetVerificationState]);
+	}, [loading]);
 
 	const handleForgotPasswordPress = useCallback(() => {
 		if (loading) {
 			return;
 		}
-		const suggestedEmail = trimmedUsername || trimmedDisplayName || "";
-		onRequestPasswordReset?.(suggestedEmail);
-	}, [loading, onRequestPasswordReset, trimmedDisplayName, trimmedUsername]);
+		Alert.alert(
+			"비밀번호 안내",
+			"이 앱의 계정은 기기 내부에만 저장돼요. 비밀번호를 잊은 경우 기기에서 로그아웃 후 새 계정을 만들어주세요.",
+		);
+	}, [loading]);
 
 	return (
 		<SafeAreaView style={styles.safeArea}>
@@ -230,23 +129,6 @@ export function LoginScreen({
 						onChangeDisplayName={setDisplayName}
 					/>
 
-					{mode === "signup" ? (
-						<EmailVerificationSection
-							status={verificationStatus}
-							code={verificationCode}
-							errorMessage={verificationError}
-							hintMessage={verificationHint}
-							sending={verificationSending}
-							verifying={verificationChecking}
-							canSend={trimmedUsername.length > 0}
-							canVerify={verificationCode.trim().length > 0}
-							disabled={loading}
-							onChangeCode={setVerificationCode}
-							onSendCode={handleSendVerificationCodeRequest}
-							onVerifyCode={handleVerifyEmailCode}
-						/>
-					) : null}
-
 					<RememberMeToggle value={rememberMe} disabled={loading} onChange={setRememberMe} />
 
 					<PrimaryActionButton
@@ -267,7 +149,7 @@ export function LoginScreen({
 						<Text style={styles.linkButtonText}>{t("auth.forgotPassword")}</Text>
 					</TouchableOpacity>
 
-					<SocialLoginButtons disabled={loading} />
+					<Text style={styles.helperText}>계정과 단어장은 이 기기에만 저장돼요. 다른 기기에서는 새 계정을 만들어야 해요.</Text>
 
 					<GuestButton loading={loading} onPress={handleGuestPress} />
 
