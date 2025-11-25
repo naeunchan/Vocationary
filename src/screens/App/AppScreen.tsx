@@ -21,7 +21,6 @@ export function AppScreen() {
 		isOnboardingVisible,
 		isAuthenticated,
 		loginBindings,
-		onPasswordResetRequest,
 		navigatorProps,
 		handleDismissHelp,
 		onCompleteOnboarding,
@@ -46,7 +45,7 @@ export function AppScreen() {
 						{initializing || !appearanceReady ? (
 							<LoadingState message={INITIAL_LOADING_MESSAGE} />
 						) : !isAuthenticated ? (
-							<AuthNavigator loginProps={loginBindings} onResetPassword={onPasswordResetRequest} />
+							<AuthNavigator loginProps={loginBindings} />
 						) : (
 							<AppNavigator {...navigatorProps} />
 						)}

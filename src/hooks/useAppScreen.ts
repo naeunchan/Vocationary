@@ -12,7 +12,6 @@ import {
 	clearAutoLoginCredentials,
 	clearSearchHistoryEntries,
 	clearSession,
-	clearEmailVerification,
 	createUser,
 	deleteUserAccount,
 	findUserByUsername,
@@ -22,27 +21,24 @@ import {
 	getSearchHistoryEntries,
 	getPreferenceValue,
 	hasSeenAppHelp,
-	hashPassword,
 	initializeDatabase,
 	isDisplayNameTaken,
 	markAppHelpSeen,
 	removeFavoriteForUser,
-	sendEmailVerificationCode,
 	saveAutoLoginCredentials,
 	saveSearchHistoryEntries,
 	setPreferenceValue,
 	setGuestSession,
 	setUserSession,
-	isEmailVerificationVerified,
 	updateUserPassword,
 	updateUserDisplayName,
-	verifyEmailVerificationCode,
 	upsertFavoriteForUser,
+	verifyPasswordHash,
 	type UserRecord,
 } from "@/services/database";
 import { getEmailValidationError, getGooglePasswordValidationError } from "@/utils/authValidation";
 import { generateRandomDisplayName } from "@/utils/randomDisplayName";
-import type { LoginScreenProps, SocialLoginProfile } from "@/screens/Auth/LoginScreen.types";
+import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 import type { RootTabNavigatorProps } from "@/navigation/RootTabNavigator.types";
 import {
 	ACCOUNT_REDIRECT_ERROR_MESSAGE,
@@ -69,16 +65,9 @@ import {
 	DISPLAY_NAME_REQUIRED_ERROR_MESSAGE,
 	PASSWORD_REQUIRED_ERROR_MESSAGE,
 	PASSWORD_UPDATE_ERROR_MESSAGE,
-	PASSWORD_RESET_INPUT_ERROR_MESSAGE,
-	PASSWORD_RESET_RATE_LIMIT_ERROR_MESSAGE,
-	PASSWORD_RESET_SOCIAL_ERROR_MESSAGE,
 	SIGNUP_DUPLICATE_ERROR_MESSAGE,
 	SIGNUP_GENERIC_ERROR_MESSAGE,
-	EMAIL_VERIFICATION_REQUIRED_ERROR_MESSAGE,
-	EMAIL_VERIFICATION_CODE_REQUIRED_MESSAGE,
-	EMAIL_VERIFICATION_INVALID_ERROR_MESSAGE,
 	ACCOUNT_DELETION_ERROR_MESSAGE,
-	SOCIAL_LOGIN_ERROR_MESSAGE,
 	TOGGLE_FAVORITE_ERROR_MESSAGE,
 	UPDATE_STATUS_ERROR_MESSAGE,
 } from "@/screens/App/AppScreen.constants";
@@ -94,9 +83,6 @@ import type { AppError } from "@/errors/AppError";
 import { createAppError, normalizeError } from "@/errors/AppError";
 import { captureAppError, setUserContext } from "@/logging/logger";
 import { exportBackupToFile, importBackupFromDocument } from "@/services/backup/manualBackup";
-
-const PASSWORD_RESET_THROTTLE_MS = 60 * 1000;
-const passwordResetTracker = new Map<string, number>();
 
 export function useAppScreen(): AppScreenHookResult {
 	const [searchTerm, setSearchTerm] = useState("");
@@ -845,14 +831,14 @@ export function useAppScreen(): AppScreenHookResult {
 					return;
 				}
 
-				const hashedPassword = await hashPassword(trimmedPassword);
-				if (userRecord.passwordHash !== hashedPassword) {
+				const isValidPassword = await verifyPasswordHash(trimmedPassword, userRecord.passwordHash ?? null);
+				if (!isValidPassword) {
 					setAuthError(LOGIN_FAILED_ERROR_MESSAGE);
 					return;
 				}
 
-				if (rememberMe) {
-					await saveAutoLoginCredentials(sanitizedUsername, hashedPassword);
+				if (rememberMe && userRecord.passwordHash) {
+					await saveAutoLoginCredentials(sanitizedUsername, userRecord.passwordHash);
 				} else {
 					await clearAutoLoginCredentials();
 				}
@@ -907,12 +893,6 @@ export function useAppScreen(): AppScreenHookResult {
 					return;
 				}
 
-				const verified = await isEmailVerificationVerified(sanitizedUsername);
-				if (!verified) {
-					setAuthError(EMAIL_VERIFICATION_REQUIRED_ERROR_MESSAGE);
-					return;
-				}
-
 				let displayNameToUse = trimmedDisplayName;
 				if (displayNameToUse) {
 					const taken = await isDisplayNameTaken(displayNameToUse);
@@ -936,13 +916,16 @@ export function useAppScreen(): AppScreenHookResult {
 
 				const newUser = await createUser(sanitizedUsername, trimmedPassword, displayNameToUse);
 				if (rememberMe) {
-					const passwordHash = await hashPassword(trimmedPassword);
-					await saveAutoLoginCredentials(sanitizedUsername, passwordHash);
+					const createdUser = await findUserByUsername(sanitizedUsername);
+					if (createdUser?.passwordHash) {
+						await saveAutoLoginCredentials(sanitizedUsername, createdUser.passwordHash);
+					} else {
+						await clearAutoLoginCredentials();
+					}
 				} else {
 					await clearAutoLoginCredentials();
 				}
 				await loadUserState(newUser);
-				await clearEmailVerification(sanitizedUsername);
 			} catch (err) {
 				if (err instanceof Error && err.message.includes("UNIQUE")) {
 					setAuthError(SIGNUP_DUPLICATE_ERROR_MESSAGE);
@@ -954,49 +937,7 @@ export function useAppScreen(): AppScreenHookResult {
 				setAuthLoading(false);
 			}
 		},
-		[clearAutoLoginCredentials, clearEmailVerification, isEmailVerificationVerified, loadUserState, saveAutoLoginCredentials],
-	);
-
-	const handleEmailVerificationRequest = useCallback(
-		async (username: string) => {
-			const trimmedUsername = username.trim();
-			const emailValidationError = getEmailValidationError(trimmedUsername);
-			if (emailValidationError) {
-				throw new Error(emailValidationError);
-			}
-
-			const sanitizedUsername = trimmedUsername.toLowerCase();
-			const existingUser = await findUserByUsername(sanitizedUsername);
-			if (existingUser) {
-				throw new Error(SIGNUP_DUPLICATE_ERROR_MESSAGE);
-			}
-
-		return sendEmailVerificationCode(sanitizedUsername);
-		},
-		[findUserByUsername, sendEmailVerificationCode],
-	);
-
-	const handleEmailVerificationConfirm = useCallback(
-		async (username: string, code: string) => {
-			const trimmedUsername = username.trim();
-			const trimmedCode = code.trim();
-			if (!trimmedCode) {
-				throw new Error(EMAIL_VERIFICATION_CODE_REQUIRED_MESSAGE);
-			}
-
-			const emailValidationError = getEmailValidationError(trimmedUsername);
-			if (emailValidationError) {
-				throw new Error(emailValidationError);
-			}
-
-			const sanitizedUsername = trimmedUsername.toLowerCase();
-			const success = await verifyEmailVerificationCode(sanitizedUsername, trimmedCode);
-			if (!success) {
-				throw new Error(EMAIL_VERIFICATION_INVALID_ERROR_MESSAGE);
-			}
-			return true;
-		},
-		[verifyEmailVerificationCode],
+		[clearAutoLoginCredentials, findUserByUsername, loadUserState, saveAutoLoginCredentials],
 	);
 
 	const handleDeleteAccount = useCallback(async () => {
@@ -1017,77 +958,6 @@ export function useAppScreen(): AppScreenHookResult {
 		}
 	}, [clearAutoLoginCredentials, clearSearchHistoryEntries, clearSession, deleteUserAccount, setInitialAuthState, setRecentSearches, user]);
 
-	const handleSocialLogin = useCallback(
-		async (profile: SocialLoginProfile) => {
-			setAuthLoading(true);
-			setAuthError(null);
-			try {
-				const normalizedUsername = `${profile.provider}:${profile.id}`.toLowerCase();
-				let userRecord = await findUserByUsername(normalizedUsername);
-
-				if (!userRecord) {
-					const fallbackPassword = await hashPassword(`${profile.provider}:${profile.id}:${Date.now()}`);
-					const fallbackName = profile.name ?? profile.email ?? DEFAULT_GUEST_NAME;
-					await createUser(normalizedUsername, fallbackPassword, fallbackName);
-					userRecord = await findUserByUsername(normalizedUsername);
-				}
-
-				if (!userRecord) {
-					throw new Error(SOCIAL_LOGIN_ERROR_MESSAGE);
-				}
-
-				await loadUserState({
-					id: userRecord.id,
-					username: userRecord.username,
-					displayName: userRecord.displayName,
-				});
-			} catch (err) {
-				const message = err instanceof Error ? err.message : SOCIAL_LOGIN_ERROR_MESSAGE;
-				setAuthError(message);
-			} finally {
-				setAuthLoading(false);
-			}
-		},
-		[createUser, findUserByUsername, hashPassword, loadUserState],
-	);
-
-	const handlePasswordResetAsync = useCallback(
-		async (username: string) => {
-			const trimmedUsername = username.trim().toLowerCase();
-			if (!trimmedUsername) {
-				throw new Error(PASSWORD_RESET_INPUT_ERROR_MESSAGE);
-			}
-
-			const emailValidationError = getEmailValidationError(trimmedUsername);
-			if (emailValidationError) {
-				throw new Error(emailValidationError);
-			}
-
-			const lastRequest = passwordResetTracker.get(trimmedUsername);
-			if (lastRequest && Date.now() - lastRequest < PASSWORD_RESET_THROTTLE_MS) {
-				throw new Error(PASSWORD_RESET_RATE_LIMIT_ERROR_MESSAGE);
-			}
-
-			const existingUser = await findUserByUsername(trimmedUsername);
-			if (!existingUser) {
-				throw new Error(MISSING_USER_ERROR_MESSAGE);
-			}
-
-			if (!existingUser.passwordHash) {
-				throw new Error(PASSWORD_RESET_SOCIAL_ERROR_MESSAGE);
-			}
-
-			const verificationCode = Math.floor(100000 + Math.random() * 900000)
-				.toString()
-				.padStart(6, "0");
-			passwordResetTracker.set(trimmedUsername, Date.now());
-			console.info(`[password-reset] dev-only code for ${trimmedUsername}: ${verificationCode}`);
-
-			// 실제 이메일 발송 API가 연동되면 이 지점에서 호출하면 돼요.
-			await new Promise((resolve) => setTimeout(resolve, 800));
-		},
-		[findUserByUsername],
-	);
 	const toggleFavorite = useCallback(
 		(word: WordResult) => {
 			void toggleFavoriteAsync(word);
@@ -1344,36 +1214,32 @@ export function useAppScreen(): AppScreenHookResult {
 			onLogin: handleLogin,
 			onSignUp: handleSignUp,
 			onGuest: handleGuestAccess,
-			onSocialLogin: handleSocialLogin,
-			onSendVerificationCode: handleEmailVerificationRequest,
-			onVerifyEmailCode: handleEmailVerificationConfirm,
 			loading: authLoading,
 			errorMessage: authError,
 			initialMode: authMode,
 		}),
-		[authError, authLoading, authMode, handleEmailVerificationConfirm, handleEmailVerificationRequest, handleGuestAccess, handleLogin, handleSignUp, handleSocialLogin],
+		[authError, authLoading, authMode, handleGuestAccess, handleLogin, handleSignUp],
 	);
 
 	useEffect(() => {
 		setUserContext(user?.id ?? null);
 	}, [user?.id]);
 
-	return {
-		versionLabel,
-		initializing,
-		appearanceReady,
-		isHelpVisible,
-		isOnboardingVisible,
-		isAuthenticated,
-		loginBindings,
-		onPasswordResetRequest: handlePasswordResetAsync,
-		navigatorProps,
-		handleDismissHelp,
-		onShowOnboarding: handleShowOnboarding,
-		onCompleteOnboarding: handleCompleteOnboarding,
-		themeMode,
-		fontScale,
-		onThemeModeChange: handleThemeModeChange,
-		onFontScaleChange: handleFontScaleChange,
-	};
+		return {
+			versionLabel,
+			initializing,
+			appearanceReady,
+			isHelpVisible,
+			isOnboardingVisible,
+			isAuthenticated,
+			loginBindings,
+			navigatorProps,
+			handleDismissHelp,
+			onShowOnboarding: handleShowOnboarding,
+			onCompleteOnboarding: handleCompleteOnboarding,
+			themeMode,
+			fontScale,
+			onThemeModeChange: handleThemeModeChange,
+			onFontScaleChange: handleFontScaleChange,
+		};
 }

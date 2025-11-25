@@ -19,9 +19,6 @@ const baseProps = {
 	onLogin: jest.fn(),
 	onSignUp: jest.fn(),
 	onGuest: jest.fn(),
-	onSocialLogin: jest.fn(),
-	onSendVerificationCode: jest.fn(),
-	onVerifyEmailCode: jest.fn(),
 	loading: false,
 };
 
@@ -32,13 +29,13 @@ describe("LoginScreen", () => {
 
 	it("invokes onLogin with typed credentials", () => {
 		const onLogin = jest.fn();
-		const { getByPlaceholderText, getByText } = render(<LoginScreen {...baseProps} onLogin={onLogin} />, {
+		const { getByPlaceholderText, getByLabelText } = render(<LoginScreen {...baseProps} onLogin={onLogin} />, {
 			wrapper,
 		});
 
 		fireEvent.changeText(getByPlaceholderText("이메일 주소를 입력하세요"), " user@example.com ");
 		fireEvent.changeText(getByPlaceholderText("비밀번호를 입력하세요"), "secret ");
-		fireEvent.press(getByText("Log in"));
+		fireEvent.press(getByLabelText(/로그인|Log in/));
 
 		expect(onLogin).toHaveBeenCalledWith("user@example.com", "secret", { rememberMe: false });
 	});

@@ -11,7 +11,6 @@ export type AppScreenHookResult = {
 	isAuthenticated: boolean;
 	loginBindings: LoginScreenProps;
 	navigatorProps: RootTabNavigatorProps;
-	onPasswordResetRequest: (email: string) => Promise<void>;
 	handleDismissHelp: () => void;
 	onShowOnboarding: () => void;
 	onCompleteOnboarding: () => void;

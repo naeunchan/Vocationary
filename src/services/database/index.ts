@@ -1,4 +1,7 @@
 import { Platform } from "react-native";
+import * as Crypto from "expo-crypto";
+import { getRandomBytesAsync } from "expo-random";
+import { Buffer } from "buffer";
 import type { SQLiteDatabase } from "expo-sqlite";
 import type { DictionaryMode, WordResult } from "@/services/dictionary/types";
 import {
@@ -11,6 +14,8 @@ import type { SearchHistoryEntry } from "@/services/searchHistory/types";
 import { SEARCH_HISTORY_LIMIT } from "@/services/searchHistory/types";
 
 const DATABASE_NAME = "vocationary.db";
+const PASSWORD_HASH_PREFIX = "sha256.v1";
+const LEGACY_PASSWORD_SALT = "vocationary::salt";
 const isWeb = Platform.OS === "web";
 const APP_HELP_KEY = "app.help.seen";
 const SEARCH_HISTORY_KEY = "search.history";
@@ -95,11 +100,43 @@ function fnv1a32(input: string) {
 	return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-export async function hashPassword(password: string) {
-	const salt = "vocationary::salt";
-	const firstPass = fnv1a32(`${salt}:${password}`);
+function hashLegacyPassword(password: string) {
+	const firstPass = fnv1a32(`${LEGACY_PASSWORD_SALT}:${password}`);
 	const secondPass = fnv1a32(`${firstPass}:${password}`);
 	return `${firstPass}${secondPass}`;
+}
+
+async function generatePasswordSalt(byteLength = 16) {
+	const randomBytes = await getRandomBytesAsync(byteLength);
+	return Buffer.from(randomBytes).toString("base64");
+}
+
+async function derivePasswordDigest(password: string, salt: string) {
+	return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${salt}:${password}`);
+}
+
+export async function hashPassword(password: string, salt?: string) {
+	const normalizedSalt = salt ?? (await generatePasswordSalt());
+	const digest = await derivePasswordDigest(password, normalizedSalt);
+	return `${PASSWORD_HASH_PREFIX}:${normalizedSalt}:${digest}`;
+}
+
+export async function verifyPasswordHash(password: string, storedHash: string | null) {
+	if (!storedHash) {
+		return false;
+	}
+
+	if (storedHash.startsWith(`${PASSWORD_HASH_PREFIX}:`)) {
+		const [, salt, hashValue] = storedHash.split(":");
+		if (!salt || !hashValue) {
+			return false;
+		}
+		const digest = await derivePasswordDigest(password, salt);
+		return digest === hashValue;
+	}
+
+	const legacyHash = hashLegacyPassword(password);
+	return legacyHash === storedHash;
 }
 
 function generateVerificationCode() {
