@@ -8,7 +8,7 @@ type ExtraConfig = {
 	openaiApiKey?: string;
 };
 
-function getOpenAIApiKey(): string {
+function getOpenAIApiKey(): string | null {
 	const inlineKey = typeof OPENAI_API_KEY === "string" ? OPENAI_API_KEY.trim() : "";
 	if (inlineKey) {
 		return inlineKey;
@@ -25,17 +25,30 @@ function getOpenAIApiKey(): string {
 		return extraKey;
 	}
 
-	throw new Error("OpenAI API 키가 설정되어 있지 않아요.");
+	return null;
 }
 
 let cachedClient: OpenAI | null = null;
 
 export function getOpenAIClient(): OpenAI {
+	const apiKey = getOpenAIApiKey();
+	if (!apiKey) {
+		throw new Error("OpenAI API 키가 설정되어 있지 않아요.");
+	}
 	if (!cachedClient) {
 		cachedClient = new OpenAI({
-			apiKey: getOpenAIApiKey(),
+			apiKey,
 			dangerouslyAllowBrowser: true,
 		});
 	}
 	return cachedClient;
+}
+
+export function tryGetOpenAIClient(): OpenAI | null {
+	try {
+		return getOpenAIClient();
+	} catch (error) {
+		console.warn("[dictionary] OpenAI client unavailable.", error);
+		return null;
+	}
 }

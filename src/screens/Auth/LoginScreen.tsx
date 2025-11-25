@@ -149,7 +149,7 @@ export function LoginScreen({
 						<Text style={styles.linkButtonText}>{t("auth.forgotPassword")}</Text>
 					</TouchableOpacity>
 
-					<Text style={styles.helperText}>계정과 단어장은 이 기기에만 저장돼요. 다른 기기에서는 새 계정을 만들어야 해요.</Text>
+					<Text style={styles.helperText}>{t("auth.localOnlyHint")}</Text>
 
 					<GuestButton loading={loading} onPress={handleGuestPress} />
 

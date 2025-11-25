@@ -10,6 +10,7 @@ import { useThemedStyles } from "@/theme/useThemedStyles";
 import { FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS } from "@/theme/constants";
 import { LEGAL_DOCUMENTS, type LegalDocumentId } from "@/legal/legalDocuments";
 import { LegalDocumentModal } from "@/screens/Settings/components/LegalDocumentModal";
+import { t } from "@/shared/i18n";
 
 const SUPPORT_EMAIL = "support@vocationary.app";
 const CONTACT_SUBJECT = "Vocationary 1:1 문의";
@@ -162,6 +163,15 @@ export function SettingsScreen({
 						{renderRow("서비스 이용약관", { onPress: () => handleOpenDocument("termsOfService") })}
 						{renderRow("법적 고지 및 정보", { onPress: () => handleOpenDocument("legalNotice") })}
 						{renderRow("앱 버전", { value: appVersion, isLast: true })}
+					</View>
+				</View>
+
+				<View style={styles.section}>
+					<Text style={styles.sectionLabel}>{t("settings.localAccount.sectionLabel")}</Text>
+					<View style={styles.infoCard}>
+						<Text style={styles.infoCardTitle}>{t("settings.localAccount.title")}</Text>
+						<Text style={styles.infoCardBody}>{t("settings.localAccount.body")}</Text>
+						<Text style={styles.infoCardBody}>{t("settings.localAccount.body2")}</Text>
 					</View>
 				</View>
 

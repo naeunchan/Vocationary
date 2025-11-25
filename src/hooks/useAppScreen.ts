@@ -517,24 +517,18 @@ export function useAppScreen(): AppScreenHookResult {
 		[executeSearch, updateSearchHistory],
 	);
 
-	const handleModeChange = useCallback(
-		(nextMode: DictionaryMode) => {
-			if (nextMode === "en-ko") {
-				return;
-			}
-			if (modeRef.current === nextMode) {
-				return;
-			}
-			activeLookupRef.current += 1;
-			setMode(nextMode);
-			modeRef.current = nextMode;
-			setResult(null);
-			setError(null);
-			setLoading(false);
-			setExamplesVisible(false);
-		},
-		[],
-	);
+	const handleModeChange = useCallback((nextMode: DictionaryMode) => {
+		if (modeRef.current === nextMode) {
+			return;
+		}
+		activeLookupRef.current += 1;
+		setMode(nextMode);
+		modeRef.current = nextMode;
+		setResult(null);
+		setError(null);
+		setLoading(false);
+		setExamplesVisible(false);
+	}, []);
 
 	const handleToggleExamples = useCallback(() => {
 		setExamplesVisible((previous) => !previous);

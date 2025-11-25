@@ -1,7 +1,7 @@
 import QuickLRU from "quick-lru";
 import { DictionaryMode } from "@/services/dictionary/types";
 import { MeaningEntry } from "@/services/dictionary/types/WordResult";
-import { getOpenAIClient, OPENAI_MINI_MODEL } from "@/api/dictionary/openAIClient";
+import { OPENAI_MINI_MODEL, tryGetOpenAIClient } from "@/api/dictionary/openAIClient";
 
 export type ExampleUpdate = {
 	meaningIndex: number;
@@ -119,26 +119,34 @@ function maxOutputTokensFor(count: number): number {
 }
 
 async function requestOpenAI(word: string, mode: DictionaryMode, descriptors: DefinitionDescriptor[]): Promise<ExampleUpdate[]> {
-	const client = getOpenAIClient();
+	const client = tryGetOpenAIClient();
+	if (!client) {
+		return [];
+	}
 	const prompt = buildPrompt(word, mode, descriptors);
 
-	const response = await client.responses.create({
-		model: OPENAI_MINI_MODEL,
-		input: [{ role: "user", content: prompt }],
-		text: {
-			format: {
-				type: "json_schema",
-				name: EXAMPLE_SCHEMA.name,
-				schema: EXAMPLE_SCHEMA.schema,
-				strict: EXAMPLE_SCHEMA.strict,
+	try {
+		const response = await client.responses.create({
+			model: OPENAI_MINI_MODEL,
+			input: [{ role: "user", content: prompt }],
+			text: {
+				format: {
+					type: "json_schema",
+					name: EXAMPLE_SCHEMA.name,
+					schema: EXAMPLE_SCHEMA.schema,
+					strict: EXAMPLE_SCHEMA.strict,
+				},
 			},
-		},
-		max_output_tokens: maxOutputTokensFor(descriptors.length),
-		temperature: 0.2,
-	});
+			max_output_tokens: maxOutputTokensFor(descriptors.length),
+			temperature: 0.2,
+		});
 
-	const rawOutput = response.output_text ?? "";
-	return parseCompletionContent(rawOutput);
+		const rawOutput = response.output_text ?? "";
+		return parseCompletionContent(rawOutput);
+	} catch (error) {
+		console.warn("[dictionary] Failed to request OpenAI examples.", error);
+		return [];
+	}
 }
 
 export async function generateDefinitionExamples(word: string, mode: DictionaryMode, meanings: MeaningEntry[]): Promise<ExampleUpdate[]> {

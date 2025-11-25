@@ -134,6 +134,27 @@ export const createStyles = (theme: AppThemeColors, fontScale: number) =>
 			color: theme.textSecondary,
 			lineHeight: scaleFont(20, fontScale),
 		},
+		infoCard: {
+			backgroundColor: theme.surface,
+			borderRadius: 18,
+			padding: 18,
+			gap: 8,
+			shadowColor: theme.shadow,
+			shadowOffset: { width: 0, height: 6 },
+			shadowOpacity: 0.05,
+			shadowRadius: 10,
+			elevation: 2,
+		},
+		infoCardTitle: {
+			fontSize: scaleFont(15, fontScale),
+			fontWeight: "700",
+			color: theme.textPrimary,
+		},
+		infoCardBody: {
+			fontSize: scaleFont(13, fontScale),
+			color: theme.textSecondary,
+			lineHeight: scaleFont(19, fontScale),
+		},
 		primaryCta: {
 			backgroundColor: theme.accent,
 			borderRadius: 14,

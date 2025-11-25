@@ -15,7 +15,6 @@
     "@react-navigation/bottom-tabs": "^7.8.5",
     "@react-navigation/native": "^7.1.20",
     "@react-navigation/native-stack": "^7.6.3",
-    "@tanstack/react-query": "^5.90.10",
     "expo": "~54.0.25",
     "expo-audio": "~1.0.14",
     "expo-crypto": "^15.0.7",
@@ -36,8 +35,7 @@
     "react-native-screens": "~4.16.0",
     "react-native-web": "^0.21.2",
     "sentry-expo": "^7.1.1",
-    "tslib": "^2.8.1",
-    "zustand": "^5.0.8"
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
@@ -66,7 +64,7 @@
       "<rootDir>/jest.setup.ts"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!(@react-native|react-native|@react-navigation|expo|@expo|@testing-library|@react-native-community|@tanstack)/)"
+      "node_modules/(?!(@react-native|react-native|@react-navigation|expo|@expo|@testing-library|@react-native-community)/)"
     ],
     "testMatch": [
       "**/__tests__/**/*.test.ts?(x)"

@@ -8,16 +8,21 @@ import { SearchScreenProps } from "@/screens/Search/SearchScreen.types";
 import { createSearchScreenStyles } from "@/screens/Search/SearchScreen.styles";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 import { useAppAppearance } from "@/theme/AppearanceContext";
+import { t } from "@/shared/i18n";
+import type { DictionaryMode } from "@/services/dictionary/types";
 
 const MODE_BUTTONS = [
-	{ label: "영영사전", value: "en-en", disabled: false },
-	{ label: "영한사전", value: "en-ko", disabled: true },
+	{
+		label: "search.mode.enEn",
+		description: "search.mode.enEn.description",
+		value: "en-en" as DictionaryMode,
+	},
+	{
+		label: "search.mode.enKo",
+		description: "search.mode.enKo.description",
+		value: "en-ko" as DictionaryMode,
+	},
 ] as const;
-
-const MODE_LABELS: Record<string, string> = {
-	"en-en": "영영사전",
-	"en-ko": "영한사전",
-};
 
 export function SearchScreen({
 	searchTerm,
@@ -38,10 +43,17 @@ export function SearchScreen({
 	onClearRecentSearches,
 	onRetry,
 }: SearchScreenProps) {
-	const styles = useThemedStyles(createSearchScreenStyles);
-	const { theme } = useAppAppearance();
-	const showPlaceholder = !loading && !error && !result;
-	const hasRecentSearches = recentSearches.length > 0;
+		const styles = useThemedStyles(createSearchScreenStyles);
+		const { theme } = useAppAppearance();
+		const showPlaceholder = !loading && !error && !result;
+		const hasRecentSearches = recentSearches.length > 0;
+
+		const getModeLabel = (modeValue: string) => {
+			if (modeValue === "en-ko") {
+				return t("search.mode.enKo");
+			}
+			return t("search.mode.enEn");
+		};
 
 	return (
 		<SafeAreaView style={styles.safeArea}>
@@ -51,28 +63,30 @@ export function SearchScreen({
 					<View style={styles.modeButtons}>
 						{MODE_BUTTONS.map((option) => {
 							const isActive = option.value === mode;
+							const label = t(option.label);
+							const description = t(option.description);
 							return (
 								<TouchableOpacity
 									key={option.value}
-									style={[styles.modeButton, isActive && styles.modeButtonActive, option.disabled && styles.modeButtonDisabled]}
-									activeOpacity={option.disabled ? 1 : 0.85}
-									disabled={option.disabled}
+									style={[styles.modeButton, isActive && styles.modeButtonActive]}
+									activeOpacity={0.85}
 									accessibilityRole="button"
-									accessibilityState={{ selected: isActive, disabled: option.disabled }}
-									accessibilityLabel={`${option.label}${option.disabled ? " (준비중)" : ""}`}
+									accessibilityState={{ selected: isActive }}
+									accessibilityLabel={label}
+									accessibilityHint={description}
 									onPress={() => {
-										if (!isActive && !option.disabled) {
+										if (!isActive) {
 											onModeChange(option.value);
 										}
 									}}
 								>
-									<Text style={[styles.modeButtonLabel, isActive && styles.modeButtonLabelActive, option.disabled && styles.modeButtonLabelDisabled]}>
-										{option.disabled ? `${option.label} (준비중)` : option.label}
-									</Text>
+									<Text style={[styles.modeButtonLabel, isActive && styles.modeButtonLabelActive]}>{label}</Text>
+									<Text style={[styles.modeButtonDescription, isActive && styles.modeButtonDescriptionActive]}>{description}</Text>
 								</TouchableOpacity>
 							);
 						})}
 					</View>
+					<Text style={styles.modeHelperText}>{t("search.mode.helper")}</Text>
 				</View>
 
 				<SearchBar value={searchTerm} onChangeText={onChangeSearchTerm} onSubmit={onSubmit} />
@@ -126,7 +140,7 @@ export function SearchScreen({
 									</View>
 									<View style={styles.historyTexts}>
 										<Text style={styles.historyWord}>{entry.term}</Text>
-										<Text style={styles.historyMeta}>{MODE_LABELS[entry.mode] ?? "사전"}</Text>
+										<Text style={styles.historyMeta}>{getModeLabel(entry.mode)}</Text>
 									</View>
 								</TouchableOpacity>
 							))}

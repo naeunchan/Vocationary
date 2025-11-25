@@ -1,6 +1,6 @@
 import * as FileSystem from "expo-file-system";
 import { Buffer } from "buffer";
-import { getOpenAIClient } from "@/api/dictionary/openAIClient";
+import { tryGetOpenAIClient } from "@/api/dictionary/openAIClient";
 
 const TTS_MODEL = "gpt-4o-mini-tts";
 const TTS_VOICE = "alloy";
@@ -72,13 +72,22 @@ export async function getPronunciationAudio(word: string) {
 		}
 	}
 
-	const client = getOpenAIClient();
-	const response = await client.audio.speech.create({
-		model: TTS_MODEL,
-		voice: TTS_VOICE,
-		input: normalized,
-		response_format: TTS_FORMAT,
-	});
+	const client = tryGetOpenAIClient();
+	if (!client) {
+		throw new Error("OpenAI API 키가 설정되어 있지 않아 발음을 생성할 수 없어요.");
+	}
+	let response;
+	try {
+		response = await client.audio.speech.create({
+			model: TTS_MODEL,
+			voice: TTS_VOICE,
+			input: normalized,
+			response_format: TTS_FORMAT,
+		});
+	} catch (error) {
+		console.warn("[dictionary] Failed to synthesize pronunciation.", error);
+		throw new Error("발음을 생성하지 못했어요. 네트워크 상태를 확인한 뒤 다시 시도해주세요.");
+	}
 
 	const arrayBuffer = await response.arrayBuffer();
 	const buffer = Buffer.from(arrayBuffer);
