@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createLoginScreenStyles } from "@/screens/Auth/LoginScreen.styles";
 import { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
@@ -36,6 +36,7 @@ export function LoginScreen({
 	const styles = useThemedStyles(createLoginScreenStyles);
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
 	const [displayName, setDisplayName] = useState("");
 	const [mode, setMode] = useState<"login" | "signup">(initialMode);
 	const [rememberMe, setRememberMe] = useState(false);
@@ -61,6 +62,7 @@ export function LoginScreen({
 		setMode(initialMode);
 		setUsername("");
 		setPassword("");
+		setConfirmPassword("");
 		setDisplayName("");
 		resetVerificationState();
 	}, [initialMode, resetVerificationState]);
@@ -68,6 +70,7 @@ export function LoginScreen({
 	const trimmedUsername = useMemo(() => username.trim(), [username]);
 	const trimmedPassword = useMemo(() => password.trim(), [password]);
 	const trimmedDisplayName = useMemo(() => displayName.trim(), [displayName]);
+	const trimmedConfirmPassword = useMemo(() => confirmPassword.trim(), [confirmPassword]);
 
 	useEffect(() => {
 		if (mode !== "signup") {
@@ -84,8 +87,17 @@ export function LoginScreen({
 
 	const copy = useMemo(() => getLoginCopy(mode), [mode]);
 	const isVerificationIncomplete = mode === "signup" && verificationStatus !== "verified";
+	const passwordMismatchMessage =
+		mode === "signup" && trimmedConfirmPassword.length > 0 && trimmedPassword !== trimmedConfirmPassword
+			? "비밀번호가 일치하지 않아요."
+			: null;
+	const isPasswordMismatch = Boolean(passwordMismatchMessage);
 	const isPrimaryDisabled =
-		loading || trimmedUsername.length === 0 || trimmedPassword.length === 0 || isVerificationIncomplete;
+		loading ||
+		trimmedUsername.length === 0 ||
+		trimmedPassword.length === 0 ||
+		isVerificationIncomplete ||
+		isPasswordMismatch;
 
 	const handlePrimaryPress = useCallback(() => {
 		if (isPrimaryDisabled) {
@@ -97,13 +109,28 @@ export function LoginScreen({
 			return;
 		}
 
+		if (isPasswordMismatch) {
+			return;
+		}
+
 		if (verificationStatus !== "verified") {
 			setVerificationError(EMAIL_VERIFICATION_REQUIRED_ERROR_MESSAGE);
 			return;
 		}
 
 		onSignUp(trimmedUsername, trimmedPassword, trimmedDisplayName, { rememberMe });
-	}, [isPrimaryDisabled, mode, onLogin, onSignUp, rememberMe, trimmedDisplayName, trimmedPassword, trimmedUsername, verificationStatus]);
+	}, [
+		isPasswordMismatch,
+		isPrimaryDisabled,
+		mode,
+		onLogin,
+		onSignUp,
+		rememberMe,
+		trimmedDisplayName,
+		trimmedPassword,
+		trimmedUsername,
+		verificationStatus,
+	]);
 
 	const handleGuestPress = useCallback(() => {
 		if (!loading) {
@@ -164,6 +191,7 @@ export function LoginScreen({
 		}
 		setMode((previous) => (previous === "login" ? "signup" : "login"));
 		setPassword("");
+		setConfirmPassword("");
 		setDisplayName("");
 		resetVerificationState();
 	}, [loading, resetVerificationState]);
@@ -178,61 +206,76 @@ export function LoginScreen({
 
 	return (
 		<SafeAreaView style={styles.safeArea}>
-			<View style={styles.content}>
-				<LoginHeader title={copy.title} subtitle={copy.subtitle} />
+			<ScrollView
+				contentContainerStyle={styles.scrollContent}
+				keyboardShouldPersistTaps="handled"
+				showsVerticalScrollIndicator={false}
+			>
+				<View style={styles.content}>
+					<LoginHeader title={copy.title} subtitle={copy.subtitle} />
 
-				{errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+					{errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-			<CredentialFields
-				mode={mode}
-				username={username}
-				password={password}
-				displayName={displayName}
-				loading={loading}
-				onChangeUsername={setUsername}
-				onChangePassword={setPassword}
-				onChangeDisplayName={setDisplayName}
-			/>
+					<CredentialFields
+						mode={mode}
+						username={username}
+						password={password}
+						confirmPassword={confirmPassword}
+						confirmPasswordError={passwordMismatchMessage}
+						displayName={displayName}
+						loading={loading}
+						onChangeUsername={setUsername}
+						onChangePassword={setPassword}
+						onChangeConfirmPassword={setConfirmPassword}
+						onChangeDisplayName={setDisplayName}
+					/>
 
-			{mode === "signup" ? (
-				<EmailVerificationSection
-					status={verificationStatus}
-					code={verificationCode}
-					errorMessage={verificationError}
-					hintMessage={verificationHint}
-					sending={verificationSending}
-					verifying={verificationChecking}
-					canSend={trimmedUsername.length > 0}
-					canVerify={verificationCode.trim().length > 0}
-					disabled={loading}
-					onChangeCode={setVerificationCode}
-					onSendCode={handleSendVerificationCodeRequest}
-					onVerifyCode={handleVerifyEmailCode}
-				/>
-			) : null}
+					{mode === "signup" ? (
+						<EmailVerificationSection
+							status={verificationStatus}
+							code={verificationCode}
+							errorMessage={verificationError}
+							hintMessage={verificationHint}
+							sending={verificationSending}
+							verifying={verificationChecking}
+							canSend={trimmedUsername.length > 0}
+							canVerify={verificationCode.trim().length > 0}
+							disabled={loading}
+							onChangeCode={setVerificationCode}
+							onSendCode={handleSendVerificationCodeRequest}
+							onVerifyCode={handleVerifyEmailCode}
+						/>
+					) : null}
 
-			<RememberMeToggle value={rememberMe} disabled={loading} onChange={setRememberMe} />
+					<RememberMeToggle value={rememberMe} disabled={loading} onChange={setRememberMe} />
 
-				<PrimaryActionButton label={copy.primaryButton} loading={loading} disabled={isPrimaryDisabled} onPress={handlePrimaryPress} mode={mode} />
+					<PrimaryActionButton
+						label={copy.primaryButton}
+						loading={loading}
+						disabled={isPrimaryDisabled}
+						onPress={handlePrimaryPress}
+						mode={mode}
+					/>
 
-				<TouchableOpacity
-					style={styles.linkButton}
-					onPress={handleForgotPasswordPress}
-					disabled={loading}
-					accessibilityRole="button"
-					accessibilityLabel={t("auth.forgotPassword")}
-				>
-					<Text style={styles.linkButtonText}>{t("auth.forgotPassword")}</Text>
-				</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.linkButton}
+						onPress={handleForgotPasswordPress}
+						disabled={loading}
+						accessibilityRole="button"
+						accessibilityLabel={t("auth.forgotPassword")}
+					>
+						<Text style={styles.linkButtonText}>{t("auth.forgotPassword")}</Text>
+					</TouchableOpacity>
 
-				<SocialLoginButtons disabled={loading} />
+					<SocialLoginButtons disabled={loading} />
 
-				<GuestButton loading={loading} onPress={handleGuestPress} />
+					<GuestButton loading={loading} onPress={handleGuestPress} />
 
-				<AuthModeSwitch prompt={copy.togglePrompt} actionLabel={copy.toggleAction} disabled={loading} onToggle={handleToggleMode} />
+					<AuthModeSwitch prompt={copy.togglePrompt} actionLabel={copy.toggleAction} disabled={loading} onToggle={handleToggleMode} />
 
-				<Text style={styles.footerNote}>게스트 모드에서는 단어 저장이 최대 10개로 제한돼요.</Text>
-			</View>
+					<Text style={styles.footerNote}>게스트 모드에서는 단어 저장이 최대 10개로 제한돼요.</Text>
+				</View>
+			</ScrollView>
 		</SafeAreaView>
 	);
 }

@@ -8,14 +8,29 @@ type CredentialFieldsProps = {
 	mode: "login" | "signup";
 	username: string;
 	password: string;
+	confirmPassword: string;
+	confirmPasswordError?: string | null;
 	displayName: string;
 	loading: boolean;
 	onChangeUsername: (value: string) => void;
 	onChangePassword: (value: string) => void;
+	onChangeConfirmPassword: (value: string) => void;
 	onChangeDisplayName: (value: string) => void;
 };
 
-export function CredentialFields({ mode, username, password, displayName, loading, onChangeUsername, onChangePassword, onChangeDisplayName }: CredentialFieldsProps) {
+export function CredentialFields({
+	mode,
+	username,
+	password,
+	confirmPassword,
+	confirmPasswordError,
+	displayName,
+	loading,
+	onChangeUsername,
+	onChangePassword,
+	onChangeConfirmPassword,
+	onChangeDisplayName,
+}: CredentialFieldsProps) {
 	const styles = useThemedStyles(createLoginScreenStyles);
 	const { theme } = useAppAppearance();
 	const isSignUp = mode === "signup";
@@ -56,6 +71,21 @@ export function CredentialFields({ mode, username, password, displayName, loadin
 
 			{isSignUp ? (
 				<View>
+					<Text style={styles.inputLabel}>비밀번호 확인</Text>
+					<TextInput
+						style={styles.textInput}
+						value={confirmPassword}
+						onChangeText={onChangeConfirmPassword}
+						placeholder="비밀번호를 다시 입력하세요"
+						secureTextEntry
+						editable={!loading}
+						autoComplete="off"
+						returnKeyType="next"
+						placeholderTextColor={theme.textMuted}
+					/>
+
+					{confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+
 					<Text style={styles.inputLabel}>닉네임 (선택)</Text>
 					<TextInput
 						style={styles.textInput}

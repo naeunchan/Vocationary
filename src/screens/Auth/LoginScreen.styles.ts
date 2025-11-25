@@ -8,11 +8,14 @@ export const createLoginScreenStyles = (theme: AppThemeColors, fontScale: number
 			flex: 1,
 			backgroundColor: theme.background,
 		},
-		content: {
-			flex: 1,
+		scrollContent: {
+			flexGrow: 1,
 			paddingHorizontal: 24,
 			paddingTop: 48,
 			paddingBottom: 32,
+		},
+		content: {
+			flex: 1,
 		},
 		title: {
 			fontSize: scaleFont(26, fontScale),
