@@ -1,6 +1,6 @@
 import { Buffer } from "buffer";
 import * as Crypto from "expo-crypto";
-import { getRandomBytesAsync } from "expo-random";
+import { getRandomBytesAsync } from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import type { SQLiteDatabase } from "expo-sqlite";
 import { Platform } from "react-native";

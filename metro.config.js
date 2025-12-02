@@ -1,14 +1,22 @@
 // @ts-check
-import path from "path";
-
 const { getDefaultConfig } = require("expo/metro-config");
+const path = require("path");
 
-const config = getDefaultConfig(path.resolve());
+const baseConfig = getDefaultConfig(path.resolve());
 
-if (!config.resolver.assetExts.includes("wasm")) {
-    config.resolver.assetExts.push("wasm");
+const resolver = baseConfig.resolver ?? { assetExts: [], sourceExts: [] };
+const assetExts = resolver.assetExts ? [...resolver.assetExts] : [];
+const sourceExts = resolver.sourceExts ? [...resolver.sourceExts] : [];
+
+if (!assetExts.includes("wasm")) {
+    assetExts.push("wasm");
 }
 
-config.resolver.sourceExts = config.resolver.sourceExts.filter((ext) => ext !== "wasm");
-
-module.exports = config;
+module.exports = {
+    ...baseConfig,
+    resolver: {
+        ...resolver,
+        assetExts,
+        sourceExts: sourceExts.filter((ext) => ext !== "wasm"),
+    },
+};
