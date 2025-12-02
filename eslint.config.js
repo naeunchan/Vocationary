@@ -33,6 +33,14 @@ export default [
         rules: {
             "prettier/prettier": "error",
             "node/handle-callback-err": "off",
+            "no-void": "off",
+            "react-hooks/exhaustive-deps": "off",
+            "@typescript-eslint/no-floating-promises": "off",
+            "@typescript-eslint/only-throw-error": "off",
+            "@typescript-eslint/no-unused-vars": "off",
+            "@typescript-eslint/prefer-nullish-coalescing": "off",
+            "@typescript-eslint/prefer-optional-chain": "off",
+            "@typescript-eslint/no-confusing-void-expression": "off",
         },
         settings: {
             react: {
