@@ -12,6 +12,7 @@ export function FavoritesList({
 	emptyMessage = FAVORITES_LIST_TEXT.defaultEmpty,
 	onMoveToReview,
 	onPlayAudio,
+	pronunciationAvailable,
 }: FavoritesListProps) {
 	const styles = useThemedStyles(createFavoritesListStyles);
 	const { theme } = useAppAppearance();
@@ -32,7 +33,7 @@ export function FavoritesList({
 						{entries.map((item, index) => {
 							const primaryDefinition = item.word.meanings[0]?.definitions[0]?.definition ?? "뜻 정보가 없어요.";
 							const phonetic = item.word.phonetic;
-							const hasAudio = Boolean(item.word.word?.trim());
+							const hasAudio = pronunciationAvailable && Boolean(item.word.word?.trim());
 							const isLast = index === entries.length - 1;
 
 							return (

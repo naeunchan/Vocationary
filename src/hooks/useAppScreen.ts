@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import Constants from "expo-constants";
+import * as LocalAuthentication from "expo-local-authentication";
 import { getWordData } from "@/api/dictionary/getWordData";
 import { DictionaryMode, WordResult } from "@/services/dictionary/types";
 import {
@@ -77,12 +78,13 @@ import { applyExampleUpdates, clearPendingFlags } from "@/services/dictionary/ut
 import type { AppScreenHookResult } from "@/screens/App/AppScreen.types";
 import { playRemoteAudio } from "@/utils/audio";
 import { SearchHistoryEntry, SEARCH_HISTORY_LIMIT } from "@/services/searchHistory/types";
-import { DEFAULT_FONT_SCALE, FONT_SCALE_PREFERENCE_KEY, ONBOARDING_PREFERENCE_KEY, THEME_MODE_PREFERENCE_KEY } from "@/theme/constants";
+import { DEFAULT_FONT_SCALE, FONT_SCALE_PREFERENCE_KEY, ONBOARDING_PREFERENCE_KEY, THEME_MODE_PREFERENCE_KEY, BIOMETRIC_LOGIN_PREFERENCE_KEY } from "@/theme/constants";
 import type { ThemeMode } from "@/theme/types";
 import type { AppError } from "@/errors/AppError";
 import { createAppError, normalizeError } from "@/errors/AppError";
 import { captureAppError, setUserContext } from "@/logging/logger";
 import { exportBackupToFile, importBackupFromDocument } from "@/services/backup/manualBackup";
+import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
 
 export function useAppScreen(): AppScreenHookResult {
 	const [searchTerm, setSearchTerm] = useState("");
@@ -110,6 +112,8 @@ export function useAppScreen(): AppScreenHookResult {
 		return extra?.versionLabel ?? DEFAULT_VERSION_LABEL;
 	});
 	const activeLookupRef = useRef(0);
+	const hasShownPronunciationInfoRef = useRef(false);
+	const isPronunciationAvailable = OPENAI_FEATURE_ENABLED;
 
 	const setErrorMessage = useCallback(
 		(message: string, kind: AppError["kind"] = "UnknownError", extras?: Partial<AppError>) => {
@@ -205,6 +209,30 @@ export function useAppScreen(): AppScreenHookResult {
 				if (!session) {
 					const autoLoginEntry = await getAutoLoginCredentials();
 					if (autoLoginEntry) {
+						let biometricAllowed = false;
+						try {
+							const biometricPref = await getPreferenceValue(BIOMETRIC_LOGIN_PREFERENCE_KEY);
+							biometricAllowed = biometricPref === "true";
+						} catch (prefError) {
+							console.warn("생체인증 설정을 불러오는 중 문제가 발생했어요.", prefError);
+						}
+
+						if (biometricAllowed) {
+							const hasHardware = await LocalAuthentication.hasHardwareAsync();
+							const isEnrolled = hasHardware ? await LocalAuthentication.isEnrolledAsync() : false;
+							if (!hasHardware || !isEnrolled) {
+								await clearAutoLoginCredentials();
+							} else {
+								const result = await LocalAuthentication.authenticateAsync({
+									promptMessage: "저장된 계정으로 로그인하려면 생체인증을 진행해주세요.",
+									disableDeviceFallback: false,
+								});
+								if (!result.success) {
+									await clearAutoLoginCredentials();
+								}
+							}
+						}
+
 						const rememberedUser = await findUserByUsername(autoLoginEntry.username);
 						if (rememberedUser?.passwordHash && rememberedUser.passwordHash === autoLoginEntry.passwordHash) {
 							const userRecord: UserRecord = {
@@ -671,6 +699,14 @@ export function useAppScreen(): AppScreenHookResult {
 			return;
 		}
 
+		if (!isPronunciationAvailable) {
+			if (!hasShownPronunciationInfoRef.current) {
+				Alert.alert("발음 재생", "발음 기능은 현재 사용할 수 없습니다. 백엔드 연동 후 활성화됩니다.");
+				hasShownPronunciationInfoRef.current = true;
+			}
+			return;
+		}
+
 		try {
 			const uri = await getPronunciationAudio(currentWord);
 			await playRemoteAudio(uri);
@@ -679,12 +715,20 @@ export function useAppScreen(): AppScreenHookResult {
 			setErrorMessage(message);
 			Alert.alert(AUDIO_PLAY_ERROR_MESSAGE, message);
 		}
-	}, [result?.word]);
+	}, [result?.word, isPronunciationAvailable]);
 
 	const handlePlayWordAudioAsync = useCallback(async (word: WordResult) => {
 		const target = word.word?.trim();
 		if (!target) {
 			Alert.alert(AUDIO_PLAY_ERROR_MESSAGE, AUDIO_UNAVAILABLE_MESSAGE);
+			return;
+		}
+
+		if (!isPronunciationAvailable) {
+			if (!hasShownPronunciationInfoRef.current) {
+				Alert.alert("발음 재생", "발음 기능은 현재 사용할 수 없습니다. 백엔드 연동 후 활성화됩니다.");
+				hasShownPronunciationInfoRef.current = true;
+			}
 			return;
 		}
 
@@ -695,7 +739,7 @@ export function useAppScreen(): AppScreenHookResult {
 			const message = err instanceof Error ? err.message : AUDIO_PLAY_ERROR_MESSAGE;
 			Alert.alert(AUDIO_PLAY_ERROR_MESSAGE, message);
 		}
-	}, []);
+	}, [isPronunciationAvailable]);
 
 	const setInitialAuthState = useCallback(() => {
 		setIsGuest(false);
@@ -1138,6 +1182,7 @@ export function useAppScreen(): AppScreenHookResult {
 			onToggleExamples: handleToggleExamples,
 			isCurrentFavorite,
 			onPlayPronunciation: playPronunciation,
+			pronunciationAvailable: isPronunciationAvailable,
 			mode,
 			onModeChange: handleModeChange,
 			themeMode,
@@ -1206,6 +1251,7 @@ export function useAppScreen(): AppScreenHookResult {
 			userName,
 			versionLabel,
 			handleClearRecentSearches,
+			isPronunciationAvailable,
 		],
 	);
 

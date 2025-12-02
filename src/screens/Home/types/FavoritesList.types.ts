@@ -5,10 +5,12 @@ export type FavoritesListProps = {
 	emptyMessage?: string;
 	onMoveToReview: (word: string) => void;
 	onPlayAudio: (word: FavoriteWordEntry["word"]) => void;
+	pronunciationAvailable: boolean;
 };
 
 export type FavoriteItemProps = {
 	item: FavoriteWordEntry;
 	onMoveToReview: (word: string) => void;
 	onPlayAudio: (word: FavoriteWordEntry["word"]) => void;
+	pronunciationAvailable: boolean;
 };

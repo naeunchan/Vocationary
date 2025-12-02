@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import * as Crypto from "expo-crypto";
 import { getRandomBytesAsync } from "expo-random";
 import { Buffer } from "buffer";
+import * as SecureStore from "expo-secure-store";
 import type { SQLiteDatabase } from "expo-sqlite";
 import type { DictionaryMode, WordResult } from "@/services/dictionary/types";
 import {
@@ -1119,6 +1120,15 @@ async function setGuestSessionWeb() {
 }
 
 async function saveAutoLoginCredentialsNative(username: string, passwordHash: string) {
+	const payload = JSON.stringify({ username, passwordHash, updatedAt: new Date().toISOString() });
+	try {
+		await SecureStore.setItemAsync("autoLoginCredentials", payload, {
+			keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+		});
+	} catch (error) {
+		console.warn("보안 저장소에 자동 로그인을 저장하는 중 문제가 발생했어요.", error);
+	}
+
 	const db = await getDatabase();
 	await db.runAsync(
 		`
@@ -1145,6 +1155,11 @@ async function saveAutoLoginCredentialsWeb(username: string, passwordHash: strin
 }
 
 async function clearAutoLoginCredentialsNative() {
+	try {
+		await SecureStore.deleteItemAsync("autoLoginCredentials");
+	} catch (error) {
+		console.warn("보안 저장소의 자동 로그인을 삭제하는 중 문제가 발생했어요.", error);
+	}
 	const db = await getDatabase();
 	await db.runAsync("DELETE FROM auto_login WHERE id = 1");
 }
@@ -1158,6 +1173,21 @@ async function clearAutoLoginCredentialsWeb() {
 }
 
 async function getAutoLoginCredentialsNative(): Promise<{ username: string; passwordHash: string } | null> {
+	try {
+		const stored = await SecureStore.getItemAsync("autoLoginCredentials");
+		if (stored) {
+			const parsed = JSON.parse(stored);
+			if (parsed?.username && parsed?.passwordHash) {
+				return {
+					username: String(parsed.username),
+					passwordHash: String(parsed.passwordHash),
+				};
+			}
+		}
+	} catch (error) {
+		console.warn("보안 저장소의 자동 로그인 정보를 불러오지 못했어요.", error);
+	}
+
 	const db = await getDatabase();
 	const rows = await db.getAllAsync<{ username: string; password_hash: string }>(
 		"SELECT username, password_hash FROM auto_login WHERE id = 1 LIMIT 1",

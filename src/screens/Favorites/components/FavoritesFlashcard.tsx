@@ -8,7 +8,7 @@ import { FAVORITES_FLASHCARD_ICONS } from "@/screens/Favorites/components/consta
 import { useThemedStyles } from "@/theme/useThemedStyles";
 import { useAppAppearance } from "@/theme/AppearanceContext";
 
-export function FavoritesFlashcard({ entries, status, onMoveToStatus, onRemoveFavorite, onPlayAudio }: FavoritesFlashcardProps) {
+export function FavoritesFlashcard({ entries, status, onMoveToStatus, onRemoveFavorite, onPlayAudio, pronunciationAvailable }: FavoritesFlashcardProps) {
 	const styles = useThemedStyles(createFavoritesFlashcardStyles);
 	const { theme } = useAppAppearance();
 	const [currentIndex, setCurrentIndex] = useState(0);
@@ -47,7 +47,7 @@ export function FavoritesFlashcard({ entries, status, onMoveToStatus, onRemoveFa
 	const currentEntry = entries[currentIndex];
 
 	const phonetic = useMemo(() => currentEntry?.word.phonetic ?? null, [currentEntry]);
-	const hasAudio = useMemo(() => Boolean(currentEntry?.word.word?.trim()), [currentEntry]);
+	const hasAudio = useMemo(() => pronunciationAvailable && Boolean(currentEntry?.word.word?.trim()), [currentEntry, pronunciationAvailable]);
 	const primaryDefinition = useMemo(() => {
 		const word = currentEntry?.word;
 		if (!word) {

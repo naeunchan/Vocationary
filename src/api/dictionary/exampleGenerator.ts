@@ -1,7 +1,7 @@
 import QuickLRU from "quick-lru";
 import { DictionaryMode } from "@/services/dictionary/types";
 import { MeaningEntry } from "@/services/dictionary/types/WordResult";
-import { getOpenAIClient, OPENAI_MINI_MODEL } from "@/api/dictionary/openAIClient";
+import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_URL } from "@/config/openAI";
 
 export type ExampleUpdate = {
 	meaningIndex: number;
@@ -119,26 +119,39 @@ function maxOutputTokensFor(count: number): number {
 }
 
 async function requestOpenAI(word: string, mode: DictionaryMode, descriptors: DefinitionDescriptor[]): Promise<ExampleUpdate[]> {
-	const client = getOpenAIClient();
+	if (!OPENAI_FEATURE_ENABLED || !OPENAI_PROXY_URL) {
+		return [];
+	}
+
+	const endpointBase = OPENAI_PROXY_URL.replace(/\/+$/, "");
+	const requestUrl = `${endpointBase}/dictionary/examples`;
 	const prompt = buildPrompt(word, mode, descriptors);
 
-	const response = await client.responses.create({
-		model: OPENAI_MINI_MODEL,
-		input: [{ role: "user", content: prompt }],
-		text: {
-			format: {
-				type: "json_schema",
-				name: EXAMPLE_SCHEMA.name,
-				schema: EXAMPLE_SCHEMA.schema,
-				strict: EXAMPLE_SCHEMA.strict,
-			},
-		},
-		max_output_tokens: maxOutputTokensFor(descriptors.length),
-		temperature: 0.2,
-	});
+	try {
+		const response = await fetch(requestUrl, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				word,
+				mode,
+				prompt,
+				descriptors,
+				schema: EXAMPLE_SCHEMA,
+				maxTokens: maxOutputTokensFor(descriptors.length),
+			}),
+		});
 
-	const rawOutput = response.output_text ?? "";
-	return parseCompletionContent(rawOutput);
+		if (!response.ok) {
+			return [];
+		}
+
+		const data = await response.json();
+		const items = Array.isArray(data?.items) ? data.items : [];
+		return parseCompletionContent(JSON.stringify({ items }));
+	} catch (error) {
+		console.warn("예문 생성 프록시 호출 중 문제가 발생했어요.", error);
+		return [];
+	}
 }
 
 export async function generateDefinitionExamples(word: string, mode: DictionaryMode, meanings: MeaningEntry[]): Promise<ExampleUpdate[]> {

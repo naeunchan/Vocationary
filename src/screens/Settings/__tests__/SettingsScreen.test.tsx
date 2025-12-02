@@ -17,6 +17,17 @@ jest.mock("@/screens/Settings/components/AuthenticatedActions", () => ({
 	AuthenticatedActions: () => null,
 }));
 
+jest.mock("@/hooks/useAIStatus", () => ({
+	useAIStatus: () => ({ status: "unavailable", lastCheckedAt: null, refresh: jest.fn() }),
+}));
+
+jest.mock("@/services/database", () => {
+	return {
+		getPreferenceValue: jest.fn().mockResolvedValue("false"),
+		setPreferenceValue: jest.fn().mockResolvedValue(undefined),
+	};
+});
+
 describe("SettingsScreen", () => {
 	const baseProps = {
 		onLogout: jest.fn(),

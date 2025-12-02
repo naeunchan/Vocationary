@@ -8,6 +8,7 @@ import { SearchScreenProps } from "@/screens/Search/SearchScreen.types";
 import { createSearchScreenStyles } from "@/screens/Search/SearchScreen.styles";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 import { useAppAppearance } from "@/theme/AppearanceContext";
+import { t } from "@/shared/i18n";
 
 const MODE_BUTTONS = [
 	{ label: "영영사전", value: "en-en", disabled: false },
@@ -31,6 +32,7 @@ export function SearchScreen({
 	onToggleFavorite,
 	isCurrentFavorite,
 	onPlayPronunciation,
+	pronunciationAvailable,
 	mode,
 	onModeChange,
 	recentSearches,
@@ -75,6 +77,13 @@ export function SearchScreen({
 					</View>
 				</View>
 
+				{!pronunciationAvailable ? (
+					<View style={styles.aiNotice}>
+						<Text style={styles.aiNoticeTitle}>{t("search.aiNotice.title")}</Text>
+						<Text style={styles.aiNoticeText}>{t("search.aiNotice.body")}</Text>
+					</View>
+				) : null}
+
 				<SearchBar value={searchTerm} onChangeText={onChangeSearchTerm} onSubmit={onSubmit} />
 
 				<View style={styles.resultsWrapper}>
@@ -94,6 +103,7 @@ export function SearchScreen({
 							isFavorite={isCurrentFavorite}
 							onToggleFavorite={onToggleFavorite}
 							onPlayPronunciation={onPlayPronunciation}
+							pronunciationAvailable={pronunciationAvailable}
 							onRetry={onRetry ?? onSubmit}
 						/>
 					)}

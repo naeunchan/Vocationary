@@ -33,6 +33,7 @@ describe("SearchScreen", () => {
 		onToggleFavorite: jest.fn(),
 		isCurrentFavorite: false,
 		onPlayPronunciation: jest.fn(),
+		pronunciationAvailable: false,
 		mode: "en-en" as const,
 		onModeChange: jest.fn(),
 		recentSearches: [],
@@ -49,6 +50,7 @@ describe("SearchScreen", () => {
 
 		expect(getByText("검색 결과가 여기에 표시됩니다")).toBeTruthy();
 		expect(mockSearchResults).not.toHaveBeenCalled();
+		expect(getByText("AI 발음/예문 준비 중")).toBeTruthy();
 	});
 
 	it("renders SearchResults when result available", () => {
@@ -63,6 +65,7 @@ describe("SearchScreen", () => {
 				isFavorite: props.isCurrentFavorite,
 				onToggleFavorite: props.onToggleFavorite,
 				onPlayPronunciation: props.onPlayPronunciation,
+				pronunciationAvailable: props.pronunciationAvailable,
 			}),
 		);
 	});

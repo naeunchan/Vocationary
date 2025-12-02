@@ -34,6 +34,7 @@ describe("FavoritesFlashcard", () => {
 		onMoveToStatus: jest.fn(),
 		onRemoveFavorite: jest.fn(),
 		onPlayAudio: jest.fn(),
+		pronunciationAvailable: true,
 	};
 
 	beforeEach(() => {

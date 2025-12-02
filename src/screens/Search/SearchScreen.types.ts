@@ -14,6 +14,7 @@ export type SearchScreenProps = {
 	onToggleFavorite: (word: WordResult) => void;
 	isCurrentFavorite: boolean;
 	onPlayPronunciation: () => void;
+	pronunciationAvailable: boolean;
 	mode: DictionaryMode;
 	onModeChange: (mode: DictionaryMode) => void;
 	recentSearches: SearchHistoryEntry[];

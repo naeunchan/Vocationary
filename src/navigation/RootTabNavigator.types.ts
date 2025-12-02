@@ -19,6 +19,7 @@ export type RootTabNavigatorProps = {
 	onToggleExamples: () => void;
 	isCurrentFavorite: boolean;
 	onPlayPronunciation: () => void;
+	pronunciationAvailable: boolean;
 	mode: DictionaryMode;
 	onModeChange: (mode: DictionaryMode) => void;
 	themeMode: ThemeMode;

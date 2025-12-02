@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SettingsScreenProps } from "@/screens/Settings/SettingsScreen.types";
@@ -10,9 +10,15 @@ import { useThemedStyles } from "@/theme/useThemedStyles";
 import { FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS } from "@/theme/constants";
 import { LEGAL_DOCUMENTS, type LegalDocumentId } from "@/legal/legalDocuments";
 import { LegalDocumentModal } from "@/screens/Settings/components/LegalDocumentModal";
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/config/legal";
+import { useAIStatus } from "@/hooks/useAIStatus";
+import { getPreferenceValue, setPreferenceValue } from "@/services/database";
+import { BIOMETRIC_LOGIN_PREFERENCE_KEY } from "@/theme/constants";
+import { t } from "@/shared/i18n";
 
 const SUPPORT_EMAIL = "support@vocationary.app";
 const CONTACT_SUBJECT = "Vocationary 1:1 문의";
+const RECOVERY_NOTICE = "비밀번호 복구 불가";
 
 type RowOptions = {
 	onPress?: () => void;
@@ -108,6 +114,26 @@ export function SettingsScreen({
 		setActiveDocument(id);
 	}, []);
 
+	const handleOpenLinkOrDocument = useCallback(
+		async (url: string | null | undefined, fallback: LegalDocumentId) => {
+			const target = url?.trim();
+			if (target) {
+				try {
+					const canOpen = await Linking.canOpenURL(target);
+					if (canOpen) {
+						await Linking.openURL(target);
+						return;
+					}
+				} catch (error) {
+					console.warn("법적 문서 링크를 여는 중 문제가 발생했어요.", error);
+				}
+				Alert.alert("연결할 수 없어요", "웹에서 정책을 열 수 없습니다. 앱 내 내용을 표시할게요.");
+			}
+			handleOpenDocument(fallback);
+		},
+		[handleOpenDocument],
+	);
+
 	const displayName = useMemo(() => {
 		if (profileDisplayName && profileDisplayName.trim()) {
 			return profileDisplayName;
@@ -123,6 +149,42 @@ export function SettingsScreen({
 	const initials = (displayName?.charAt(0) || "M").toUpperCase();
 	const themeModeLabel = useMemo(() => THEME_MODE_OPTIONS.find((option) => option.value === themeMode)?.label ?? "", [themeMode]);
 	const fontScaleLabel = useMemo(() => FONT_SCALE_OPTIONS.find((option) => option.value === fontScale)?.label ?? "", [fontScale]);
+	const { status: aiStatus } = useAIStatus();
+	const [biometricEnabled, setBiometricEnabled] = useState(false);
+
+	const aiStatusLabel = useMemo(() => {
+		switch (aiStatus) {
+			case "healthy":
+				return "활성";
+			case "degraded":
+				return "제한적 (백엔드 확인 필요)";
+			default:
+				return "비활성 (백엔드 필요)";
+		}
+	}, [aiStatus]);
+
+	useEffect(() => {
+		let mounted = true;
+		getPreferenceValue(BIOMETRIC_LOGIN_PREFERENCE_KEY)
+			.then((value) => {
+				if (!mounted) return;
+				setBiometricEnabled(value === "true");
+			})
+			.catch((error) => {
+				console.warn("생체인증 설정을 불러오는 중 문제가 발생했어요.", error);
+			});
+		return () => {
+			mounted = false;
+		};
+	}, []);
+
+	const handleToggleBiometric = useCallback(() => {
+		const nextValue = !biometricEnabled;
+		setBiometricEnabled(nextValue);
+		void setPreferenceValue(BIOMETRIC_LOGIN_PREFERENCE_KEY, nextValue ? "true" : "false").catch((error) => {
+			console.warn("생체인증 설정을 저장하는 중 문제가 발생했어요.", error);
+		});
+	}, [biometricEnabled]);
 
 	const renderRow = (label: string, options: RowOptions = {}) => {
 		const { onPress, value, isLast = false } = options;
@@ -154,36 +216,42 @@ export function SettingsScreen({
 				</View>
 
 				<View style={styles.section}>
-					<Text style={styles.sectionLabel}>일반</Text>
+					<Text style={styles.sectionLabel}>{t("settings.section.general")}</Text>
 					<View style={styles.sectionCard}>
-						{renderRow("튜토리얼 다시 보기", { onPress: onShowOnboarding })}
-						{renderRow("1:1 문의 보내기", { onPress: handleContactSupport })}
-						{renderRow("개인정보 처리방침", { onPress: () => handleOpenDocument("privacyPolicy") })}
-						{renderRow("서비스 이용약관", { onPress: () => handleOpenDocument("termsOfService") })}
-						{renderRow("법적 고지 및 정보", { onPress: () => handleOpenDocument("legalNotice") })}
-						{renderRow("앱 버전", { value: appVersion, isLast: true })}
+						{renderRow(t("settings.link.tutorial"), { onPress: onShowOnboarding })}
+						{renderRow(t("settings.link.contact"), { onPress: handleContactSupport })}
+						{renderRow(t("settings.link.privacy"), { onPress: () => handleOpenLinkOrDocument(PRIVACY_POLICY_URL, "privacyPolicy") })}
+						{renderRow(t("settings.link.terms"), { onPress: () => handleOpenLinkOrDocument(TERMS_OF_SERVICE_URL, "termsOfService") })}
+						{renderRow(t("settings.link.legal"), { onPress: () => handleOpenDocument("legalNotice") })}
+						{renderRow(t("settings.link.recovery"), { value: RECOVERY_NOTICE })}
+						{renderRow(t("settings.link.biometric"), {
+							onPress: handleToggleBiometric,
+							value: biometricEnabled ? t("settings.label.biometricOn") : t("settings.label.biometricOff"),
+						})}
+						{renderRow(t("settings.link.aiStatus"), { value: aiStatusLabel })}
+						{renderRow(t("settings.link.appVersion"), { value: appVersion, isLast: true })}
 					</View>
 				</View>
 
 				<View style={styles.section}>
-					<Text style={styles.sectionLabel}>디스플레이</Text>
+					<Text style={styles.sectionLabel}>{t("settings.section.display")}</Text>
 					<View style={styles.sectionCard}>
-						{renderRow("화면 모드", { onPress: onNavigateThemeSettings, value: themeModeLabel })}
-						{renderRow("글자 크기", { onPress: onNavigateFontSettings, value: fontScaleLabel, isLast: true })}
+						{renderRow(t("settings.link.theme"), { onPress: onNavigateThemeSettings, value: themeModeLabel })}
+						{renderRow(t("settings.link.font"), { onPress: onNavigateFontSettings, value: fontScaleLabel, isLast: true })}
 					</View>
 				</View>
 
 				<View style={styles.section}>
-					<Text style={styles.sectionLabel}>백업 및 복원</Text>
+					<Text style={styles.sectionLabel}>{t("settings.section.backup")}</Text>
 					<View style={styles.sectionCard}>
-						{renderRow("데이터 백업 내보내기", { onPress: onExportBackup })}
-						{renderRow("백업에서 복원하기", { onPress: onImportBackup, isLast: true })}
+						{renderRow(t("settings.link.backupExport"), { onPress: onExportBackup })}
+						{renderRow(t("settings.link.backupImport"), { onPress: onImportBackup, isLast: true })}
 					</View>
 				</View>
 
 				{isGuest ? (
 					<View style={styles.section}>
-						<Text style={styles.sectionLabel}>계정</Text>
+						<Text style={styles.sectionLabel}>{t("settings.section.account")}</Text>
 						<GuestActionCard onSignUp={handleSignUpPress} onLogin={handleLoginPress} />
 					</View>
 				) : (

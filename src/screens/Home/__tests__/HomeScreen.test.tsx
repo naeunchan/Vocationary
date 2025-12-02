@@ -42,6 +42,7 @@ describe("HomeScreen", () => {
 		onMoveToStatus: jest.fn(),
 		userName: "Alex",
 		onPlayWordAudio: jest.fn(),
+		pronunciationAvailable: false,
 	};
 
 	beforeEach(() => {
@@ -63,6 +64,7 @@ describe("HomeScreen", () => {
 			expect.objectContaining({
 				entries: [expect.objectContaining({ status: "toMemorize" })],
 				onPlayAudio: baseProps.onPlayWordAudio,
+				pronunciationAvailable: baseProps.pronunciationAvailable,
 			}),
 		);
 	});

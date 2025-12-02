@@ -71,6 +71,22 @@ export const createSearchScreenStyles = (theme: AppThemeColors, fontScale: numbe
 		modeButtonLabelDisabled: {
 			color: theme.textMuted,
 		},
+		aiNotice: {
+			backgroundColor: theme.cardMuted,
+			borderRadius: 16,
+			padding: 14,
+			gap: 6,
+		},
+		aiNoticeTitle: {
+			fontSize: scaleFont(14, fontScale),
+			fontWeight: "700",
+			color: theme.textPrimary,
+		},
+		aiNoticeText: {
+			fontSize: scaleFont(13, fontScale),
+			color: theme.textSecondary,
+			lineHeight: scaleFont(19, fontScale),
+		},
 		resultsWrapper: {
 			marginTop: 8,
 		},

@@ -34,12 +34,13 @@ describe("SearchResults", () => {
 		loading: false,
 		error: null,
 		result: baseResult,
-		examplesVisible: false,
-		onToggleExamples: jest.fn(),
-		isFavorite: false,
-		onToggleFavorite: jest.fn(),
-		onPlayPronunciation: jest.fn(),
-	};
+	examplesVisible: false,
+	onToggleExamples: jest.fn(),
+	isFavorite: false,
+	onToggleFavorite: jest.fn(),
+	onPlayPronunciation: jest.fn(),
+	pronunciationAvailable: false,
+};
 
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -57,10 +58,10 @@ describe("SearchResults", () => {
 			message: "네트워크 오류",
 			retryable: true,
 		};
-		const { getByTestId, getByText } = render(
+		const { getByText } = render(
 			<SearchResults {...defaultProps} loading={false} error={error} result={null} onRetry={mockRetry} />,
 		);
-		expect(getByTestId("search-results-error").children.join("")).toContain("네트워크 오류");
+		expect(getByText("네트워크 오류")).toBeTruthy();
 		fireEvent.press(getByText("다시 시도하기"));
 		expect(mockRetry).toHaveBeenCalled();
 	});
@@ -80,6 +81,7 @@ describe("SearchResults", () => {
 				result: baseResult,
 				isFavorite: true,
 				examplesVisible: true,
+				pronunciationAvailable: false,
 			}),
 		);
 	});

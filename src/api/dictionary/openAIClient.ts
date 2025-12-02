@@ -1,41 +1,15 @@
-import Constants from "expo-constants";
-import OpenAI from "openai";
-import { OPENAI_API_KEY } from "@env";
+import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_URL } from "@/config/openAI";
 
 export const OPENAI_MINI_MODEL = "gpt-4o-mini";
 
-type ExtraConfig = {
-	openaiApiKey?: string;
-};
-
-function getOpenAIApiKey(): string {
-	const inlineKey = typeof OPENAI_API_KEY === "string" ? OPENAI_API_KEY.trim() : "";
-	if (inlineKey) {
-		return inlineKey;
+export function getOpenAIProxyUrl(): string {
+	if (!OPENAI_FEATURE_ENABLED || !OPENAI_PROXY_URL) {
+		throw new Error("AI 기능이 비활성화되어 있어요. 백엔드 프록시 URL을 설정해주세요.");
 	}
-
-	const envKey = (process.env.OPENAI_API_KEY ?? process.env.EXPO_PUBLIC_OPENAI_API_KEY)?.trim();
-	if (envKey) {
-		return envKey;
-	}
-
-	const extraConfig = Constants.expoConfig?.extra as ExtraConfig | undefined;
-	const extraKey = extraConfig?.openaiApiKey?.trim();
-	if (extraKey) {
-		return extraKey;
-	}
-
-	throw new Error("OpenAI API 키가 설정되어 있지 않아요.");
+	return OPENAI_PROXY_URL;
 }
 
-let cachedClient: OpenAI | null = null;
-
-export function getOpenAIClient(): OpenAI {
-	if (!cachedClient) {
-		cachedClient = new OpenAI({
-			apiKey: getOpenAIApiKey(),
-			dangerouslyAllowBrowser: true,
-		});
-	}
-	return cachedClient;
-}
+/**
+ * Note: Direct OpenAI access from the client is intentionally disabled to avoid
+ * leaking API keys. Point AI calls to a backend proxy configured in app config.
+ */

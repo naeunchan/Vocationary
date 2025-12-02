@@ -43,7 +43,7 @@ describe("FavoritesList", () => {
 		];
 
 		const { getByText, getAllByLabelText } = render(
-			<FavoritesList entries={entries} onMoveToReview={onMoveToReview} onPlayAudio={onPlayAudio} />,
+			<FavoritesList entries={entries} onMoveToReview={onMoveToReview} onPlayAudio={onPlayAudio} pronunciationAvailable />,
 		);
 
 		expect(getByText("apple")).toBeTruthy();
@@ -60,7 +60,7 @@ describe("FavoritesList", () => {
 
 	it("shows empty message when no entries provided", () => {
 		const { getByText, queryByText } = render(
-			<FavoritesList entries={[]} onMoveToReview={jest.fn()} onPlayAudio={jest.fn()} emptyMessage="커스텀 메시지" />,
+			<FavoritesList entries={[]} onMoveToReview={jest.fn()} onPlayAudio={jest.fn()} emptyMessage="커스텀 메시지" pronunciationAvailable={false} />,
 		);
 
 		expect(getByText("커스텀 메시지")).toBeTruthy();

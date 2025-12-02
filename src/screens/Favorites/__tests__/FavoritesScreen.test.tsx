@@ -40,6 +40,7 @@ describe("FavoritesScreen", () => {
 		onUpdateStatus: jest.fn(),
 		onRemoveFavorite: jest.fn(),
 		onPlayAudio: jest.fn(),
+		pronunciationAvailable: false,
 	};
 
 	beforeEach(() => {

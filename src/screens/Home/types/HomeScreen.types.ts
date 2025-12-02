@@ -7,4 +7,5 @@ export type HomeScreenProps = {
 	onMoveToStatus: (word: string, status: MemorizationStatus) => void;
 	userName: string;
 	onPlayWordAudio: (word: FavoriteWordEntry["word"]) => void;
+	pronunciationAvailable: boolean;
 };

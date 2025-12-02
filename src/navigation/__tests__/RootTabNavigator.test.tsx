@@ -60,6 +60,7 @@ const buildProps = (): RootTabNavigatorProps => {
 		onToggleExamples: noop,
 		isCurrentFavorite: false,
 		onPlayPronunciation: noop,
+		pronunciationAvailable: false,
 		mode: "en-en",
 		onModeChange: noop,
 		themeMode: "light",
@@ -104,6 +105,7 @@ describe("RootTabNavigator", () => {
 				mode: props.mode,
 				userName: props.userName,
 				onPlayWordAudio: props.onPlayWordAudio,
+				pronunciationAvailable: props.pronunciationAvailable,
 			}),
 		);
 
@@ -121,6 +123,7 @@ describe("RootTabNavigator", () => {
 				recentSearches: props.recentSearches,
 				onSelectRecentSearch: props.onSelectRecentSearch,
 				onClearRecentSearches: props.onClearRecentSearches,
+				pronunciationAvailable: props.pronunciationAvailable,
 			}),
 		);
 	});
@@ -135,6 +138,7 @@ describe("RootTabNavigator", () => {
 				onUpdateStatus: props.onUpdateFavoriteStatus,
 				onRemoveFavorite: props.onRemoveFavorite,
 				onPlayAudio: props.onPlayWordAudio,
+				pronunciationAvailable: props.pronunciationAvailable,
 			}),
 		);
 

@@ -16,6 +16,7 @@ type SearchResultsProps = {
 	isFavorite: boolean;
 	onToggleFavorite: (word: WordResult) => void;
 	onPlayPronunciation: () => void;
+	pronunciationAvailable: boolean;
 	onRetry?: () => void;
 };
 
@@ -28,6 +29,7 @@ export function SearchResults({
 	isFavorite,
 	onToggleFavorite,
 	onPlayPronunciation,
+	pronunciationAvailable,
 	onRetry,
 }: SearchResultsProps) {
 	const styles = useThemedStyles(createSearchScreenStyles);
@@ -68,6 +70,7 @@ export function SearchResults({
 			result={result}
 			onToggleFavorite={onToggleFavorite}
 			onPlayPronunciation={onPlayPronunciation}
+			pronunciationAvailable={pronunciationAvailable}
 			examplesVisible={examplesVisible}
 			onToggleExamples={onToggleExamples}
 			isFavorite={isFavorite}

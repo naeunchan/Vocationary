@@ -6,4 +6,5 @@ export type FavoritesFlashcardProps = {
 	onMoveToStatus: (word: string, status: MemorizationStatus) => void;
 	onRemoveFavorite: (word: string) => void;
 	onPlayAudio: (word: FavoriteWordEntry["word"]) => void;
+	pronunciationAvailable: boolean;
 };

@@ -43,6 +43,7 @@ const createProps = (): RootTabNavigatorProps => {
 		onToggleExamples: noop,
 		isCurrentFavorite: false,
 		onPlayPronunciation: noop,
+		pronunciationAvailable: false,
 		mode: "en-en",
 		onModeChange: noop,
 		themeMode: "light",

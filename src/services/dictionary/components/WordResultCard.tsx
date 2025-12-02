@@ -6,10 +6,10 @@ import { createWordResultCardStyles } from "@/services/dictionary/styles/WordRes
 import { useThemedStyles } from "@/theme/useThemedStyles";
 import { useAppAppearance } from "@/theme/AppearanceContext";
 
-export function WordResultCard({ result, onToggleFavorite, onPlayPronunciation, isFavorite, examplesVisible, onToggleExamples }: WordResultCardProps) {
+export function WordResultCard({ result, onToggleFavorite, onPlayPronunciation, isFavorite, examplesVisible, onToggleExamples, pronunciationAvailable }: WordResultCardProps) {
 	const styles = useThemedStyles(createWordResultCardStyles);
 	const { theme } = useAppAppearance();
-	const canPlayAudio = Boolean(result.word?.trim());
+	const canPlayAudio = pronunciationAvailable && Boolean(result.word?.trim());
 	const hasPendingExamples = result.meanings.some((meaning) => meaning.definitions.some((definition) => Boolean(definition.pendingExample)));
 	const hasExamples = result.meanings.some((meaning) => meaning.definitions.some((definition) => Boolean(definition.example)));
 	const noExamplesAvailable = !hasPendingExamples && !hasExamples;

@@ -38,6 +38,7 @@ describe("WordResultCard", () => {
 				result={baseResult}
 				onToggleFavorite={jest.fn()}
 				onPlayPronunciation={jest.fn()}
+				pronunciationAvailable
 				isFavorite={false}
 				examplesVisible
 				onToggleExamples={jest.fn()}
@@ -63,6 +64,7 @@ describe("WordResultCard", () => {
 				result={result}
 				onToggleFavorite={jest.fn()}
 				onPlayPronunciation={jest.fn()}
+				pronunciationAvailable
 				isFavorite={false}
 				examplesVisible
 				onToggleExamples={jest.fn()}
@@ -80,6 +82,7 @@ describe("WordResultCard", () => {
 				result={baseResult}
 				onToggleFavorite={jest.fn()}
 				onPlayPronunciation={jest.fn()}
+				pronunciationAvailable
 				isFavorite={false}
 				examplesVisible={false}
 				onToggleExamples={onToggleExamples}
@@ -98,6 +101,7 @@ describe("WordResultCard", () => {
 				result={baseResult}
 				onToggleFavorite={onToggleFavorite}
 				onPlayPronunciation={jest.fn()}
+				pronunciationAvailable
 				isFavorite={false}
 				examplesVisible={false}
 				onToggleExamples={jest.fn()}

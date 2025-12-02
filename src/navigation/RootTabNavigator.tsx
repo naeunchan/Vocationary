@@ -29,6 +29,7 @@ export function RootTabNavigator({
 	onToggleExamples,
 	isCurrentFavorite,
 	onPlayPronunciation,
+	pronunciationAvailable,
 	mode,
 	onModeChange,
 	themeMode,
@@ -83,6 +84,7 @@ export function RootTabNavigator({
 							onMoveToStatus={onUpdateFavoriteStatus}
 							userName={userName}
 						onPlayWordAudio={onPlayWordAudio}
+							pronunciationAvailable={pronunciationAvailable}
 					/>
 				)}
 			</Tab.Screen>
@@ -93,6 +95,7 @@ export function RootTabNavigator({
 						onUpdateStatus={onUpdateFavoriteStatus}
 						onRemoveFavorite={onRemoveFavorite}
 						onPlayAudio={onPlayWordAudio}
+						pronunciationAvailable={pronunciationAvailable}
 					/>
 				)}
 			</Tab.Screen>
@@ -112,6 +115,7 @@ export function RootTabNavigator({
 						}}
 						isCurrentFavorite={isCurrentFavorite}
 						onPlayPronunciation={onPlayPronunciation}
+						pronunciationAvailable={pronunciationAvailable}
 						mode={mode}
 						onModeChange={onModeChange}
 						recentSearches={recentSearches}
