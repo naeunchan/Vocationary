@@ -48,17 +48,16 @@ export const createSearchScreenStyles = (theme: AppThemeColors, fontScale: numbe
 		},
 		modeButton: {
 			flex: 1,
-			paddingVertical: 12,
+			paddingVertical: 14,
+			paddingHorizontal: 12,
 			borderRadius: 16,
 			backgroundColor: theme.cardMuted,
 			alignItems: "center",
 			justifyContent: "center",
+			gap: 4,
 		},
 		modeButtonActive: {
 			backgroundColor: theme.accent,
-		},
-		modeButtonDisabled: {
-			opacity: 0.6,
 		},
 		modeButtonLabel: {
 			fontSize: scaleFont(15, fontScale),
@@ -68,7 +67,17 @@ export const createSearchScreenStyles = (theme: AppThemeColors, fontScale: numbe
 		modeButtonLabelActive: {
 			color: theme.accentContrast,
 		},
-		modeButtonLabelDisabled: {
+		modeButtonDescription: {
+			fontSize: scaleFont(12, fontScale),
+			color: theme.textSecondary,
+			textAlign: "center",
+		},
+		modeButtonDescriptionActive: {
+			color: theme.accentContrast,
+			opacity: 0.9,
+		},
+		modeHelperText: {
+			fontSize: scaleFont(12, fontScale),
 			color: theme.textMuted,
 		},
 		aiNotice: {
