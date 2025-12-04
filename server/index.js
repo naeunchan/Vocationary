@@ -2,12 +2,10 @@
 /* global __dirname, Buffer */
 
 const path = require("path");
-
-const { OpenAI } = require("openai");
-
+const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const express = require("express");
+const { OpenAI } = require("openai");
 
 // Load env values from both project root and server folder (server/.env overrides).
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });

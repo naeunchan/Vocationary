@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -13,7 +13,7 @@ import { createStyles } from "@/screens/Settings/SettingsScreen.styles";
 import { SettingsScreenProps } from "@/screens/Settings/SettingsScreen.types";
 import { getPreferenceValue, setPreferenceValue } from "@/services/database";
 import { t } from "@/shared/i18n";
-import { FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS, BIOMETRIC_LOGIN_PREFERENCE_KEY } from "@/theme/constants";
+import { BIOMETRIC_LOGIN_PREFERENCE_KEY, FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS } from "@/theme/constants";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
 const SUPPORT_EMAIL = "support@vocationary.app";

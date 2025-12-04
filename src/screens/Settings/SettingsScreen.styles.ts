@@ -1,8 +1,7 @@
 import { StyleSheet } from "react-native";
 
-import { scaleFont } from "@/theme/utils";
-
 import type { AppThemeColors } from "@/theme/types";
+import { scaleFont } from "@/theme/utils";
 
 export const createStyles = (theme: AppThemeColors, fontScale: number) =>
     StyleSheet.create({

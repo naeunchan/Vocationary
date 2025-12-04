@@ -2,7 +2,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
-import { exportBackup, importBackup, type BackupPayload } from "@/services/database";
+import { type BackupPayload, exportBackup, importBackup } from "@/services/database";
 
 const BACKUP_DIRECTORY = `${FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? ""}backups`;
 

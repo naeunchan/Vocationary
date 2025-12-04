@@ -2,6 +2,7 @@
 import { FlatCompat } from "@eslint/eslintrc";
 import importPlugin from "eslint-plugin-import";
 import prettierPlugin from "eslint-plugin-prettier";
+import simpleImportSortPlugin from "eslint-plugin-simple-import-sort";
 import path from "node:path";
 
 const compat = new FlatCompat({
@@ -10,7 +11,7 @@ const compat = new FlatCompat({
 
 export default [
     {
-        ignores: ["node_modules", "dist", "android", "ios", "eslint.config.js"],
+        ignores: ["node_modules", "dist", "android", "ios", "eslint.config.mjs"],
     },
     ...compat.extends(
         "universe/native",
@@ -24,6 +25,7 @@ export default [
         plugins: {
             import: importPlugin,
             prettier: prettierPlugin,
+            "simple-import-sort": simpleImportSortPlugin,
         },
         languageOptions: {
             globals: {
@@ -37,14 +39,9 @@ export default [
         },
         rules: {
             "prettier/prettier": "error",
-            "import/order": [
-                "error",
-                {
-                    groups: ["builtin", "external", "internal", "parent", "sibling", "index", "object", "type"],
-                    "newlines-between": "always",
-                    alphabetize: { order: "asc", caseInsensitive: true },
-                },
-            ],
+            "import/order": "off",
+            "simple-import-sort/imports": "error",
+            "simple-import-sort/exports": "error",
             "node/handle-callback-err": "off",
             "no-void": "off",
             "react-hooks/exhaustive-deps": "off",

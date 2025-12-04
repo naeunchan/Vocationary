@@ -7,15 +7,21 @@ import { fetchDictionaryEntry } from "@/api/dictionary/freeDictionaryClient";
 import { getPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
 import { getWordData } from "@/api/dictionary/getWordData";
 import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
+import type { AppError } from "@/errors/AppError";
 import { createAppError, normalizeError } from "@/errors/AppError";
 import { captureAppError, setUserContext } from "@/logging/logger";
+import type { RootTabNavigatorProps } from "@/navigation/RootTabNavigator.types";
 import {
+    ACCOUNT_DELETION_ERROR_MESSAGE,
     ACCOUNT_REDIRECT_ERROR_MESSAGE,
     AUDIO_PLAY_ERROR_MESSAGE,
     AUDIO_UNAVAILABLE_MESSAGE,
     DATABASE_INIT_ERROR_MESSAGE,
     DEFAULT_GUEST_NAME,
     DEFAULT_VERSION_LABEL,
+    DISPLAY_NAME_AVAILABLE_MESSAGE,
+    DISPLAY_NAME_DUPLICATE_ERROR_MESSAGE,
+    DISPLAY_NAME_REQUIRED_ERROR_MESSAGE,
     EMPTY_SEARCH_ERROR_MESSAGE,
     FAVORITE_LIMIT_MESSAGE,
     GENERIC_ERROR_MESSAGE,
@@ -27,19 +33,17 @@ import {
     LOGIN_INPUT_ERROR_MESSAGE,
     LOGOUT_ERROR_MESSAGE,
     MISSING_USER_ERROR_MESSAGE,
-    REMOVE_FAVORITE_ERROR_MESSAGE,
-    PROFILE_UPDATE_ERROR_MESSAGE,
-    DISPLAY_NAME_AVAILABLE_MESSAGE,
-    DISPLAY_NAME_DUPLICATE_ERROR_MESSAGE,
-    DISPLAY_NAME_REQUIRED_ERROR_MESSAGE,
     PASSWORD_REQUIRED_ERROR_MESSAGE,
     PASSWORD_UPDATE_ERROR_MESSAGE,
+    PROFILE_UPDATE_ERROR_MESSAGE,
+    REMOVE_FAVORITE_ERROR_MESSAGE,
     SIGNUP_DUPLICATE_ERROR_MESSAGE,
     SIGNUP_GENERIC_ERROR_MESSAGE,
-    ACCOUNT_DELETION_ERROR_MESSAGE,
     TOGGLE_FAVORITE_ERROR_MESSAGE,
     UPDATE_STATUS_ERROR_MESSAGE,
 } from "@/screens/App/AppScreen.constants";
+import type { AppScreenHookResult } from "@/screens/App/AppScreen.types";
+import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 import { exportBackupToFile, importBackupFromDocument } from "@/services/backup/manualBackup";
 import {
     clearAutoLoginCredentials,
@@ -51,8 +55,8 @@ import {
     getActiveSession,
     getAutoLoginCredentials,
     getFavoritesByUser,
-    getSearchHistoryEntries,
     getPreferenceValue,
+    getSearchHistoryEntries,
     hasSeenAppHelp,
     initializeDatabase,
     isDisplayNameTaken,
@@ -60,35 +64,30 @@ import {
     removeFavoriteForUser,
     saveAutoLoginCredentials,
     saveSearchHistoryEntries,
-    setPreferenceValue,
     setGuestSession,
+    setPreferenceValue,
     setUserSession,
-    updateUserPassword,
     updateUserDisplayName,
+    updateUserPassword,
     upsertFavoriteForUser,
-    verifyPasswordHash,
     type UserRecord,
+    verifyPasswordHash,
 } from "@/services/database";
 import { DictionaryMode, WordResult } from "@/services/dictionary/types";
 import { applyExampleUpdates, clearPendingFlags } from "@/services/dictionary/utils/mergeExampleUpdates";
-import { FavoriteWordEntry, MemorizationStatus, createFavoriteEntry } from "@/services/favorites/types";
-import { SearchHistoryEntry, SEARCH_HISTORY_LIMIT } from "@/services/searchHistory/types";
+import { createFavoriteEntry, FavoriteWordEntry, MemorizationStatus } from "@/services/favorites/types";
+import { SEARCH_HISTORY_LIMIT, SearchHistoryEntry } from "@/services/searchHistory/types";
 import {
+    BIOMETRIC_LOGIN_PREFERENCE_KEY,
     DEFAULT_FONT_SCALE,
     FONT_SCALE_PREFERENCE_KEY,
     ONBOARDING_PREFERENCE_KEY,
     THEME_MODE_PREFERENCE_KEY,
-    BIOMETRIC_LOGIN_PREFERENCE_KEY,
 } from "@/theme/constants";
+import type { ThemeMode } from "@/theme/types";
 import { playRemoteAudio } from "@/utils/audio";
 import { getEmailValidationError, getGooglePasswordValidationError } from "@/utils/authValidation";
 import { generateRandomDisplayName } from "@/utils/randomDisplayName";
-
-import type { AppError } from "@/errors/AppError";
-import type { RootTabNavigatorProps } from "@/navigation/RootTabNavigator.types";
-import type { AppScreenHookResult } from "@/screens/App/AppScreen.types";
-import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
-import type { ThemeMode } from "@/theme/types";
 
 export function useAppScreen(): AppScreenHookResult {
     const [searchTerm, setSearchTerm] = useState("");

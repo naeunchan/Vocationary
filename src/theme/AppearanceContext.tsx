@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useMemo } from "react";
 
 import { APP_THEMES } from "@/theme/themes";
-
 import type { AppThemeColors, ThemeMode } from "@/theme/types";
 
 type AppearanceContextValue = {

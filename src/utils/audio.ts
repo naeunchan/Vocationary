@@ -1,5 +1,4 @@
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer, type AudioStatus } from "expo-audio";
-
+import { type AudioPlayer, type AudioStatus, createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import type { EventSubscription } from "expo-modules-core";
 
 let audioModePromise: Promise<void> | null = null;

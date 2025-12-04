@@ -2,9 +2,8 @@ import { fireEvent, render } from "@testing-library/react-native";
 import React from "react";
 
 import { FavoritesScreen } from "@/screens/Favorites/FavoritesScreen";
-import { AppAppearanceProvider } from "@/theme/AppearanceContext";
-
 import type { FavoriteWordEntry } from "@/services/favorites/types";
+import { AppAppearanceProvider } from "@/theme/AppearanceContext";
 
 const mockFlashcard = jest.fn();
 

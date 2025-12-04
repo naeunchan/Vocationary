@@ -1,13 +1,12 @@
 import React from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 
+import type { AppError } from "@/errors/AppError";
 import { shouldRetry } from "@/errors/AppError";
 import { createSearchScreenStyles } from "@/screens/Search/SearchScreen.styles";
 import { WordResultCard } from "@/services/dictionary/components/WordResultCard";
 import { WordResult } from "@/services/dictionary/types";
 import { useThemedStyles } from "@/theme/useThemedStyles";
-
-import type { AppError } from "@/errors/AppError";
 
 type SearchResultsProps = {
     loading: boolean;

@@ -1,9 +1,9 @@
 import { WordResult } from "@/services/dictionary/types";
 import {
     createFavoriteEntry,
+    FavoriteWordEntry,
     isMemorizationStatus,
     MEMORIZATION_STATUS_ORDER,
-    FavoriteWordEntry,
 } from "@/services/favorites/types";
 
 const baseWord: WordResult = {

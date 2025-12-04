@@ -1,21 +1,19 @@
 import { Buffer } from "buffer";
-
 import * as Crypto from "expo-crypto";
 import { getRandomBytesAsync } from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
+import type { SQLiteDatabase } from "expo-sqlite";
 import { Platform } from "react-native";
 
-import {
-    FavoriteWordEntry,
-    MemorizationStatus,
-    createFavoriteEntry,
-    isMemorizationStatus,
-} from "@/services/favorites/types";
-import { SEARCH_HISTORY_LIMIT } from "@/services/searchHistory/types";
-
 import type { DictionaryMode, WordResult } from "@/services/dictionary/types";
+import {
+    createFavoriteEntry,
+    FavoriteWordEntry,
+    isMemorizationStatus,
+    MemorizationStatus,
+} from "@/services/favorites/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
-import type { SQLiteDatabase } from "expo-sqlite";
+import { SEARCH_HISTORY_LIMIT } from "@/services/searchHistory/types";
 
 const DATABASE_NAME = "vocationary.db";
 const PASSWORD_HASH_PREFIX = "sha256.v1";
