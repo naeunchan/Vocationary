@@ -1,6 +1,7 @@
 // @ts-check
-const { getDefaultConfig } = require("expo/metro-config");
 const path = require("path");
+
+const { getDefaultConfig } = require("expo/metro-config");
 
 const baseConfig = getDefaultConfig(path.resolve());
 
@@ -18,5 +19,6 @@ module.exports = {
         ...resolver,
         assetExts,
         sourceExts: sourceExts.filter((ext) => ext !== "wasm"),
+        unstable_enablePackageExports: false,
     },
 };

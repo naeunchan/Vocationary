@@ -7,10 +7,10 @@ import { Platform } from "react-native";
 
 import type { DictionaryMode, WordResult } from "@/services/dictionary/types";
 import {
-    FavoriteWordEntry,
-    MemorizationStatus,
     createFavoriteEntry,
+    FavoriteWordEntry,
     isMemorizationStatus,
+    MemorizationStatus,
 } from "@/services/favorites/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
 import { SEARCH_HISTORY_LIMIT } from "@/services/searchHistory/types";

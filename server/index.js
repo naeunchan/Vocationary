@@ -1,0 +1,168 @@
+/* eslint-env node */
+/* global __dirname, Buffer */
+
+const path = require("path");
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const { OpenAI } = require("openai");
+
+// Load env values from both project root and server folder (server/.env overrides).
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
+dotenv.config({ path: path.resolve(__dirname, ".env") });
+
+const PORT = Number(process.env.PORT) || 4000;
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const TTS_MODEL = process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
+const TTS_VOICE = process.env.OPENAI_TTS_VOICE || "alloy";
+const TTS_FORMAT = process.env.OPENAI_TTS_FORMAT || "mp3";
+
+const app = express();
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const corsOrigins = (process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+app.use(
+    cors({
+        origin: corsOrigins.length ? corsOrigins : "*",
+        optionsSuccessStatus: 200,
+    }),
+);
+
+app.use(express.json({ limit: "1mb" }));
+
+const EXAMPLE_SCHEMA = {
+    name: "dictionary_examples",
+    schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+            items: {
+                type: "array",
+                items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["meaningIndex", "definitionIndex", "example", "translatedDefinition"],
+                    properties: {
+                        meaningIndex: { type: "integer" },
+                        definitionIndex: { type: "integer" },
+                        example: { type: "string" },
+                        translatedDefinition: { type: ["string", "null"] },
+                    },
+                },
+            },
+        },
+        required: ["items"],
+    },
+    strict: true,
+};
+
+function clampTokens(value, fallback) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(400, Math.max(80, Math.round(num)));
+}
+
+function ensureApiKey(res) {
+    if (!openai.apiKey) {
+        res.status(503).json({ message: "OpenAI API key is missing. Set OPENAI_API_KEY on the server." });
+        return false;
+    }
+    return true;
+}
+
+function normalizeItems(payload) {
+    if (!payload || typeof payload !== "object" || !Array.isArray(payload.items)) {
+        return [];
+    }
+
+    return payload.items
+        .map((item) => ({
+            meaningIndex: Number(item.meaningIndex),
+            definitionIndex: Number(item.definitionIndex),
+            example: typeof item.example === "string" ? item.example.trim() : "",
+            translatedDefinition:
+                typeof item.translatedDefinition === "string" ? item.translatedDefinition.trim() : null,
+        }))
+        .filter((item) => item.example);
+}
+
+app.get("/health", (_req, res) => {
+    res.json({ status: openai.apiKey ? "ok" : "unconfigured" });
+});
+
+app.post("/dictionary/examples", async (req, res) => {
+    if (!ensureApiKey(res)) return;
+
+    const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+    const descriptors = Array.isArray(req.body?.descriptors) ? req.body.descriptors : [];
+    if (!prompt || descriptors.length === 0) {
+        return res.status(400).json({ message: "prompt와 descriptors가 필요해요." });
+    }
+
+    const schema = typeof req.body?.schema === "object" && req.body.schema ? req.body.schema : EXAMPLE_SCHEMA;
+    const maxTokens = clampTokens(req.body?.maxTokens, 240);
+
+    try {
+        const completion = await openai.chat.completions.create({
+            model: MODEL,
+            messages: [
+                {
+                    role: "system",
+                    content:
+                        "You generate concise dictionary examples. Respond ONLY with JSON that matches the provided schema.",
+                },
+                { role: "user", content: prompt },
+            ],
+            response_format: { type: "json_schema", json_schema: schema },
+            max_tokens: maxTokens,
+        });
+
+        const content = completion.choices?.[0]?.message?.content ?? "";
+        const raw = content ? JSON.parse(content) : { items: [] };
+        const items = normalizeItems(raw);
+
+        return res.json({ items });
+    } catch (error) {
+        console.error("Failed to generate dictionary examples", error);
+        return res.status(500).json({ message: "예문을 생성하지 못했어요." });
+    }
+});
+
+app.post("/dictionary/tts", async (req, res) => {
+    if (!ensureApiKey(res)) return;
+
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+    if (!text) {
+        return res.status(400).json({ message: "text가 필요해요." });
+    }
+
+    const model = typeof req.body?.model === "string" && req.body.model.trim() ? req.body.model.trim() : TTS_MODEL;
+    const voice = typeof req.body?.voice === "string" && req.body.voice.trim() ? req.body.voice.trim() : TTS_VOICE;
+    const format = typeof req.body?.format === "string" && req.body.format.trim() ? req.body.format.trim() : TTS_FORMAT;
+
+    try {
+        const audio = await openai.audio.speech.create({
+            model,
+            voice,
+            input: text,
+            format,
+        });
+
+        const buffer = Buffer.from(await audio.arrayBuffer());
+        return res.json({
+            audioBase64: buffer.toString("base64"),
+            audioUrl: null,
+        });
+    } catch (error) {
+        console.error("Failed to synthesize audio", error);
+        return res.status(500).json({ message: "발음 오디오를 준비하지 못했어요." });
+    }
+});
+
+app.listen(PORT, () => {
+    console.log(`AI proxy listening on port ${PORT}`);
+});

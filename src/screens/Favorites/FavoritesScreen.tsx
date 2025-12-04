@@ -2,10 +2,10 @@ import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FavoritesFlashcard } from "@/screens/Favorites/components/FavoritesFlashcard";
 import { createFavoritesScreenStyles } from "@/screens/Favorites/FavoritesScreen.styles";
 import { FavoritesScreenProps } from "@/screens/Favorites/FavoritesScreen.types";
-import { FavoritesFlashcard } from "@/screens/Favorites/components/FavoritesFlashcard";
-import { MEMORIZATION_STATUSES, MEMORIZATION_STATUS_ORDER, MemorizationStatus } from "@/services/favorites/types";
+import { MEMORIZATION_STATUS_ORDER, MEMORIZATION_STATUSES, MemorizationStatus } from "@/services/favorites/types";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
 export function FavoritesScreen({

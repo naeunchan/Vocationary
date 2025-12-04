@@ -1,6 +1,7 @@
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from "@react-navigation/native-stack";
 import React from "react";
 
+import { SettingsHeader } from "@/screens/Settings/components/SettingsHeader";
 import { DeleteAccountScreen } from "@/screens/Settings/DeleteAccountScreen";
 import { FontSizeScreen } from "@/screens/Settings/FontSizeScreen";
 import { MyPageNicknameScreen } from "@/screens/Settings/MyPageNicknameScreen";
@@ -9,7 +10,6 @@ import { MyPageScreen } from "@/screens/Settings/MyPageScreen";
 import { SettingsNavigatorProps, SettingsStackParamList } from "@/screens/Settings/SettingsNavigator.types";
 import { SettingsScreen } from "@/screens/Settings/SettingsScreen";
 import { ThemeModeScreen } from "@/screens/Settings/ThemeModeScreen";
-import { SettingsHeader } from "@/screens/Settings/components/SettingsHeader";
 import { useAppAppearance } from "@/theme/AppearanceContext";
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();

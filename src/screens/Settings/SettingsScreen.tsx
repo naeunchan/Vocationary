@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -6,14 +6,14 @@ import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/config/legal";
 import { useAIStatus } from "@/hooks/useAIStatus";
 import { LEGAL_DOCUMENTS, type LegalDocumentId } from "@/legal/legalDocuments";
 import { MISSING_USER_ERROR_MESSAGE } from "@/screens/App/AppScreen.constants";
-import { createStyles } from "@/screens/Settings/SettingsScreen.styles";
-import { SettingsScreenProps } from "@/screens/Settings/SettingsScreen.types";
 import { AuthenticatedActions } from "@/screens/Settings/components/AuthenticatedActions";
 import { GuestActionCard } from "@/screens/Settings/components/GuestActionCard";
 import { LegalDocumentModal } from "@/screens/Settings/components/LegalDocumentModal";
+import { createStyles } from "@/screens/Settings/SettingsScreen.styles";
+import { SettingsScreenProps } from "@/screens/Settings/SettingsScreen.types";
 import { getPreferenceValue, setPreferenceValue } from "@/services/database";
 import { t } from "@/shared/i18n";
-import { FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS, BIOMETRIC_LOGIN_PREFERENCE_KEY } from "@/theme/constants";
+import { BIOMETRIC_LOGIN_PREFERENCE_KEY, FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS } from "@/theme/constants";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
 const SUPPORT_EMAIL = "support@vocationary.app";
