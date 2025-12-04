@@ -116,6 +116,5 @@
     },
     "resolutions": {
         "tslib": "2.8.1"
-    },
-    "type": "module"
+    }
 }
