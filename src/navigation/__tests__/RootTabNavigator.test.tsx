@@ -44,7 +44,7 @@ jest.mock("@react-navigation/bottom-tabs", () => {
 
 const buildProps = (): RootTabNavigatorProps => {
     const noop = jest.fn();
-    const asyncNoop = jest.fn(() => Promise.resolve());
+    const asyncNoop = jest.fn((_arg?: any) => Promise.resolve());
 
     return {
         favorites: [],

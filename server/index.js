@@ -16,6 +16,9 @@ const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const TTS_MODEL = process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
 const TTS_VOICE = process.env.OPENAI_TTS_VOICE || "alloy";
 const TTS_FORMAT = process.env.OPENAI_TTS_FORMAT || "mp3";
+const API_KEY = process.env.AI_PROXY_KEY || "";
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 60;
 
 const app = express();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -33,6 +36,32 @@ app.use(
 );
 
 app.use(express.json({ limit: "1mb" }));
+
+// Basic in-memory rate limiting to prevent accidental abuse
+const requestLog = new Map();
+function rateLimit(req, res, next) {
+    const key = req.ip || req.headers["x-forwarded-for"] || "global";
+    const now = Date.now();
+    const windowStart = now - RATE_LIMIT_WINDOW_MS;
+    const history = (requestLog.get(key) || []).filter((ts) => ts > windowStart);
+    if (history.length >= RATE_LIMIT_MAX) {
+        return res.status(429).json({ message: "Too many requests. Please try again in a moment." });
+    }
+    history.push(now);
+    requestLog.set(key, history);
+    next();
+}
+
+function requireApiKey(req, res, next) {
+    if (!API_KEY) {
+        return res.status(503).json({ message: "AI proxy missing server API key (AI_PROXY_KEY)." });
+    }
+    const headerKey = req.headers["x-api-key"];
+    if (headerKey !== API_KEY) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+    next();
+}
 
 const EXAMPLE_SCHEMA = {
     name: "dictionary_examples",
@@ -94,7 +123,7 @@ app.get("/health", (_req, res) => {
     res.json({ status: openai.apiKey ? "ok" : "unconfigured" });
 });
 
-app.post("/dictionary/examples", async (req, res) => {
+app.post("/dictionary/examples", rateLimit, requireApiKey, async (req, res) => {
     if (!ensureApiKey(res)) return;
 
     const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
@@ -132,7 +161,7 @@ app.post("/dictionary/examples", async (req, res) => {
     }
 });
 
-app.post("/dictionary/tts", async (req, res) => {
+app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
     if (!ensureApiKey(res)) return;
 
     const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";

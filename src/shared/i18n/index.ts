@@ -46,8 +46,8 @@ const translations: Record<Locale, Record<string, string>> = {
         "settings.label.aiUnavailable": "비활성 (백엔드 필요)",
         "search.mode.enEn": "영영사전",
         "search.mode.enEn.description": "영어 정의와 예문을 확인해요.",
-        "search.mode.enKo": "영한사전",
-        "search.mode.enKo.description": "한국어 번역과 예문을 확인해요.",
+        "search.mode.enKo": "영한사전 (베타)",
+        "search.mode.enKo.description": "AI 번역이 설정된 경우에만 한국어 번역과 예문을 제공해요.",
         "search.mode.helper": "사전 모드를 선택해 검색 결과를 맞춤화하세요.",
         "search.aiNotice.title": "AI 발음/예문 준비 중",
         "search.aiNotice.body":
@@ -98,8 +98,8 @@ const translations: Record<Locale, Record<string, string>> = {
         "settings.label.aiUnavailable": "Disabled (needs backend)",
         "search.mode.enEn": "English-English",
         "search.mode.enEn.description": "See English definitions and examples.",
-        "search.mode.enKo": "English-Korean",
-        "search.mode.enKo.description": "Get Korean translations with examples.",
+        "search.mode.enKo": "English-Korean (beta)",
+        "search.mode.enKo.description": "Korean translations/examples appear only when the AI proxy is configured.",
         "search.mode.helper": "Pick a dictionary mode to tailor your results.",
         "search.aiNotice.title": "AI pronunciation/examples pending",
         "search.aiNotice.body":

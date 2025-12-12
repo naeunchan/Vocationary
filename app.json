@@ -33,7 +33,10 @@
         "plugins": ["expo-sqlite", "expo-audio", "expo-secure-store", "sentry-expo", "expo-asset"],
         "extra": {
             "versionLabel": "1.0.0",
-            "openAIProxyUrl": "http://172.20.10.11:4000"
+            "openAIProxyUrl": "http://172.20.10.11:4000",
+            "openAIProxyKey": "",
+            "privacyPolicyUrl": "https://vocationary.app/legal/privacy",
+            "termsOfServiceUrl": "https://vocationary.app/legal/terms"
         }
     }
 }

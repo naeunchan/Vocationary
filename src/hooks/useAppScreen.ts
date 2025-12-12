@@ -1135,42 +1135,45 @@ export function useAppScreen(): AppScreenHookResult {
     const canLogout = user !== null;
     const userName = user?.displayName ?? user?.username ?? DEFAULT_GUEST_NAME;
 
-    const handleBackupExport = useCallback(async () => {
+    const handleBackupExport = useCallback(async (passphrase: string) => {
         try {
-            await exportBackupToFile();
-            Alert.alert("백업 완료", "데이터 백업 파일을 저장하거나 공유했어요.");
+            await exportBackupToFile(passphrase);
+            Alert.alert("백업 완료", "암호화된 백업 파일을 저장하거나 공유했어요.");
         } catch (error) {
             const message = error instanceof Error ? error.message : "백업을 생성하지 못했어요.";
             Alert.alert("백업 실패", message);
         }
     }, []);
 
-    const handleBackupImport = useCallback(async () => {
-        try {
-            const restored = await importBackupFromDocument();
-            if (!restored) {
-                return;
-            }
-            if (user?.username) {
-                const refreshed = await findUserByUsername(user.username);
-                if (refreshed) {
-                    await loadUserState({
-                        id: refreshed.id,
-                        username: refreshed.username,
-                        displayName: refreshed.displayName,
-                    });
-                } else {
-                    setInitialAuthState();
+    const handleBackupImport = useCallback(
+        async (passphrase: string) => {
+            try {
+                const restored = await importBackupFromDocument(passphrase);
+                if (!restored) {
+                    return;
                 }
+                if (user?.username) {
+                    const refreshed = await findUserByUsername(user.username);
+                    if (refreshed) {
+                        await loadUserState({
+                            id: refreshed.id,
+                            username: refreshed.username,
+                            displayName: refreshed.displayName,
+                        });
+                    } else {
+                        setInitialAuthState();
+                    }
+                }
+                const history = await getSearchHistoryEntries();
+                setRecentSearches(history);
+                Alert.alert("복원 완료", "백업 데이터로 복원했어요.");
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "백업 데이터를 불러오지 못했어요.";
+                Alert.alert("복원 실패", message);
             }
-            const history = await getSearchHistoryEntries();
-            setRecentSearches(history);
-            Alert.alert("복원 완료", "백업 데이터로 복원했어요.");
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "백업 데이터를 불러오지 못했어요.";
-            Alert.alert("복원 실패", message);
-        }
-    }, [findUserByUsername, getSearchHistoryEntries, loadUserState, setInitialAuthState, user?.username]);
+        },
+        [findUserByUsername, getSearchHistoryEntries, loadUserState, setInitialAuthState, user?.username],
+    );
 
     const navigatorProps = useMemo<RootTabNavigatorProps>(
         () => ({

@@ -306,4 +306,67 @@ export const createStyles = (theme: AppThemeColors, fontScale: number) =>
         fontSizeCheckmark: {
             color: theme.accent,
         },
+        backdrop: {
+            flex: 1,
+            backgroundColor: "rgba(15,23,42,0.6)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+        },
+        passphraseCard: {
+            width: "100%",
+            maxWidth: 420,
+            backgroundColor: theme.surface,
+            borderRadius: 18,
+            padding: 20,
+            gap: 12,
+        },
+        passphraseTitle: {
+            fontSize: scaleFont(18, fontScale),
+            fontWeight: "700",
+            color: theme.textPrimary,
+        },
+        passphraseSubtitle: {
+            fontSize: scaleFont(14, fontScale),
+            color: theme.textSecondary,
+            lineHeight: scaleFont(20, fontScale),
+        },
+        passphraseInput: {
+            borderWidth: 1,
+            borderColor: theme.border,
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            color: theme.textPrimary,
+            fontSize: scaleFont(16, fontScale),
+        },
+        passphraseError: {
+            color: theme.danger,
+            fontSize: scaleFont(13, fontScale),
+        },
+        passphraseActions: {
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            gap: 10,
+            marginTop: 8,
+        },
+        passphraseButton: {
+            backgroundColor: theme.accent,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderRadius: 12,
+        },
+        passphraseButtonText: {
+            color: theme.accentContrast,
+            fontWeight: "700",
+            fontSize: scaleFont(15, fontScale),
+        },
+        passphraseButtonGhost: {
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+        },
+        passphraseButtonGhostText: {
+            color: theme.textPrimary,
+            fontSize: scaleFont(15, fontScale),
+        },
     });

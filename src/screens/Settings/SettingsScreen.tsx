@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/config/legal";
@@ -109,6 +109,36 @@ export function SettingsScreen({
     }, [appVersion, isGuest, profileUsername]);
 
     const [activeDocument, setActiveDocument] = useState<LegalDocumentId | null>(null);
+    const [backupAction, setBackupAction] = useState<"export" | "import" | null>(null);
+    const [passphrase, setPassphrase] = useState("");
+    const [backupError, setBackupError] = useState<string | null>(null);
+
+    const closeBackupModal = () => {
+        setBackupAction(null);
+        setPassphrase("");
+        setBackupError(null);
+    };
+
+    const handleConfirmBackup = useCallback(async () => {
+        if (!backupAction) return;
+        const normalized = passphrase.trim();
+        if (!normalized) {
+            setBackupError("암호를 입력해주세요.");
+            return;
+        }
+        try {
+            if (backupAction === "export") {
+                await onExportBackup(normalized);
+            } else {
+                await onImportBackup(normalized);
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "백업 작업 중 문제가 발생했어요.";
+            Alert.alert("백업", message);
+        } finally {
+            closeBackupModal();
+        }
+    }, [backupAction, onExportBackup, onImportBackup, passphrase]);
 
     const handleOpenDocument = useCallback((id: LegalDocumentId) => {
         setActiveDocument(id);
@@ -267,8 +297,17 @@ export function SettingsScreen({
                 <View style={styles.section}>
                     <Text style={styles.sectionLabel}>{t("settings.section.backup")}</Text>
                     <View style={styles.sectionCard}>
-                        {renderRow(t("settings.link.backupExport"), { onPress: onExportBackup })}
-                        {renderRow(t("settings.link.backupImport"), { onPress: onImportBackup, isLast: true })}
+                        {renderRow(t("settings.link.backupExport"), {
+                            onPress: () => {
+                                setBackupAction("export");
+                            },
+                        })}
+                        {renderRow(t("settings.link.backupImport"), {
+                            onPress: () => {
+                                setBackupAction("import");
+                            },
+                            isLast: true,
+                        })}
                     </View>
                 </View>
 
@@ -296,6 +335,38 @@ export function SettingsScreen({
                     }}
                 />
             ) : null}
+            <Modal visible={backupAction !== null} animationType="fade" transparent onRequestClose={closeBackupModal}>
+                <View style={styles.backdrop}>
+                    <View style={styles.passphraseCard}>
+                        <Text style={styles.passphraseTitle}>
+                            {backupAction === "export" ? "백업 내보내기" : "백업 불러오기"}
+                        </Text>
+                        <Text style={styles.passphraseSubtitle}>
+                            백업 파일은 입력한 암호로 암호화돼요. 동일한 암호를 기억해두세요.
+                        </Text>
+                        <TextInput
+                            value={passphrase}
+                            onChangeText={(text) => {
+                                setPassphrase(text);
+                                setBackupError(null);
+                            }}
+                            secureTextEntry
+                            placeholder="암호 입력"
+                            style={styles.passphraseInput}
+                            autoFocus
+                        />
+                        {backupError ? <Text style={styles.passphraseError}>{backupError}</Text> : null}
+                        <View style={styles.passphraseActions}>
+                            <TouchableOpacity onPress={closeBackupModal} style={styles.passphraseButtonGhost}>
+                                <Text style={styles.passphraseButtonGhostText}>취소</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleConfirmBackup} style={styles.passphraseButton}>
+                                <Text style={styles.passphraseButtonText}>확인</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }

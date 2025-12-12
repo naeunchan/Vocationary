@@ -16,7 +16,7 @@
 
 - **Sign Up & Login**: Enforces Google-style username/password rules, generates a fallback nickname, and keeps authentication simple and secure.
 - **Guest Preview Mode**: Lets new users search freely without logging in while limiting favorites to 10 entries until they sign up.
-- **Dictionary Search**: English-English definitions available; English-Korean mode is coming soon. Pronunciation audio works when a backend proxy is configured.
+- **Dictionary Search**: English-English definitions available; English-Korean (beta) requires the AI proxy to return translations/examples. Pronunciation audio works when a backend proxy is configured.
 - **Favorites Management**: Save or remove words per user; everything is persisted locally with SQLite so favorites survive app restarts.
 - **Home Summary Dashboard**: Highlights the signed-in profile, active dictionary mode, saved word count, and the most recent query at a glance.
 - **Tabbed Navigation**: Home, Favorites, Search, and Settings tabs keep every major workflow just one tap away.
@@ -27,6 +27,10 @@
 - `expo.version` and `ios.buildNumber` move together (e.g., `1.0.1` for the next release).
 - `android.versionCode` starts at `1` and must be incremented for every Play Store upload.
 - Update all three fields before cutting a new store build.
+
+## Environment & Security
+
+- Use `.env.example` as a template; never commit real API keys. Set `AI_PROXY_KEY` on the server and pass `EXPO_PUBLIC_OPENAI_PROXY_KEY` to the app so AI routes require authentication.
 
 ## Compliance & Security
 

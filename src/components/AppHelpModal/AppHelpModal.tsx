@@ -45,8 +45,8 @@ export function AppHelpModal({ visible, onDismiss }: AppHelpModalProps) {
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>4. 설정에서 계정 관리</Text>
                             <Text style={styles.sectionBody}>
-                                `Settings` 탭에서 로그인, 회원가입, 게스트 모드 전환을 할 수 있어요. 로그인하면 여러
-                                기기에서도 즐겨찾기 목록이 유지돼요.
+                                `Settings` 탭에서 로그인, 회원가입, 게스트 모드 전환을 할 수 있어요. 계정 데이터는 이
+                                기기에만 저장되므로, 다른 기기에서는 새 계정을 만들어야 해요.
                             </Text>
                         </View>
                     </ScrollView>

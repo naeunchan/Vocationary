@@ -44,7 +44,7 @@ export type RootTabNavigatorProps = {
     onCheckDisplayName: (displayName: string) => Promise<string>;
     onUpdatePassword: (password: string) => Promise<void>;
     onDeleteAccount: () => Promise<void>;
-    onExportBackup: () => Promise<void>;
-    onImportBackup: () => Promise<void>;
+    onExportBackup: (passphrase: string) => Promise<void>;
+    onImportBackup: (passphrase: string) => Promise<void>;
     onShowOnboarding: () => void;
 };

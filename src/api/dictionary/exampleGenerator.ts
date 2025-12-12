@@ -1,6 +1,6 @@
 import QuickLRU from "quick-lru";
 
-import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_URL } from "@/config/openAI";
+import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_KEY, OPENAI_PROXY_URL } from "@/config/openAI";
 import { DictionaryMode } from "@/services/dictionary/types";
 import { MeaningEntry } from "@/services/dictionary/types/WordResult";
 
@@ -145,7 +145,10 @@ async function requestOpenAI(
     try {
         const response = await fetch(requestUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                ...(OPENAI_PROXY_KEY ? { "x-api-key": OPENAI_PROXY_KEY } : {}),
+            },
             body: JSON.stringify({
                 word,
                 mode,

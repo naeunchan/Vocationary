@@ -1,7 +1,7 @@
 import { Buffer } from "buffer";
 import * as FileSystem from "expo-file-system";
 
-import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_URL } from "@/config/openAI";
+import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_KEY, OPENAI_PROXY_URL } from "@/config/openAI";
 
 const TTS_MODEL = "gpt-4o-mini-tts";
 const TTS_VOICE = "alloy";
@@ -78,7 +78,10 @@ export async function getPronunciationAudio(word: string) {
 
     const response = await fetch(requestUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+            "Content-Type": "application/json",
+            ...(OPENAI_PROXY_KEY ? { "x-api-key": OPENAI_PROXY_KEY } : {}),
+        },
         body: JSON.stringify({
             text: normalized,
             model: TTS_MODEL,

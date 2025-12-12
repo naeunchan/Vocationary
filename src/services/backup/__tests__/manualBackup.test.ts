@@ -1,3 +1,5 @@
+import { Buffer } from "buffer";
+
 import { exportBackupToFile, importBackupFromDocument } from "../manualBackup";
 
 jest.mock("expo-document-picker", () => ({
@@ -17,6 +19,12 @@ jest.mock("expo-file-system/legacy", () => ({
 jest.mock("expo-sharing", () => ({
     isAvailableAsync: jest.fn(async () => true),
     shareAsync: jest.fn(async () => {}),
+}));
+
+jest.mock("expo-crypto", () => ({
+    CryptoDigestAlgorithm: { SHA256: "SHA256" },
+    digestStringAsync: jest.fn(async (_algo, value) => "hash-" + value),
+    getRandomBytesAsync: jest.fn(async () => new Uint8Array(8)),
 }));
 
 jest.mock("@/services/database", () => ({
@@ -42,7 +50,7 @@ describe("manualBackup", () => {
     });
 
     it("exports a backup file and triggers sharing", async () => {
-        const filePath = await exportBackupToFile();
+        const filePath = await exportBackupToFile("secret");
 
         expect(mockDatabase.exportBackup).toHaveBeenCalled();
         expect(mockFileSystem.makeDirectoryAsync).toHaveBeenCalled();
@@ -59,17 +67,19 @@ describe("manualBackup", () => {
             canceled: false,
             assets: [{ uri: "file:///tmp/backup.json" }],
         });
+        const payload = { version: 1, exportedAt: "t", users: [], favorites: {}, searchHistory: [] };
+        const ciphertext = Buffer.from(JSON.stringify(payload)).toString("base64");
         mockFileSystem.readAsStringAsync.mockResolvedValue(
             JSON.stringify({
                 version: 1,
-                exportedAt: "2025-01-01T00:00:00Z",
-                users: [],
-                favorites: {},
-                searchHistory: [],
+                encrypted: true,
+                salt: "salt",
+                ciphertext,
+                integrity: `hash-${ciphertext}:salt`,
             }),
         );
 
-        const result = await importBackupFromDocument();
+        const result = await importBackupFromDocument("secret");
 
         expect(result).toBe(true);
         expect(mockDatabase.importBackup).toHaveBeenCalled();
@@ -78,7 +88,7 @@ describe("manualBackup", () => {
     it("returns false when the document picker is cancelled", async () => {
         mockDocumentPicker.getDocumentAsync.mockResolvedValue({ canceled: true });
 
-        const result = await importBackupFromDocument();
+        const result = await importBackupFromDocument("secret");
 
         expect(result).toBe(false);
         expect(mockDatabase.importBackup).not.toHaveBeenCalled();
