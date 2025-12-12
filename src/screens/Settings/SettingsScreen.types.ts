@@ -12,8 +12,8 @@ export type SettingsScreenProps = {
     profileUsername: string | null;
     onNavigateProfile: () => void;
     onNavigateAccountDeletion: () => void;
-    onExportBackup: (passphrase: string) => void;
-    onImportBackup: (passphrase: string) => void;
+    onExportBackup: (passphrase: string) => Promise<void>;
+    onImportBackup: (passphrase: string) => Promise<void>;
     themeMode: ThemeMode;
     fontScale: number;
     onNavigateThemeSettings: () => void;
