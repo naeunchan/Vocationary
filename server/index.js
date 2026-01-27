@@ -27,10 +27,11 @@ const corsOrigins = (process.env.CORS_ORIGINS || "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+const isProduction = process.env.NODE_ENV === "production";
 
 app.use(
     cors({
-        origin: corsOrigins.length ? corsOrigins : "*",
+        origin: corsOrigins.length ? corsOrigins : isProduction ? false : "*",
         optionsSuccessStatus: 200,
     }),
 );
