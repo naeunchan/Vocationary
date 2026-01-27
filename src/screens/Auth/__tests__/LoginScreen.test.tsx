@@ -2,6 +2,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import React from "react";
 
 import { LoginScreen } from "@/screens/Auth/LoginScreen";
+import { t } from "@/shared/i18n";
 import { AppAppearanceProvider } from "@/theme/AppearanceContext";
 
 jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
@@ -22,10 +23,13 @@ const wrapper: React.ComponentType<React.PropsWithChildren> = ({ children }) => 
 );
 
 const baseProps = {
-    onLogin: jest.fn(),
-    onSignUp: jest.fn(),
+    onSocialLogin: jest.fn(),
     onGuest: jest.fn(),
     loading: false,
+    socialLoginAvailability: {
+        google: true,
+        apple: true,
+    },
 };
 
 describe("LoginScreen", () => {
@@ -33,17 +37,13 @@ describe("LoginScreen", () => {
         jest.clearAllMocks();
     });
 
-    it("invokes onLogin with typed credentials", () => {
-        const onLogin = jest.fn();
-        const { getByPlaceholderText, getByLabelText } = render(<LoginScreen {...baseProps} onLogin={onLogin} />, {
-            wrapper,
-        });
+    it("invokes onSocialLogin with google provider", () => {
+        const onSocialLogin = jest.fn();
+        const { getByLabelText } = render(<LoginScreen {...baseProps} onSocialLogin={onSocialLogin} />, { wrapper });
 
-        fireEvent.changeText(getByPlaceholderText("이메일 주소를 입력하세요"), " user@example.com ");
-        fireEvent.changeText(getByPlaceholderText("비밀번호를 입력하세요"), "secret ");
-        fireEvent.press(getByLabelText(/로그인|Log in/));
+        fireEvent.press(getByLabelText(t("auth.social.google")));
 
-        expect(onLogin).toHaveBeenCalledWith("user@example.com", "secret", { rememberMe: false });
+        expect(onSocialLogin).toHaveBeenCalledWith("google", "login");
     });
 
     it("displays error message when provided", () => {

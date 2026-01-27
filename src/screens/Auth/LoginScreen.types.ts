@@ -1,8 +1,12 @@
 export type LoginScreenProps = {
-    onLogin: (username: string, password: string, options?: { rememberMe?: boolean }) => void;
-    onSignUp: (username: string, password: string, displayName: string, options?: { rememberMe?: boolean }) => void;
+    onSocialLogin: (provider: "google" | "apple", intent: "login" | "signup") => void;
+    socialLoginAvailability?: {
+        google?: boolean;
+        apple?: boolean;
+    };
+    socialLoginLoading?: boolean;
+    socialLoadingProvider?: "google" | "apple" | null;
     onGuest: () => void;
-    loading?: boolean;
     errorMessage?: string | null;
-    initialMode?: "login" | "signup";
+    loading?: boolean;
 };

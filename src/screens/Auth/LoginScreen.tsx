@@ -1,13 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthModeSwitch } from "@/screens/Auth/components/AuthModeSwitch";
-import { CredentialFields } from "@/screens/Auth/components/CredentialFields";
 import { GuestButton } from "@/screens/Auth/components/GuestButton";
 import { LoginHeader } from "@/screens/Auth/components/LoginHeader";
-import { PrimaryActionButton } from "@/screens/Auth/components/PrimaryActionButton";
-import { RememberMeToggle } from "@/screens/Auth/components/RememberMeToggle";
 import { getLoginCopy } from "@/screens/Auth/constants/loginCopy";
 import { createLoginScreenStyles } from "@/screens/Auth/LoginScreen.styles";
 import { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
@@ -15,94 +12,54 @@ import { t } from "@/shared/i18n";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
 export function LoginScreen({
-    onLogin,
-    onSignUp,
+    onSocialLogin,
+    socialLoginAvailability,
+    socialLoginLoading = false,
+    socialLoadingProvider = null,
     onGuest,
-    loading = false,
     errorMessage,
-    initialMode = "login",
+    loading = false,
 }: LoginScreenProps) {
     const styles = useThemedStyles(createLoginScreenStyles);
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [displayName, setDisplayName] = useState("");
-    const [mode, setMode] = useState<"login" | "signup">(initialMode);
-    const [rememberMe, setRememberMe] = useState(false);
-    useEffect(() => {
-        setMode(initialMode);
-        setUsername("");
-        setPassword("");
-        setConfirmPassword("");
-        setDisplayName("");
-    }, [initialMode]);
-
-    const trimmedUsername = useMemo(() => username.trim(), [username]);
-    const trimmedPassword = useMemo(() => password.trim(), [password]);
-    const trimmedDisplayName = useMemo(() => displayName.trim(), [displayName]);
-    const trimmedConfirmPassword = useMemo(() => confirmPassword.trim(), [confirmPassword]);
-
+    const [mode, setMode] = useState<"login" | "signup">("login");
     const copy = useMemo(() => getLoginCopy(mode), [mode]);
-    const passwordMismatchMessage =
-        mode === "signup" && trimmedConfirmPassword.length > 0 && trimmedPassword !== trimmedConfirmPassword
-            ? "비밀번호가 일치하지 않아요."
-            : null;
-    const isPasswordMismatch = Boolean(passwordMismatchMessage);
-    const isPrimaryDisabled =
-        loading || trimmedUsername.length === 0 || trimmedPassword.length === 0 || isPasswordMismatch;
+    const availability = socialLoginAvailability ?? {};
+    const isGoogleDisabled = loading || !availability.google || !onSocialLogin;
+    const isAppleDisabled = loading || !availability.apple || !onSocialLogin;
+    const isGoogleLoading = socialLoginLoading && socialLoadingProvider === "google";
+    const isAppleLoading = socialLoginLoading && socialLoadingProvider === "apple";
+    const socialSpinnerColor = (styles.socialLoadingText?.color as string | undefined) || undefined;
 
-    const handlePrimaryPress = useCallback(() => {
-        if (isPrimaryDisabled) {
+    const handleSocialLoginPress = useCallback(() => {
+        if (isGoogleDisabled) {
             return;
         }
+        onSocialLogin("google", mode);
+    }, [isGoogleDisabled, mode, onSocialLogin]);
 
-        if (mode === "login") {
-            onLogin(trimmedUsername, trimmedPassword, { rememberMe });
+    const handleSocialLoginApple = useCallback(() => {
+        if (isAppleDisabled) {
             return;
         }
-
-        if (isPasswordMismatch) {
-            return;
-        }
-
-        onSignUp(trimmedUsername, trimmedPassword, trimmedDisplayName, { rememberMe });
-    }, [
-        isPasswordMismatch,
-        isPrimaryDisabled,
-        mode,
-        onLogin,
-        onSignUp,
-        rememberMe,
-        trimmedDisplayName,
-        trimmedPassword,
-        trimmedUsername,
-    ]);
-
-    const handleGuestPress = useCallback(() => {
-        if (!loading) {
-            onGuest();
-        }
-    }, [loading, onGuest]);
+        onSocialLogin("apple", mode);
+    }, [isAppleDisabled, mode, onSocialLogin]);
 
     const handleToggleMode = useCallback(() => {
         if (loading) {
             return;
         }
         setMode((previous) => (previous === "login" ? "signup" : "login"));
-        setPassword("");
-        setConfirmPassword("");
-        setDisplayName("");
     }, [loading]);
 
-    const handleForgotPasswordPress = useCallback(() => {
+    const handleGuestPress = useCallback(() => {
         if (loading) {
             return;
         }
-        Alert.alert(
-            "비밀번호 안내",
-            "이 앱의 계정은 기기 내부에만 저장돼요. 비밀번호를 잊은 경우 기기에서 로그아웃 후 새 계정을 만들어주세요.",
-        );
-    }, [loading]);
+        Alert.alert("게스트 모드 안내", "게스트 모드에서는 단어 저장이 최대 10개로 제한돼요. 계속하시겠어요?", [
+            { text: "취소", style: "cancel" },
+            { text: "확인", onPress: () => onGuest() },
+        ]);
+    }, [loading, onGuest]);
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -116,44 +73,43 @@ export function LoginScreen({
 
                     {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-                    <CredentialFields
-                        mode={mode}
-                        username={username}
-                        password={password}
-                        confirmPassword={confirmPassword}
-                        confirmPasswordError={passwordMismatchMessage}
-                        displayName={displayName}
-                        loading={loading}
-                        onChangeUsername={setUsername}
-                        onChangePassword={setPassword}
-                        onChangeConfirmPassword={setConfirmPassword}
-                        onChangeDisplayName={setDisplayName}
-                    />
-
-                    <RememberMeToggle value={rememberMe} disabled={loading} onChange={setRememberMe} />
-
-                    <PrimaryActionButton
-                        label={copy.primaryButton}
-                        loading={loading}
-                        disabled={isPrimaryDisabled}
-                        onPress={handlePrimaryPress}
-                        mode={mode}
-                    />
-
                     <TouchableOpacity
-                        style={styles.linkButton}
-                        onPress={handleForgotPasswordPress}
-                        disabled={loading}
+                        style={[styles.socialButton, isGoogleDisabled && styles.disabledButton]}
+                        onPress={handleSocialLoginPress}
+                        disabled={isGoogleDisabled}
                         accessibilityRole="button"
-                        accessibilityLabel={t("auth.forgotPassword")}
+                        accessibilityLabel={t("auth.social.google")}
                     >
-                        <Text style={styles.linkButtonText}>{t("auth.forgotPassword")}</Text>
+                        {isGoogleLoading ? (
+                            <View style={styles.buttonLoadingRow}>
+                                <ActivityIndicator size="small" color={socialSpinnerColor} />
+                                <Text style={styles.socialLoadingText}>{t("auth.social.loading")}</Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.socialButtonText}>
+                                {mode === "login" ? t("auth.social.google") : t("auth.social.googleSignup")}
+                            </Text>
+                        )}
                     </TouchableOpacity>
 
-                    <Text style={styles.helperText}>
-                        계정과 단어장은 이 기기에만 저장돼요. 다른 기기에서는 새 계정을 만들어야 해요.
-                    </Text>
-                    <Text style={styles.helperText}>비밀번호를 잊으면 복구할 수 없으니 안전한 곳에 보관해주세요.</Text>
+                    <TouchableOpacity
+                        style={[styles.socialButton, isAppleDisabled && styles.disabledButton]}
+                        onPress={handleSocialLoginApple}
+                        disabled={isAppleDisabled}
+                        accessibilityRole="button"
+                        accessibilityLabel={mode === "login" ? t("auth.social.apple") : t("auth.social.appleSignup")}
+                    >
+                        {isAppleLoading ? (
+                            <View style={styles.buttonLoadingRow}>
+                                <ActivityIndicator size="small" color={socialSpinnerColor} />
+                                <Text style={styles.socialLoadingText}>{t("auth.social.loading")}</Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.socialButtonText}>
+                                {mode === "login" ? t("auth.social.apple") : t("auth.social.appleSignup")}
+                            </Text>
+                        )}
+                    </TouchableOpacity>
 
                     <GuestButton loading={loading} onPress={handleGuestPress} />
 
@@ -163,8 +119,6 @@ export function LoginScreen({
                         disabled={loading}
                         onToggle={handleToggleMode}
                     />
-
-                    <Text style={styles.footerNote}>게스트 모드에서는 단어 저장이 최대 10개로 제한돼요.</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>
