@@ -1,4 +1,5 @@
 import { Buffer } from "buffer";
+import CryptoJS from "crypto-js";
 import * as Crypto from "expo-crypto";
 import { getRandomBytesAsync } from "expo-crypto";
 import * as DocumentPicker from "expo-document-picker";
@@ -9,12 +10,24 @@ import { type BackupPayload, exportBackup, importBackup } from "@/services/datab
 
 const BACKUP_DIRECTORY = `${FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? ""}backups`;
 
-type SealedBackup = {
+type SealedBackupV1 = {
     version: 1;
     encrypted: true;
     salt: string;
     ciphertext: string;
     integrity: string;
+};
+
+type SealedBackupV2 = {
+    version: 2;
+    encrypted: true;
+    salt: string;
+    iv: string;
+    ciphertext: string;
+    integrity: string;
+    kdf: "pbkdf2-sha256";
+    iterations: number;
+    cipher: "aes-256-cbc";
 };
 
 async function ensureBackupDirectory() {
@@ -53,35 +66,103 @@ function xorBytes(data: Uint8Array, key: Uint8Array) {
     return output;
 }
 
-async function sealPayload(payload: BackupPayload, passphrase: string): Promise<SealedBackup> {
+async function sealPayload(payload: BackupPayload, passphrase: string): Promise<SealedBackupV2> {
     if (!passphrase.trim()) {
         throw new Error("암호를 입력해주세요.");
     }
     validateBackupPayload(payload);
-    const saltBytes = await getRandomBytesAsync(8);
+    const saltBytes = await getRandomBytesAsync(16);
+    const ivBytes = await getRandomBytesAsync(16);
     const salt = Buffer.from(saltBytes).toString("hex");
-    const key = await deriveKey(passphrase, salt);
-    const plaintext = Buffer.from(JSON.stringify(payload), "utf8");
-    const ciphertextBytes = xorBytes(plaintext, key);
-    const ciphertext = Buffer.from(ciphertextBytes).toString("base64");
-    const integrity = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${ciphertext}:${salt}`);
+    const iv = Buffer.from(ivBytes).toString("hex");
+    const iterations = 120_000;
 
-    return { version: 1, encrypted: true, salt, ciphertext, integrity };
+    const saltWordArray = CryptoJS.enc.Hex.parse(salt);
+    const ivWordArray = CryptoJS.enc.Hex.parse(iv);
+    const key = CryptoJS.PBKDF2(passphrase, saltWordArray, {
+        keySize: 256 / 32,
+        iterations,
+        hasher: CryptoJS.algo.SHA256,
+    });
+    const macKey = CryptoJS.PBKDF2(`${passphrase}-mac`, saltWordArray, {
+        keySize: 256 / 32,
+        iterations,
+        hasher: CryptoJS.algo.SHA256,
+    });
+
+    const plaintext = JSON.stringify(payload);
+    const encrypted = CryptoJS.AES.encrypt(plaintext, key, {
+        iv: ivWordArray,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7,
+    });
+    const ciphertext = encrypted.toString();
+    const integrity = CryptoJS.HmacSHA256(`${ciphertext}:${iv}:${salt}`, macKey).toString(CryptoJS.enc.Hex);
+
+    return {
+        version: 2,
+        encrypted: true,
+        salt,
+        iv,
+        ciphertext,
+        integrity,
+        kdf: "pbkdf2-sha256",
+        iterations,
+        cipher: "aes-256-cbc",
+    };
 }
 
 async function unsealPayload(serialized: string, passphrase: string): Promise<BackupPayload> {
     if (!passphrase.trim()) {
         throw new Error("암호를 입력해주세요.");
     }
-    let parsed: SealedBackup | BackupPayload;
+    let parsed: SealedBackupV1 | SealedBackupV2 | BackupPayload;
     try {
         parsed = JSON.parse(serialized);
     } catch {
         throw new Error("백업 파일을 읽을 수 없어요.");
     }
 
-    if ((parsed as SealedBackup).encrypted) {
-        const sealed = parsed as SealedBackup;
+    if ((parsed as SealedBackupV1 | SealedBackupV2).encrypted) {
+        const sealed = parsed as SealedBackupV1 | SealedBackupV2;
+        if (sealed.version === 2) {
+            if (!sealed.ciphertext || !sealed.salt || !sealed.iv || !sealed.integrity) {
+                throw new Error("백업 파일 형식이 올바르지 않아요.");
+            }
+            const saltWordArray = CryptoJS.enc.Hex.parse(sealed.salt);
+            const ivWordArray = CryptoJS.enc.Hex.parse(sealed.iv);
+            const key = CryptoJS.PBKDF2(passphrase, saltWordArray, {
+                keySize: 256 / 32,
+                iterations: sealed.iterations || 120_000,
+                hasher: CryptoJS.algo.SHA256,
+            });
+            const macKey = CryptoJS.PBKDF2(`${passphrase}-mac`, saltWordArray, {
+                keySize: 256 / 32,
+                iterations: sealed.iterations || 120_000,
+                hasher: CryptoJS.algo.SHA256,
+            });
+            const expectedIntegrity = CryptoJS.HmacSHA256(
+                `${sealed.ciphertext}:${sealed.iv}:${sealed.salt}`,
+                macKey,
+            ).toString(CryptoJS.enc.Hex);
+            if (expectedIntegrity !== sealed.integrity) {
+                throw new Error("백업 파일 무결성 검증에 실패했어요.");
+            }
+
+            const decrypted = CryptoJS.AES.decrypt(sealed.ciphertext, key, {
+                iv: ivWordArray,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7,
+            });
+            const plaintext = decrypted.toString(CryptoJS.enc.Utf8);
+            if (!plaintext) {
+                throw new Error("백업 파일을 복호화하지 못했어요.");
+            }
+            const payload = JSON.parse(plaintext) as BackupPayload;
+            validateBackupPayload(payload);
+            return payload;
+        }
+
         if (sealed.version !== 1 || !sealed.ciphertext || !sealed.salt || !sealed.integrity) {
             throw new Error("백업 파일 형식이 올바르지 않아요.");
         }

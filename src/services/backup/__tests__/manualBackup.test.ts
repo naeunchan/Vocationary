@@ -24,7 +24,7 @@ jest.mock("expo-sharing", () => ({
 jest.mock("expo-crypto", () => ({
     CryptoDigestAlgorithm: { SHA256: "SHA256" },
     digestStringAsync: jest.fn(async (_algo, value) => "hash-" + value),
-    getRandomBytesAsync: jest.fn(async () => new Uint8Array(8)),
+    getRandomBytesAsync: jest.fn(async (length = 8) => new Uint8Array(length)),
 }));
 
 jest.mock("@/services/database", () => ({
