@@ -2,6 +2,7 @@ import { Buffer } from "buffer";
 import * as FileSystem from "expo-file-system";
 
 import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_KEY, OPENAI_PROXY_URL } from "@/config/openAI";
+import { getFirebaseIdToken } from "@/services/auth/firebase";
 
 const TTS_MODEL = "gpt-4o-mini-tts";
 const TTS_VOICE = "alloy";
@@ -76,11 +77,13 @@ export async function getPronunciationAudio(word: string) {
     const endpointBase = OPENAI_PROXY_URL.replace(/\/+$/, "");
     const requestUrl = `${endpointBase}/dictionary/tts`;
 
+    const idToken = await getFirebaseIdToken();
     const response = await fetch(requestUrl, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             ...(OPENAI_PROXY_KEY ? { "x-api-key": OPENAI_PROXY_KEY } : {}),
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
         },
         body: JSON.stringify({
             text: normalized,

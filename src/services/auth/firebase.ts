@@ -138,6 +138,19 @@ export async function deleteFirebaseCurrentUser(): Promise<"deleted" | "no-user"
     }
 }
 
+export async function getFirebaseIdToken(): Promise<string | null> {
+    try {
+        const auth = getFirebaseAuth();
+        const user = auth.currentUser;
+        if (!user) {
+            return null;
+        }
+        return await user.getIdToken();
+    } catch {
+        return null;
+    }
+}
+
 export async function getFirebaseCurrentUserOnce(): Promise<User | null> {
     const auth = getFirebaseAuth();
     if (auth.currentUser) {
