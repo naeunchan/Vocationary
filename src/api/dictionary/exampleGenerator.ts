@@ -1,6 +1,7 @@
 import QuickLRU from "quick-lru";
 
 import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_KEY, OPENAI_PROXY_URL } from "@/config/openAI";
+import { getFirebaseIdToken } from "@/services/auth/firebase";
 import { DictionaryMode } from "@/services/dictionary/types";
 import { MeaningEntry } from "@/services/dictionary/types/WordResult";
 
@@ -143,11 +144,13 @@ async function requestOpenAI(
     }, 8000);
 
     try {
+        const idToken = await getFirebaseIdToken();
         const response = await fetch(requestUrl, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 ...(OPENAI_PROXY_KEY ? { "x-api-key": OPENAI_PROXY_KEY } : {}),
+                ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
             },
             body: JSON.stringify({
                 word,
