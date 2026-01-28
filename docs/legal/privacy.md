@@ -6,7 +6,7 @@ We collect only the data required to operate the app: local account credentials 
 
 ## Data We Process
 
-- Account credentials: stored locally (hashed) on your device.
+- Account identifiers (email from social login when available): stored locally on your device.
 - Usage data: search history and favorites stored locally.
 - Diagnostics: optional crash/error reports via Sentry if enabled with a DSN.
 
@@ -18,7 +18,7 @@ We collect only the data required to operate the app: local account credentials 
 
 ## Storage & Security
 
-- Credentials are stored in SecureStore/Keychain where available; other data is stored in SQLite on-device.
+- Session/auto-login data is stored in SecureStore/Keychain where available; other data is stored in SQLite on-device.
 - Backups you export remain your responsibility; we do not sync to a server.
 
 ## Your Choices

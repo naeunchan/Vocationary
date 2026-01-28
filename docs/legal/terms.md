@@ -11,7 +11,7 @@ By using Vocationary, you agree to these terms.
 
 ## Accounts
 
-- Accounts are stored locally on your device; there is no password recovery. Keep your password safe.
+- Accounts are created via Google/Apple sign-in and stored locally on your device. There is no password recovery.
 - You may delete your account in Settings; this clears local data.
 
 ## Acceptable Use
