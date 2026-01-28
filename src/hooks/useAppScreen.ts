@@ -46,7 +46,12 @@ import {
 } from "@/screens/App/AppScreen.constants";
 import type { AppScreenHookResult } from "@/screens/App/AppScreen.types";
 import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
-import { getFirebaseCurrentUserOnce, signInWithAppleIdToken, signInWithGoogleIdToken } from "@/services/auth/firebase";
+import {
+    deleteFirebaseCurrentUser,
+    getFirebaseCurrentUserOnce,
+    signInWithAppleIdToken,
+    signInWithGoogleIdToken,
+} from "@/services/auth/firebase";
 import { exportBackupToFile, importBackupFromDocument } from "@/services/backup/manualBackup";
 import {
     clearAutoLoginCredentials,
@@ -1035,6 +1040,7 @@ export function useAppScreen(): AppScreenHookResult {
             throw new Error(MISSING_USER_ERROR_MESSAGE);
         }
         try {
+            await deleteFirebaseCurrentUser();
             await deleteUserAccount(user.id, user.username);
             await clearSession();
             await clearAutoLoginCredentials();
@@ -1050,6 +1056,7 @@ export function useAppScreen(): AppScreenHookResult {
         clearSearchHistoryEntries,
         clearSession,
         deleteUserAccount,
+        deleteFirebaseCurrentUser,
         setInitialAuthState,
         setRecentSearches,
         user,
