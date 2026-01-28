@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { type FirebaseApp, type FirebaseOptions, initializeApp } from "firebase/app";
 import {
     type Auth,
+    deleteUser,
     getAuth,
     GoogleAuthProvider,
     initializeAuth,
@@ -110,6 +111,31 @@ export async function signInWithAppleIdToken(idToken: string, rawNonce: string):
         rawNonce,
     });
     return await signInWithCredential(auth, credential);
+}
+
+function normalizeFirebaseAuthError(error: unknown): Error {
+    const code = typeof error === "object" && error !== null ? (error as { code?: string }).code : undefined;
+    if (code === "auth/requires-recent-login") {
+        return new Error("보안을 위해 다시 로그인한 뒤 계정을 삭제해주세요.");
+    }
+    if (error instanceof Error) {
+        return error;
+    }
+    return new Error("Firebase 계정을 삭제하지 못했어요.");
+}
+
+export async function deleteFirebaseCurrentUser(): Promise<"deleted" | "no-user"> {
+    const auth = getFirebaseAuth();
+    const user = auth.currentUser;
+    if (!user) {
+        return "no-user";
+    }
+    try {
+        await deleteUser(user);
+        return "deleted";
+    } catch (error) {
+        throw normalizeFirebaseAuthError(error);
+    }
 }
 
 export async function getFirebaseCurrentUserOnce(): Promise<User | null> {
