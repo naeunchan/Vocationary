@@ -15,8 +15,7 @@
         "ios": {
             "supportsTablet": true,
             "bundleIdentifier": "com.vocationary.app",
-            "buildNumber": "1.0.0",
-            "usesAppleSignIn": true
+            "buildNumber": "1.0.0"
         },
         "android": {
             "adaptiveIcon": {
@@ -31,11 +30,11 @@
         "web": {
             "favicon": "./assets/favicon.png"
         },
-        "plugins": ["expo-sqlite", "expo-audio", "expo-secure-store", "sentry-expo", "expo-asset", "expo-web-browser"],
+        "plugins": ["expo-sqlite", "expo-audio", "expo-secure-store", "sentry-expo", "expo-asset"],
         "extra": {
             "versionLabel": "1.0.0",
-            "openAIProxyUrl": "http://172.20.10.11:4000",
-            "openAIProxyKey": "",
+            "openAIProxyUrl": "http://192.168.0.31:4000",
+            "openAIProxyKey": "dev-proxy-key",
             "privacyPolicyUrl": "https://vocationary.app/legal/privacy",
             "termsOfServiceUrl": "https://vocationary.app/legal/terms"
         }

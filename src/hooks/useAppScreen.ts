@@ -1,10 +1,7 @@
-import * as AppleAuthentication from "expo-apple-authentication";
-import * as Google from "expo-auth-session/providers/google";
 import Constants from "expo-constants";
 import * as LocalAuthentication from "expo-local-authentication";
-import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
 
 import { fetchDictionaryEntry } from "@/api/dictionary/freeDictionaryClient";
 import { getPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
@@ -37,22 +34,11 @@ import {
     PASSWORD_UPDATE_ERROR_MESSAGE,
     PROFILE_UPDATE_ERROR_MESSAGE,
     REMOVE_FAVORITE_ERROR_MESSAGE,
-    SOCIAL_LOGIN_EMAIL_REQUIRED_MESSAGE,
-    SOCIAL_LOGIN_GENERIC_ERROR_MESSAGE,
-    SOCIAL_LOGIN_NOT_IMPLEMENTED_MESSAGE,
-    SOCIAL_LOGIN_UNAVAILABLE_MESSAGE,
-    SOCIAL_LOGIN_UNSUPPORTED_PROVIDER_MESSAGE,
     TOGGLE_FAVORITE_ERROR_MESSAGE,
     UPDATE_STATUS_ERROR_MESSAGE,
 } from "@/screens/App/AppScreen.constants";
 import type { AppScreenHookResult } from "@/screens/App/AppScreen.types";
 import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
-import {
-    deleteFirebaseCurrentUser,
-    getFirebaseCurrentUserOnce,
-    signInWithAppleIdToken,
-    signInWithGoogleIdToken,
-} from "@/services/auth/firebase";
 import { exportBackupToFile, importBackupFromDocument } from "@/services/backup/manualBackup";
 import {
     clearAutoLoginCredentials,
@@ -68,8 +54,6 @@ import {
     initializeDatabase,
     isDisplayNameTaken,
     markAppHelpSeen,
-    OAuthProfilePayload,
-    OAuthProvider,
     removeFavoriteForUser,
     saveSearchHistoryEntries,
     setGuestSession,
@@ -78,15 +62,11 @@ import {
     updateUserDisplayName,
     updateUserPassword,
     upsertFavoriteForUser,
-    upsertOAuthUser,
     type UserRecord,
 } from "@/services/database";
 import { DictionaryMode, WordResult } from "@/services/dictionary/types";
 import { applyExampleUpdates, clearPendingFlags } from "@/services/dictionary/utils/mergeExampleUpdates";
 import { createFavoriteEntry, FavoriteWordEntry, MemorizationStatus } from "@/services/favorites/types";
-import { createAppleAuthNonce } from "@/services/oauth/apple";
-import { getGoogleAuthConfig } from "@/services/oauth/google";
-import { isProviderSupported } from "@/services/oauth/providers";
 import { SEARCH_HISTORY_LIMIT, SearchHistoryEntry } from "@/services/searchHistory/types";
 import {
     BIOMETRIC_LOGIN_PREFERENCE_KEY,
@@ -97,8 +77,6 @@ import {
 } from "@/theme/constants";
 import type { ThemeMode } from "@/theme/types";
 import { playRemoteAudio } from "@/utils/audio";
-
-WebBrowser.maybeCompleteAuthSession();
 
 export function useAppScreen(): AppScreenHookResult {
     const [searchTerm, setSearchTerm] = useState("");
@@ -118,7 +96,6 @@ export function useAppScreen(): AppScreenHookResult {
     const [isGuest, setIsGuest] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
     const [authLoading, setAuthLoading] = useState(false);
-    const [socialProviderInFlight, setSocialProviderInFlight] = useState<OAuthProvider | null>(null);
     const [isHelpVisible, setIsHelpVisible] = useState(false);
     const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
     const [versionLabel] = useState(() => {
@@ -128,83 +105,6 @@ export function useAppScreen(): AppScreenHookResult {
     const activeLookupRef = useRef(0);
     const hasShownPronunciationInfoRef = useRef(false);
     const isPronunciationAvailable = OPENAI_FEATURE_ENABLED;
-    const { config: googleAuthConfig, isConfigured: isGoogleConfigured } = useMemo(getGoogleAuthConfig, []);
-    const googleClientFallback = useMemo(
-        () =>
-            googleAuthConfig.expoClientId ??
-            googleAuthConfig.webClientId ??
-            googleAuthConfig.androidClientId ??
-            googleAuthConfig.iosClientId ??
-            "disabled-google-client-id",
-        [
-            googleAuthConfig.androidClientId,
-            googleAuthConfig.expoClientId,
-            googleAuthConfig.iosClientId,
-            googleAuthConfig.webClientId,
-        ],
-    );
-    const googleSafeConfig = useMemo(
-        () => ({
-            ...googleAuthConfig,
-            iosClientId: googleAuthConfig.iosClientId ?? googleClientFallback,
-            androidClientId: googleAuthConfig.androidClientId ?? googleClientFallback,
-            webClientId: googleAuthConfig.webClientId ?? googleClientFallback,
-            expoClientId: googleAuthConfig.expoClientId ?? googleClientFallback,
-        }),
-        [googleAuthConfig, googleClientFallback],
-    );
-    const [googleRequest, , promptGoogleAsync] = Google.useAuthRequest(googleSafeConfig, {
-        useProxy: Platform.OS !== "web",
-    });
-    const canUseGoogleLogin = useMemo(() => {
-        if (!isGoogleConfigured) {
-            return false;
-        }
-        if (Platform.OS === "ios") {
-            return Boolean(googleAuthConfig.iosClientId || googleAuthConfig.expoClientId);
-        }
-        if (Platform.OS === "android") {
-            return Boolean(googleAuthConfig.androidClientId || googleAuthConfig.expoClientId);
-        }
-        return Boolean(googleAuthConfig.webClientId || googleAuthConfig.expoClientId);
-    }, [
-        googleAuthConfig.androidClientId,
-        googleAuthConfig.expoClientId,
-        googleAuthConfig.iosClientId,
-        googleAuthConfig.webClientId,
-        isGoogleConfigured,
-    ]);
-
-    const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
-
-    useEffect(() => {
-        let isMounted = true;
-
-        if (Platform.OS !== "ios") {
-            setAppleAuthAvailable(false);
-            return () => {
-                isMounted = false;
-            };
-        }
-
-        AppleAuthentication.isAvailableAsync()
-            .then((available) => {
-                if (isMounted) {
-                    setAppleAuthAvailable(available);
-                }
-            })
-            .catch(() => {
-                if (isMounted) {
-                    setAppleAuthAvailable(false);
-                }
-            });
-
-        return () => {
-            isMounted = false;
-        };
-    }, []);
-
-    const canUseAppleLogin = appleAuthAvailable;
 
     const setErrorMessage = useCallback(
         (message: string, kind: AppError["kind"] = "UnknownError", extras?: Partial<AppError>) => {
@@ -280,16 +180,6 @@ export function useAppScreen(): AppScreenHookResult {
         [ensurePhoneticForWord, upsertFavoriteForUser],
     );
 
-    const resolveFirebaseProvider = useCallback((providerIds: string[]) => {
-        if (providerIds.includes("google.com")) {
-            return "google" as const;
-        }
-        if (providerIds.includes("apple.com")) {
-            return "apple" as const;
-        }
-        return null;
-    }, []);
-
     useEffect(() => {
         let isMounted = true;
 
@@ -333,28 +223,6 @@ export function useAppScreen(): AppScreenHookResult {
                 }
 
                 if (!session) {
-                    try {
-                        const firebaseUser = await getFirebaseCurrentUserOnce();
-                        if (firebaseUser && isMounted) {
-                            const provider = resolveFirebaseProvider(
-                                firebaseUser.providerData.map((entry) => entry.providerId),
-                            );
-                            const email = firebaseUser.email ?? firebaseUser.providerData?.[0]?.email ?? null;
-                            if (provider && email) {
-                                await completeOAuthLogin({
-                                    provider,
-                                    subject: firebaseUser.uid,
-                                    email: email.toLowerCase(),
-                                    displayName:
-                                        firebaseUser.displayName ?? firebaseUser.providerData?.[0]?.displayName ?? null,
-                                });
-                                return;
-                            }
-                        }
-                    } catch {
-                        // Ignore Firebase auto-login when configuration is missing.
-                    }
-
                     await clearAutoLoginCredentials();
                     setIsGuest(false);
                     setUser(null);
@@ -852,7 +720,6 @@ export function useAppScreen(): AppScreenHookResult {
         setExamplesVisible(false);
         setError(null);
         setAuthError(null);
-        setSocialProviderInFlight(null);
     }, []);
 
     const handleGuestAccessAsync = useCallback(async () => {
@@ -867,7 +734,6 @@ export function useAppScreen(): AppScreenHookResult {
             setResult(null);
             setExamplesVisible(false);
             setError(null);
-            setAuthMode("login");
         } catch (err) {
             const message = err instanceof Error ? err.message : GUEST_ACCESS_ERROR_MESSAGE;
             setAuthError(message);
@@ -954,130 +820,11 @@ export function useAppScreen(): AppScreenHookResult {
         }
     }, [resetAuthState]);
 
-    const completeOAuthLogin = useCallback(
-        async (profile: OAuthProfilePayload) => {
-            const userRecord = await upsertOAuthUser(profile);
-            await loadUserState(userRecord);
-        },
-        [loadUserState],
-    );
-
-    const handleGoogleLoginAsync = useCallback(
-        async (_intent: "login" | "signup" = "login") => {
-            if (authLoading) {
-                return;
-            }
-            if (!canUseGoogleLogin) {
-                setAuthError(SOCIAL_LOGIN_UNAVAILABLE_MESSAGE);
-                return;
-            }
-
-            setAuthLoading(true);
-            setAuthError(null);
-            setSocialProviderInFlight("google");
-
-            try {
-                const result = await promptGoogleAsync({ useProxy: Platform.OS !== "web" });
-                if (!result || result.type === "dismiss" || result.type === "cancel") {
-                    setAuthError(null);
-                    return;
-                }
-                const idToken = result.authentication?.idToken;
-                if (result.type !== "success" || !idToken) {
-                    throw new Error(SOCIAL_LOGIN_GENERIC_ERROR_MESSAGE);
-                }
-                const credentials = await signInWithGoogleIdToken(idToken);
-                const firebaseUser = credentials.user;
-                const email = firebaseUser.email ?? credentials.user.providerData?.[0]?.email ?? result.email;
-                if (!email) {
-                    throw new Error(SOCIAL_LOGIN_EMAIL_REQUIRED_MESSAGE);
-                }
-                await completeOAuthLogin({
-                    provider: "google",
-                    subject: firebaseUser.uid,
-                    email: email.toLowerCase(),
-                    displayName: firebaseUser.displayName ?? firebaseUser.providerData?.[0]?.displayName ?? null,
-                });
-            } catch (err) {
-                const message = err instanceof Error ? err.message : SOCIAL_LOGIN_GENERIC_ERROR_MESSAGE;
-                setAuthError(message);
-            } finally {
-                setAuthLoading(false);
-                setSocialProviderInFlight(null);
-            }
-        },
-        [authLoading, canUseGoogleLogin, completeOAuthLogin, promptGoogleAsync],
-    );
-
-    const handleAppleLoginAsync = useCallback(
-        async (_intent: "login" | "signup" = "login") => {
-            if (authLoading) {
-                return;
-            }
-            if (!canUseAppleLogin) {
-                setAuthError(SOCIAL_LOGIN_UNAVAILABLE_MESSAGE);
-                return;
-            }
-
-            setAuthLoading(true);
-            setAuthError(null);
-            setSocialProviderInFlight("apple");
-
-            try {
-                const { rawNonce, hashedNonce } = await createAppleAuthNonce();
-                const result = await AppleAuthentication.signInAsync({
-                    requestedScopes: [
-                        AppleAuthentication.AppleAuthenticationScope.EMAIL,
-                        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-                    ],
-                    nonce: hashedNonce,
-                });
-
-                const idToken = result.identityToken;
-                if (!idToken) {
-                    throw new Error(SOCIAL_LOGIN_GENERIC_ERROR_MESSAGE);
-                }
-
-                const credentials = await signInWithAppleIdToken(idToken, rawNonce);
-                const firebaseUser = credentials.user;
-                const email = firebaseUser.email ?? credentials.user.providerData?.[0]?.email;
-                if (!email) {
-                    throw new Error(SOCIAL_LOGIN_EMAIL_REQUIRED_MESSAGE);
-                }
-
-                const fullName = result.fullName
-                    ? [result.fullName.givenName, result.fullName.familyName].filter(Boolean).join(" ")
-                    : null;
-
-                await completeOAuthLogin({
-                    provider: "apple",
-                    subject: firebaseUser.uid,
-                    email: email.toLowerCase(),
-                    displayName:
-                        firebaseUser.displayName ?? credentials.user.providerData?.[0]?.displayName ?? fullName ?? null,
-                });
-            } catch (err) {
-                const error = err as { code?: string } | null;
-                if (error?.code === "ERR_CANCELED") {
-                    setAuthError(null);
-                    return;
-                }
-                const message = err instanceof Error ? err.message : SOCIAL_LOGIN_GENERIC_ERROR_MESSAGE;
-                setAuthError(message);
-            } finally {
-                setAuthLoading(false);
-                setSocialProviderInFlight(null);
-            }
-        },
-        [authLoading, canUseAppleLogin, completeOAuthLogin],
-    );
-
     const handleDeleteAccount = useCallback(async () => {
         if (!user) {
             throw new Error(MISSING_USER_ERROR_MESSAGE);
         }
         try {
-            await deleteFirebaseCurrentUser();
             await deleteUserAccount(user.id, user.username);
             await clearSession();
             await clearAutoLoginCredentials();
@@ -1093,7 +840,6 @@ export function useAppScreen(): AppScreenHookResult {
         clearSearchHistoryEntries,
         clearSession,
         deleteUserAccount,
-        deleteFirebaseCurrentUser,
         setInitialAuthState,
         setRecentSearches,
         user,
@@ -1197,25 +943,6 @@ export function useAppScreen(): AppScreenHookResult {
     const handleLogout = useCallback(() => {
         void handleLogoutAsync();
     }, [handleLogoutAsync]);
-
-    const handleSocialLogin = useCallback(
-        (provider: OAuthProvider, intent: "login" | "signup" = "login") => {
-            if (!isProviderSupported(provider)) {
-                setAuthError(SOCIAL_LOGIN_UNSUPPORTED_PROVIDER_MESSAGE);
-                return;
-            }
-            if (provider === "google") {
-                void handleGoogleLoginAsync(intent);
-                return;
-            }
-            if (provider === "apple") {
-                void handleAppleLoginAsync(intent);
-                return;
-            }
-            setAuthError(SOCIAL_LOGIN_NOT_IMPLEMENTED_MESSAGE);
-        },
-        [handleAppleLoginAsync, handleGoogleLoginAsync],
-    );
 
     const isAuthenticated = useMemo(() => isGuest || user !== null, [isGuest, user]);
     const canLogout = user !== null;
@@ -1352,26 +1079,11 @@ export function useAppScreen(): AppScreenHookResult {
 
     const loginBindings = useMemo<LoginScreenProps>(
         () => ({
-            onSocialLogin: handleSocialLogin,
-            socialLoginAvailability: {
-                google: canUseGoogleLogin,
-                apple: canUseAppleLogin,
-            },
-            socialLoginLoading: authLoading && socialProviderInFlight !== null,
-            socialLoadingProvider: socialProviderInFlight,
             onGuest: handleGuestAccess,
             loading: authLoading,
             errorMessage: authError,
         }),
-        [
-            authError,
-            authLoading,
-            canUseGoogleLogin,
-            canUseAppleLogin,
-            handleGuestAccess,
-            handleSocialLogin,
-            socialProviderInFlight,
-        ],
+        [authError, authLoading, handleGuestAccess],
     );
 
     useEffect(() => {

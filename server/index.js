@@ -9,7 +9,7 @@ const { OpenAI } = require("openai");
 
 // Load env values from both project root and server folder (server/.env overrides).
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+dotenv.config({ path: path.resolve(__dirname, ".env"), override: true });
 
 const PORT = Number(process.env.PORT) || 4000;
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";

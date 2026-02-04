@@ -6,7 +6,7 @@ import Constants from "expo-constants";
  */
 const extra = Constants.expoConfig?.extra ?? {};
 
-const BLOCKED_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "example.com"]);
+const BLOCKED_HOSTS = new Set(["192.168.0.31", "127.0.0.1", "0.0.0.0", "example.com"]);
 
 function isPrivateIp(hostname: string) {
     const match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);

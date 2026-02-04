@@ -1,8 +1,8 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import React from "react";
+import { Alert } from "react-native";
 
 import { LoginScreen } from "@/screens/Auth/LoginScreen";
-import { t } from "@/shared/i18n";
 import { AppAppearanceProvider } from "@/theme/AppearanceContext";
 
 jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
@@ -23,13 +23,8 @@ const wrapper: React.ComponentType<React.PropsWithChildren> = ({ children }) => 
 );
 
 const baseProps = {
-    onSocialLogin: jest.fn(),
     onGuest: jest.fn(),
     loading: false,
-    socialLoginAvailability: {
-        google: true,
-        apple: true,
-    },
 };
 
 describe("LoginScreen", () => {
@@ -37,13 +32,13 @@ describe("LoginScreen", () => {
         jest.clearAllMocks();
     });
 
-    it("invokes onSocialLogin with google provider", () => {
-        const onSocialLogin = jest.fn();
-        const { getByLabelText } = render(<LoginScreen {...baseProps} onSocialLogin={onSocialLogin} />, { wrapper });
+    it("shows guest confirmation alert on guest button press", () => {
+        const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
+        const { getByLabelText } = render(<LoginScreen {...baseProps} />, { wrapper });
 
-        fireEvent.press(getByLabelText(t("auth.social.google")));
+        fireEvent.press(getByLabelText("게스트로 둘러보기"));
 
-        expect(onSocialLogin).toHaveBeenCalledWith("google", "login");
+        expect(alertSpy).toHaveBeenCalled();
     });
 
     it("displays error message when provided", () => {
