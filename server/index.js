@@ -43,6 +43,15 @@ app.use(
 
 app.use(express.json({ limit: "1mb" }));
 
+app.use((req, res, next) => {
+    const startedAt = Date.now();
+    res.on("finish", () => {
+        const elapsed = Date.now() - startedAt;
+        console.log(`[REQ] ${req.method} ${req.path} -> ${res.statusCode} (${elapsed}ms)`);
+    });
+    next();
+});
+
 // Basic in-memory rate limiting to prevent accidental abuse
 const requestLog = new Map();
 function rateLimit(req, res, next) {
@@ -60,10 +69,12 @@ function rateLimit(req, res, next) {
 
 function requireApiKey(req, res, next) {
     if (!API_KEY) {
+        console.warn("[AUTH] AI_PROXY_KEY is missing on server");
         return res.status(503).json({ message: "AI proxy missing server API key (AI_PROXY_KEY)." });
     }
     const headerKey = req.headers["x-api-key"];
     if (headerKey !== API_KEY) {
+        console.warn("[AUTH] invalid x-api-key");
         return res.status(401).json({ message: "Unauthorized" });
     }
     next();
@@ -93,6 +104,7 @@ async function requireFirebaseIdToken(req, res, next) {
     const token = header.startsWith("Bearer ") ? header.slice(7).trim() : req.headers["x-firebase-id-token"];
     const ok = await verifyFirebaseIdToken(token);
     if (!ok) {
+        console.warn("[AUTH] Firebase token verification failed");
         return res.status(401).json({ message: "Unauthorized (Firebase token required)." });
     }
     next();
