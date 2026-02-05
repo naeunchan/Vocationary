@@ -64,7 +64,7 @@ import {
     upsertFavoriteForUser,
     type UserRecord,
 } from "@/services/database";
-import { DictionaryMode, WordResult } from "@/services/dictionary/types";
+import { WordResult } from "@/services/dictionary/types";
 import { applyExampleUpdates, clearPendingFlags } from "@/services/dictionary/utils/mergeExampleUpdates";
 import { createFavoriteEntry, FavoriteWordEntry, MemorizationStatus } from "@/services/favorites/types";
 import { SEARCH_HISTORY_LIMIT, SearchHistoryEntry } from "@/services/searchHistory/types";
@@ -86,8 +86,6 @@ export function useAppScreen(): AppScreenHookResult {
     const [result, setResult] = useState<WordResult | null>(null);
     const [examplesVisible, setExamplesVisible] = useState(false);
     const [favorites, setFavorites] = useState<FavoriteWordEntry[]>([]);
-    const [mode, setMode] = useState<DictionaryMode>("en-en");
-    const modeRef = useRef<DictionaryMode>("en-en");
     const [recentSearches, setRecentSearches] = useState<SearchHistoryEntry[]>([]);
     const [themeMode, setThemeMode] = useState<ThemeMode>("light");
     const [fontScale, setFontScale] = useState(DEFAULT_FONT_SCALE);
@@ -129,7 +127,7 @@ export function useAppScreen(): AppScreenHookResult {
         }
 
         try {
-            const fallback = await fetchDictionaryEntry(word.word, "en-en");
+            const fallback = await fetchDictionaryEntry(word.word);
             if (fallback.phonetic) {
                 return {
                     ...word,
@@ -293,10 +291,6 @@ export function useAppScreen(): AppScreenHookResult {
     }, []);
 
     useEffect(() => {
-        modeRef.current = mode;
-    }, [mode]);
-
-    useEffect(() => {
         let isMounted = true;
         async function loadAppearancePreferences() {
             try {
@@ -370,7 +364,7 @@ export function useAppScreen(): AppScreenHookResult {
     }, []);
 
     const updateSearchHistory = useCallback(
-        (term: string, dictionaryMode: DictionaryMode) => {
+        (term: string) => {
             const normalizedTerm = term.trim();
             if (!normalizedTerm) {
                 return;
@@ -381,7 +375,7 @@ export function useAppScreen(): AppScreenHookResult {
                 const filtered = previous.filter((entry) => entry.term.toLowerCase() !== lowerTerm);
                 const entry: SearchHistoryEntry = {
                     term: normalizedTerm,
-                    mode: dictionaryMode,
+                    mode: "en-en",
                     searchedAt: new Date().toISOString(),
                 };
                 const next = [entry, ...filtered].slice(0, SEARCH_HISTORY_LIMIT);
@@ -414,7 +408,7 @@ export function useAppScreen(): AppScreenHookResult {
         });
     }, []);
 
-    const executeSearch = useCallback(async (term: string, dictionaryMode: DictionaryMode) => {
+    const executeSearch = useCallback(async (term: string) => {
         const normalizedTerm = term.trim();
         if (!normalizedTerm) {
             activeLookupRef.current += 1;
@@ -433,7 +427,7 @@ export function useAppScreen(): AppScreenHookResult {
         setExamplesVisible(false);
 
         try {
-            const { base, examplesPromise } = await getWordData(normalizedTerm, dictionaryMode);
+            const { base, examplesPromise } = await getWordData(normalizedTerm);
             if (lookupId !== activeLookupRef.current) {
                 return;
             }
@@ -453,7 +447,7 @@ export function useAppScreen(): AppScreenHookResult {
                         if (updates.length === 0) {
                             return clearPendingFlags(previous);
                         }
-                        return applyExampleUpdates(previous, updates, dictionaryMode);
+                        return applyExampleUpdates(previous, updates);
                     });
                 })
                 .catch((err) => {
@@ -497,10 +491,10 @@ export function useAppScreen(): AppScreenHookResult {
     const handleSearch = useCallback(() => {
         const trimmed = searchTerm.trim();
         if (trimmed) {
-            updateSearchHistory(trimmed, mode);
+            updateSearchHistory(trimmed);
         }
-        void executeSearch(searchTerm, mode);
-    }, [executeSearch, mode, searchTerm, updateSearchHistory]);
+        void executeSearch(searchTerm);
+    }, [executeSearch, searchTerm, updateSearchHistory]);
 
     const handleSelectRecentSearch = useCallback(
         (entry: SearchHistoryEntry) => {
@@ -509,28 +503,11 @@ export function useAppScreen(): AppScreenHookResult {
                 return;
             }
             setSearchTerm(normalizedTerm);
-            if (modeRef.current !== entry.mode) {
-                setMode(entry.mode);
-                modeRef.current = entry.mode;
-            }
-            updateSearchHistory(normalizedTerm, entry.mode);
-            void executeSearch(normalizedTerm, entry.mode);
+            updateSearchHistory(normalizedTerm);
+            void executeSearch(normalizedTerm);
         },
         [executeSearch, updateSearchHistory],
     );
-
-    const handleModeChange = useCallback((nextMode: DictionaryMode) => {
-        if (modeRef.current === nextMode) {
-            return;
-        }
-        activeLookupRef.current += 1;
-        setMode(nextMode);
-        modeRef.current = nextMode;
-        setResult(null);
-        setError(null);
-        setLoading(false);
-        setExamplesVisible(false);
-    }, []);
 
     const handleToggleExamples = useCallback(() => {
         setExamplesVisible((previous) => !previous);
@@ -1006,8 +983,6 @@ export function useAppScreen(): AppScreenHookResult {
             isCurrentFavorite,
             onPlayPronunciation: playPronunciation,
             pronunciationAvailable: isPronunciationAvailable,
-            mode,
-            onModeChange: handleModeChange,
             themeMode,
             onThemeModeChange: handleThemeModeChange,
             fontScale,
@@ -1050,7 +1025,6 @@ export function useAppScreen(): AppScreenHookResult {
             handleDeleteAccount,
             handlePlayWordAudio,
             handleLogout,
-            handleModeChange,
             handleThemeModeChange,
             handleFontScaleChange,
             handleRemoveFavorite,
@@ -1061,7 +1035,6 @@ export function useAppScreen(): AppScreenHookResult {
             isCurrentFavorite,
             isGuest,
             loading,
-            mode,
             themeMode,
             fontScale,
             recentSearches,

@@ -1,5 +1,5 @@
 import { ExampleUpdate } from "@/api/dictionary/exampleGenerator";
-import { DictionaryMode, WordResult } from "@/services/dictionary/types";
+import { WordResult } from "@/services/dictionary/types";
 import { applyExampleUpdates, clearPendingFlags } from "@/services/dictionary/utils/mergeExampleUpdates";
 
 const buildResult = (): WordResult => ({
@@ -31,7 +31,7 @@ describe("mergeExampleUpdates", () => {
         expect(cleared.meanings[0].definitions[0].pendingTranslation).toBe(false);
     });
 
-    it("applies example updates and clears flags for en-en", () => {
+    it("applies example updates and clears flags", () => {
         const result = buildResult();
         const updates: ExampleUpdate[] = [
             {
@@ -43,7 +43,7 @@ describe("mergeExampleUpdates", () => {
             },
         ];
 
-        const merged = applyExampleUpdates(result, updates, "en-en");
+        const merged = applyExampleUpdates(result, updates);
         const definition = merged.meanings[0].definitions[0];
 
         expect(definition.example).toBe("This is an apple.");
@@ -51,7 +51,7 @@ describe("mergeExampleUpdates", () => {
         expect(definition.pendingTranslation).toBe(false);
     });
 
-    it("applies translated definition for en-ko mode", () => {
+    it("ignores translated fields and keeps the base definition", () => {
         const result = buildResult();
         const updates: ExampleUpdate[] = [
             {
@@ -63,12 +63,12 @@ describe("mergeExampleUpdates", () => {
             },
         ];
 
-        const merged = applyExampleUpdates(result, updates, "en-ko" as DictionaryMode);
+        const merged = applyExampleUpdates(result, updates);
         const definition = merged.meanings[0].definitions[0];
 
-        expect(definition.definition).toBe("사과");
-        expect(definition.originalDefinition).toBe("An apple");
-        expect(definition.translatedExample).toBe("이것은 사과입니다.");
+        expect(definition.definition).toBe("An apple");
+        expect(definition.originalDefinition).toBeUndefined();
+        expect(definition.translatedExample).toBeUndefined();
         expect(definition.pendingTranslation).toBe(false);
     });
 });

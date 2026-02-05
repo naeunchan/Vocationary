@@ -45,8 +45,6 @@ const baseProps = {
     isCurrentFavorite: false,
     onPlayPronunciation: jest.fn(),
     pronunciationAvailable: false,
-    mode: "en-en" as const,
-    onModeChange: jest.fn(),
     recentSearches: [],
     onSelectRecentSearch: jest.fn(),
     onClearRecentSearches: jest.fn(),
@@ -86,20 +84,9 @@ describe("SearchScreen", () => {
         );
     });
 
-    it("calls onModeChange when tapping inactive mode button", () => {
-        const props = { ...baseProps, mode: "en-ko" as const };
-        const { getByText } = render(<SearchScreen {...props} />, { wrapper });
-
-        fireEvent.press(getByText("영영사전"));
-        expect(props.onModeChange).toHaveBeenCalledWith("en-en");
-    });
-
-    it("does not trigger onModeChange for the active mode button", () => {
-        const props = { ...baseProps, mode: "en-en" as const };
-        const { getByText } = render(<SearchScreen {...props} />, { wrapper });
-
-        fireEvent.press(getByText("영영사전"));
-        expect(props.onModeChange).not.toHaveBeenCalled();
+    it("does not render dictionary mode selector", () => {
+        const { queryByText } = render(<SearchScreen {...baseProps} />, { wrapper });
+        expect(queryByText("사전 모드")).toBeNull();
     });
 
     it("renders recent searches section when history is available", () => {

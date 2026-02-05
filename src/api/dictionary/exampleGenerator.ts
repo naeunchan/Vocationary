@@ -1,7 +1,6 @@
 import QuickLRU from "quick-lru";
 
 import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_KEY, OPENAI_PROXY_URL } from "@/config/openAI";
-import { DictionaryMode } from "@/services/dictionary/types";
 import { MeaningEntry } from "@/services/dictionary/types/WordResult";
 
 export type ExampleUpdate = {
@@ -52,11 +51,8 @@ function collectDescriptors(meanings: MeaningEntry[], shouldTranslate: boolean):
     return result;
 }
 
-function buildPrompt(word: string, mode: DictionaryMode, descriptors: DefinitionDescriptor[]): string {
-    const shouldTranslate = mode === "en-ko";
-    const hint = shouldTranslate
-        ? "Create concise English examples (<20 tokens), Korean translation for each example, and Korean translation for each definition."
-        : "Create concise English examples (<20 tokens).";
+function buildPrompt(word: string, descriptors: DefinitionDescriptor[]): string {
+    const hint = "Create concise English examples (<20 tokens).";
 
     const compactData = JSON.stringify(
         descriptors.map((d) => ({
@@ -102,14 +98,14 @@ const EXAMPLE_SCHEMA = {
     strict: true,
 } as const;
 
-function buildCacheKey(word: string, mode: DictionaryMode, descriptors: DefinitionDescriptor[]): string {
+function buildCacheKey(word: string, descriptors: DefinitionDescriptor[]): string {
     const signature = descriptors
         .map(
             ({ meaningIndex, definitionIndex, definition, needsExample, needsTranslation }) =>
                 `${meaningIndex}:${definitionIndex}:${needsExample ? 1 : 0}:${needsTranslation ? 1 : 0}:${definition}`,
         )
         .join("|");
-    return `${mode}:${word.toLowerCase()}:${signature}`;
+    return `${word.toLowerCase()}:${signature}`;
 }
 
 function parseCompletionContent(content: string | null | undefined): ExampleUpdate[] {
@@ -134,18 +130,14 @@ function maxOutputTokensFor(count: number): number {
     return Math.min(300, Math.max(80, count * 40));
 }
 
-async function requestOpenAI(
-    word: string,
-    mode: DictionaryMode,
-    descriptors: DefinitionDescriptor[],
-): Promise<ExampleUpdate[]> {
+async function requestOpenAI(word: string, descriptors: DefinitionDescriptor[]): Promise<ExampleUpdate[]> {
     if (!OPENAI_FEATURE_ENABLED || !OPENAI_PROXY_URL) {
         return [];
     }
 
     const endpointBase = OPENAI_PROXY_URL.replace(/\/+$/, "");
     const requestUrl = `${endpointBase}/dictionary/examples`;
-    const prompt = buildPrompt(word, mode, descriptors);
+    const prompt = buildPrompt(word, descriptors);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
         controller.abort();
@@ -160,7 +152,7 @@ async function requestOpenAI(
             },
             body: JSON.stringify({
                 word,
-                mode,
+                mode: "en-en",
                 prompt,
                 descriptors,
                 schema: EXAMPLE_SCHEMA,
@@ -188,30 +180,26 @@ async function requestOpenAI(
     }
 }
 
-export async function generateDefinitionExamples(
-    word: string,
-    mode: DictionaryMode,
-    meanings: MeaningEntry[],
-): Promise<ExampleUpdate[]> {
-    const shouldTranslate = mode === "en-ko";
+export async function generateDefinitionExamples(word: string, meanings: MeaningEntry[]): Promise<ExampleUpdate[]> {
+    const shouldTranslate = false;
     const descriptors = collectDescriptors(meanings, shouldTranslate);
     if (descriptors.length === 0) return [];
 
-    const cacheKey = buildCacheKey(word, mode, descriptors);
+    const cacheKey = buildCacheKey(word, descriptors);
     const now = Date.now();
     const cached = exampleCache.get(cacheKey);
 
     if (cached && cached.expiresAt > now) {
         (async () => {
             try {
-                const fresh = await requestOpenAI(word, mode, descriptors);
+                const fresh = await requestOpenAI(word, descriptors);
                 exampleCache.set(cacheKey, { value: fresh, expiresAt: Date.now() + EXAMPLE_CACHE_TTL_MS });
             } catch (_) {}
         })();
         return cached.value;
     }
 
-    const updates = await requestOpenAI(word, mode, descriptors);
+    const updates = await requestOpenAI(word, descriptors);
     exampleCache.set(cacheKey, { value: updates, expiresAt: now + EXAMPLE_CACHE_TTL_MS });
 
     return updates;

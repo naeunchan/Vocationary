@@ -7,7 +7,6 @@ import { SUMMARY_CARD_TEXT } from "@/screens/Home/constants";
 describe("SummaryCard", () => {
     const baseProps = {
         userName: "Mia",
-        mode: "en-en" as const,
         counts: { toMemorize: 3, review: 2, mastered: 1 },
     };
 

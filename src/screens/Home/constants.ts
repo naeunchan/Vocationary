@@ -1,10 +1,3 @@
-import { DictionaryMode } from "@/services/dictionary/types";
-
-export const MODE_LABEL: Record<DictionaryMode, string> = {
-    "en-en": "영영사전",
-    "en-ko": "영한사전",
-};
-
 export const HOME_HEADER_TEXT = {
     badgeLabel: "나의 학습 공간",
     defaultDisplayName: "나만의 영어 단어장",

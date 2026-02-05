@@ -62,8 +62,6 @@ const buildProps = (): RootTabNavigatorProps => {
         isCurrentFavorite: false,
         onPlayPronunciation: noop,
         pronunciationAvailable: false,
-        mode: "en-en",
-        onModeChange: noop,
         themeMode: "light",
         onThemeModeChange: noop,
         fontScale: 1,
@@ -103,7 +101,6 @@ describe("RootTabNavigator", () => {
         expect(mockHomeScreen).toHaveBeenCalledWith(
             expect.objectContaining({
                 favorites: props.favorites,
-                mode: props.mode,
                 userName: props.userName,
                 onPlayWordAudio: props.onPlayWordAudio,
                 pronunciationAvailable: props.pronunciationAvailable,
@@ -120,7 +117,6 @@ describe("RootTabNavigator", () => {
                 result: props.result,
                 examplesVisible: props.examplesVisible,
                 onToggleExamples: props.onToggleExamples,
-                mode: props.mode,
                 recentSearches: props.recentSearches,
                 onSelectRecentSearch: props.onSelectRecentSearch,
                 onClearRecentSearches: props.onClearRecentSearches,

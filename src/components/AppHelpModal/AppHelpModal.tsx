@@ -25,7 +25,7 @@ export function AppHelpModal({ visible, onDismiss }: AppHelpModalProps) {
                             <Text style={styles.sectionTitle}>1. 단어 검색하기</Text>
                             <Text style={styles.sectionBody}>
                                 하단의 `Search` 탭에서 단어를 입력하고 검색 버튼을 누르면 발음, 의미, 예문을 바로 확인할
-                                수 있어요. 필요한 사전 모드(영영/한영)를 선택할 수도 있어요.
+                                수 있어요.
                             </Text>
                         </View>
                         <View style={styles.section}>

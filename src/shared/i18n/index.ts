@@ -47,11 +47,6 @@ const translations: Record<Locale, Record<string, string>> = {
         "settings.label.aiHealthy": "활성",
         "settings.label.aiDegraded": "제한적 (백엔드 확인 필요)",
         "settings.label.aiUnavailable": "비활성 (백엔드 필요)",
-        "search.mode.enEn": "영영사전",
-        "search.mode.enEn.description": "영어 정의와 예문을 확인해요.",
-        "search.mode.enKo": "영한사전 (베타)",
-        "search.mode.enKo.description": "AI 번역이 설정된 경우에만 한국어 번역과 예문을 제공해요.",
-        "search.mode.helper": "사전 모드를 선택해 검색 결과를 맞춤화하세요.",
         "search.aiNotice.title": "AI 발음/예문 준비 중",
         "search.aiNotice.body":
             "백엔드 프록시가 설정되면 발음 재생과 AI 예문이 자동으로 활성화돼요. 현재는 사전 검색만 이용할 수 있어요.",
@@ -102,11 +97,6 @@ const translations: Record<Locale, Record<string, string>> = {
         "settings.label.aiHealthy": "Active",
         "settings.label.aiDegraded": "Degraded (check backend)",
         "settings.label.aiUnavailable": "Disabled (needs backend)",
-        "search.mode.enEn": "English-English",
-        "search.mode.enEn.description": "See English definitions and examples.",
-        "search.mode.enKo": "English-Korean (beta)",
-        "search.mode.enKo.description": "Korean translations/examples appear only when the AI proxy is configured.",
-        "search.mode.helper": "Pick a dictionary mode to tailor your results.",
         "search.aiNotice.title": "AI pronunciation/examples pending",
         "search.aiNotice.body":
             "Once the backend proxy is configured, pronunciation and AI examples will activate. For now, dictionary search works without them.",

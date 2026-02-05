@@ -1,1 +1,1 @@
-export type DictionaryMode = "en-en" | "en-ko";
+export type DictionaryMode = "en-en";

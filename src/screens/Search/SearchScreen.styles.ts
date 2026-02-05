@@ -27,59 +27,10 @@ export const createSearchScreenStyles = (theme: AppThemeColors, fontScale: numbe
             fontSize: scaleFont(15, fontScale),
             color: theme.textSecondary,
         },
-        modeSection: {
-            backgroundColor: theme.surface,
-            borderRadius: 24,
-            padding: 20,
-            shadowColor: theme.shadow,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.08,
-            shadowRadius: 12,
-            elevation: 6,
-            gap: 12,
-        },
         sectionLabel: {
             fontSize: scaleFont(14, fontScale),
             fontWeight: "700",
             color: theme.textSecondary,
-        },
-        modeButtons: {
-            flexDirection: "row",
-            gap: 12,
-        },
-        modeButton: {
-            flex: 1,
-            paddingVertical: 14,
-            paddingHorizontal: 12,
-            borderRadius: 16,
-            backgroundColor: theme.cardMuted,
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-        },
-        modeButtonActive: {
-            backgroundColor: theme.accent,
-        },
-        modeButtonLabel: {
-            fontSize: scaleFont(15, fontScale),
-            fontWeight: "700",
-            color: theme.textPrimary,
-        },
-        modeButtonLabelActive: {
-            color: theme.accentContrast,
-        },
-        modeButtonDescription: {
-            fontSize: scaleFont(12, fontScale),
-            color: theme.textSecondary,
-            textAlign: "center",
-        },
-        modeButtonDescriptionActive: {
-            color: theme.accentContrast,
-            opacity: 0.9,
-        },
-        modeHelperText: {
-            fontSize: scaleFont(12, fontScale),
-            color: theme.textMuted,
         },
         aiNotice: {
             backgroundColor: theme.cardMuted,
@@ -212,10 +163,5 @@ export const createSearchScreenStyles = (theme: AppThemeColors, fontScale: numbe
             fontSize: scaleFont(15, fontScale),
             fontWeight: "700",
             color: theme.textPrimary,
-        },
-        historyMeta: {
-            fontSize: scaleFont(12, fontScale),
-            color: theme.textSecondary,
-            marginTop: 2,
         },
     });

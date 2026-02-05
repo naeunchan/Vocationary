@@ -1,5 +1,5 @@
 import type { AppError } from "@/errors/AppError";
-import { DictionaryMode, WordResult } from "@/services/dictionary/types";
+import { WordResult } from "@/services/dictionary/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
 
 export type SearchScreenProps = {
@@ -15,8 +15,6 @@ export type SearchScreenProps = {
     isCurrentFavorite: boolean;
     onPlayPronunciation: () => void;
     pronunciationAvailable: boolean;
-    mode: DictionaryMode;
-    onModeChange: (mode: DictionaryMode) => void;
     recentSearches: SearchHistoryEntry[];
     onSelectRecentSearch: (entry: SearchHistoryEntry) => void;
     onClearRecentSearches: () => void;

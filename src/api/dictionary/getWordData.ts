@@ -1,6 +1,6 @@
 import { ExampleUpdate, generateDefinitionExamples } from "@/api/dictionary/exampleGenerator";
 import { fetchDictionaryEntry } from "@/api/dictionary/freeDictionaryClient";
-import { DictionaryMode, WordResult } from "@/services/dictionary/types";
+import { WordResult } from "@/services/dictionary/types";
 
 type WordDataResult = {
     base: WordResult;
@@ -18,11 +18,11 @@ function validateSearchTerm(searchTerm: string): string {
     return trimmed;
 }
 
-export async function getWordData(searchTerm: string, mode: DictionaryMode): Promise<WordDataResult> {
+export async function getWordData(searchTerm: string): Promise<WordDataResult> {
     const normalized = validateSearchTerm(searchTerm);
-    const base = await fetchDictionaryEntry(normalized, mode);
+    const base = await fetchDictionaryEntry(normalized);
 
-    const examplesPromise = generateDefinitionExamples(base.word, mode, base.meanings);
+    const examplesPromise = generateDefinitionExamples(base.word, base.meanings);
 
     return {
         base,

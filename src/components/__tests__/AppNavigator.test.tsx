@@ -45,8 +45,6 @@ const createProps = (): RootTabNavigatorProps => {
         isCurrentFavorite: false,
         onPlayPronunciation: noop,
         pronunciationAvailable: false,
-        mode: "en-en",
-        onModeChange: noop,
         themeMode: "light",
         onThemeModeChange: noop,
         fontScale: 1,

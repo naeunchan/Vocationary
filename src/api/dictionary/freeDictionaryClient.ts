@@ -1,6 +1,5 @@
 import { createAppError } from "@/errors/AppError";
 import { captureAppError } from "@/logging/logger";
-import { DictionaryMode } from "@/services/dictionary/types";
 import { DefinitionEntry, MeaningEntry, WordResult } from "@/services/dictionary/types/WordResult";
 
 const MAX_MEANINGS = 2;
@@ -37,8 +36,8 @@ type FreeDictionaryEntry = {
 
 type FreeDictionaryResponse = FreeDictionaryEntry[];
 
-function buildCacheKey(word: string, mode: DictionaryMode): string {
-    return `${mode}:${word.toLowerCase()}`;
+function buildCacheKey(word: string): string {
+    return word.toLowerCase();
 }
 
 function pickPhonetic(entry: FreeDictionaryEntry): { phonetic?: string; audioUrl?: string } {
@@ -64,10 +63,7 @@ function pickPhonetic(entry: FreeDictionaryEntry): { phonetic?: string; audioUrl
     return {};
 }
 
-function sanitizeDefinition(
-    definition: FreeDictionaryDefinition | undefined,
-    shouldTranslate: boolean,
-): DefinitionEntry | null {
+function sanitizeDefinition(definition: FreeDictionaryDefinition | undefined): DefinitionEntry | null {
     const text = typeof definition?.definition === "string" ? definition.definition.trim() : "";
     if (!text) {
         return null;
@@ -76,19 +72,19 @@ function sanitizeDefinition(
     return {
         definition: text,
         originalDefinition: text,
-        pendingTranslation: shouldTranslate,
+        pendingTranslation: false,
         pendingExample: true,
     };
 }
 
-function sanitizeMeaning(meaning: FreeDictionaryMeaning | undefined, shouldTranslate: boolean): MeaningEntry | null {
+function sanitizeMeaning(meaning: FreeDictionaryMeaning | undefined): MeaningEntry | null {
     if (!meaning) {
         return null;
     }
 
     const definitions = Array.isArray(meaning.definitions) ? meaning.definitions.slice(0, MAX_DEFINITIONS) : [];
     const sanitized = definitions
-        .map((definition) => sanitizeDefinition(definition, shouldTranslate))
+        .map((definition) => sanitizeDefinition(definition))
         .filter((entry): entry is DefinitionEntry => entry !== null);
 
     if (sanitized.length === 0) {
@@ -101,13 +97,13 @@ function sanitizeMeaning(meaning: FreeDictionaryMeaning | undefined, shouldTrans
     };
 }
 
-function createWordResult(entry: FreeDictionaryEntry, shouldTranslate: boolean): WordResult | null {
+function createWordResult(entry: FreeDictionaryEntry): WordResult | null {
     const word = typeof entry.word === "string" ? entry.word.trim() : "";
     const { phonetic, audioUrl } = pickPhonetic(entry);
 
     const meanings = Array.isArray(entry.meanings) ? entry.meanings.slice(0, MAX_MEANINGS) : [];
     const sanitizedMeanings = meanings
-        .map((meaning) => sanitizeMeaning(meaning, shouldTranslate))
+        .map((meaning) => sanitizeMeaning(meaning))
         .filter((meaning): meaning is MeaningEntry => meaning !== null);
 
     if (!word || sanitizedMeanings.length === 0) {
@@ -169,9 +165,9 @@ async function fetchFromSource(word: string): Promise<FreeDictionaryResponse> {
     return (await response.json()) as FreeDictionaryResponse;
 }
 
-export async function fetchDictionaryEntry(word: string, mode: DictionaryMode): Promise<WordResult> {
+export async function fetchDictionaryEntry(word: string): Promise<WordResult> {
     const normalized = word.trim().toLowerCase();
-    const cacheKey = buildCacheKey(normalized, mode);
+    const cacheKey = buildCacheKey(normalized);
     const now = Date.now();
 
     const cached = dictionaryCache.get(cacheKey);
@@ -186,10 +182,8 @@ export async function fetchDictionaryEntry(word: string, mode: DictionaryMode): 
         });
     }
 
-    const shouldTranslate = mode === "en-ko";
-
     for (const entry of rawResponse) {
-        const result = createWordResult(entry, shouldTranslate);
+        const result = createWordResult(entry);
         if (result) {
             dictionaryCache.set(cacheKey, { value: result, expiresAt: now + CACHE_TTL_MS });
             return cloneWordResult(result);

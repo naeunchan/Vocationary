@@ -1,5 +1,5 @@
 import type { AppError } from "@/errors/AppError";
-import { DictionaryMode, WordResult } from "@/services/dictionary/types";
+import { WordResult } from "@/services/dictionary/types";
 import { FavoriteWordEntry, MemorizationStatus } from "@/services/favorites/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
 import type { ThemeMode } from "@/theme/types";
@@ -20,8 +20,6 @@ export type RootTabNavigatorProps = {
     isCurrentFavorite: boolean;
     onPlayPronunciation: () => void;
     pronunciationAvailable: boolean;
-    mode: DictionaryMode;
-    onModeChange: (mode: DictionaryMode) => void;
     themeMode: ThemeMode;
     onThemeModeChange: (mode: ThemeMode) => void;
     fontScale: number;

@@ -31,8 +31,6 @@ export function RootTabNavigator({
     isCurrentFavorite,
     onPlayPronunciation,
     pronunciationAvailable,
-    mode,
-    onModeChange,
     themeMode,
     onThemeModeChange,
     fontScale,
@@ -81,7 +79,6 @@ export function RootTabNavigator({
                 {() => (
                     <HomeScreen
                         favorites={favorites}
-                        mode={mode}
                         onMoveToStatus={onUpdateFavoriteStatus}
                         userName={userName}
                         onPlayWordAudio={onPlayWordAudio}
@@ -117,8 +114,6 @@ export function RootTabNavigator({
                         isCurrentFavorite={isCurrentFavorite}
                         onPlayPronunciation={onPlayPronunciation}
                         pronunciationAvailable={pronunciationAvailable}
-                        mode={mode}
-                        onModeChange={onModeChange}
                         recentSearches={recentSearches}
                         onSelectRecentSearch={onSelectRecentSearch}
                         onClearRecentSearches={onClearRecentSearches}

@@ -7,23 +7,9 @@ import { SearchBar } from "@/screens/Search/components/SearchBar";
 import { SearchResults } from "@/screens/Search/components/SearchResults";
 import { createSearchScreenStyles } from "@/screens/Search/SearchScreen.styles";
 import { SearchScreenProps } from "@/screens/Search/SearchScreen.types";
-import { DictionaryMode } from "@/services/dictionary/types";
 import { t } from "@/shared/i18n";
 import { useAppAppearance } from "@/theme/AppearanceContext";
 import { useThemedStyles } from "@/theme/useThemedStyles";
-
-const MODE_BUTTONS = [
-    {
-        label: "search.mode.enEn",
-        description: "search.mode.enEn.description",
-        value: "en-en" as DictionaryMode,
-    },
-    {
-        label: "search.mode.enKo",
-        description: "search.mode.enKo.description",
-        value: "en-ko" as DictionaryMode,
-    },
-] as const;
 
 export function SearchScreen({
     searchTerm,
@@ -38,8 +24,6 @@ export function SearchScreen({
     isCurrentFavorite,
     onPlayPronunciation,
     pronunciationAvailable,
-    mode,
-    onModeChange,
     recentSearches,
     onSelectRecentSearch,
     onClearRecentSearches,
@@ -50,56 +34,9 @@ export function SearchScreen({
     const showPlaceholder = !loading && !error && !result;
     const hasRecentSearches = recentSearches.length > 0;
 
-    const getModeLabel = (modeValue: string) => {
-        if (modeValue === "en-ko") {
-            return t("search.mode.enKo");
-        }
-        return t("search.mode.enEn");
-    };
-
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.modeSection}>
-                    <Text style={styles.sectionLabel}>사전 모드</Text>
-                    <View style={styles.modeButtons}>
-                        {MODE_BUTTONS.map((option) => {
-                            const isActive = option.value === mode;
-                            const label = t(option.label);
-                            const description = t(option.description);
-                            return (
-                                <TouchableOpacity
-                                    key={option.value}
-                                    style={[styles.modeButton, isActive && styles.modeButtonActive]}
-                                    activeOpacity={0.85}
-                                    accessibilityRole="button"
-                                    accessibilityState={{ selected: isActive }}
-                                    accessibilityLabel={label}
-                                    accessibilityHint={description}
-                                    onPress={() => {
-                                        if (!isActive) {
-                                            onModeChange(option.value);
-                                        }
-                                    }}
-                                >
-                                    <Text style={[styles.modeButtonLabel, isActive && styles.modeButtonLabelActive]}>
-                                        {label}
-                                    </Text>
-                                    <Text
-                                        style={[
-                                            styles.modeButtonDescription,
-                                            isActive && styles.modeButtonDescriptionActive,
-                                        ]}
-                                    >
-                                        {description}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                    <Text style={styles.modeHelperText}>{t("search.mode.helper")}</Text>
-                </View>
-
                 {!pronunciationAvailable ? (
                     <View style={styles.aiNotice}>
                         <Text style={styles.aiNoticeTitle}>{t("search.aiNotice.title")}</Text>
@@ -163,7 +100,6 @@ export function SearchScreen({
                                     </View>
                                     <View style={styles.historyTexts}>
                                         <Text style={styles.historyWord}>{entry.term}</Text>
-                                        <Text style={styles.historyMeta}>{getModeLabel(entry.mode)}</Text>
                                     </View>
                                 </TouchableOpacity>
                             ))}

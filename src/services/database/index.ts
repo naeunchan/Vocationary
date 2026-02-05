@@ -204,7 +204,7 @@ function normalizeFavoriteEntry(payload: unknown): FavoriteWordEntry | null {
 }
 
 function isDictionaryModeValue(value: unknown): value is DictionaryMode {
-    return value === "en-en" || value === "en-ko";
+    return value === "en-en";
 }
 
 function normalizeSearchHistoryPayload(payload: string | null | undefined): SearchHistoryEntry[] {

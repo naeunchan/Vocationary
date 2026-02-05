@@ -11,7 +11,6 @@ import { useThemedStyles } from "@/theme/useThemedStyles";
 
 export function HomeScreen({
     favorites,
-    mode,
     onMoveToStatus,
     userName,
     onPlayWordAudio,
@@ -44,7 +43,7 @@ export function HomeScreen({
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <HomeHeader userName={userName} />
-                <SummaryCard userName={userName} mode={mode} counts={counts} />
+                <SummaryCard userName={userName} counts={counts} />
                 <FavoritesList
                     entries={toMemorizeEntries}
                     emptyMessage="외울 단어장에 저장된 단어가 없어요."
