@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/config/legal";
 import { useAIStatus } from "@/hooks/useAIStatus";
 import { LEGAL_DOCUMENTS, type LegalDocumentId } from "@/legal/legalDocuments";
@@ -46,6 +47,7 @@ export function SettingsScreen({
     onNavigateFontSettings,
 }: SettingsScreenProps) {
     const styles = useThemedStyles(createStyles);
+    const showGuestAccountCta = isGuest && FEATURE_FLAGS.guestAccountCta;
     const handleLogoutPress = useCallback(() => {
         if (!canLogout) {
             return;
@@ -61,18 +63,18 @@ export function SettingsScreen({
     }, [canLogout, onLogout]);
 
     const handleLoginPress = useCallback(() => {
-        if (!isGuest) {
+        if (!showGuestAccountCta) {
             return;
         }
         onRequestLogin();
-    }, [isGuest, onRequestLogin]);
+    }, [onRequestLogin, showGuestAccountCta]);
 
     const handleSignUpPress = useCallback(() => {
-        if (!isGuest) {
+        if (!showGuestAccountCta) {
             return;
         }
         onRequestSignUp();
-    }, [isGuest, onRequestSignUp]);
+    }, [onRequestSignUp, showGuestAccountCta]);
 
     const handleNavigateProfile = useCallback(() => {
         if (!profileUsername) {
@@ -311,19 +313,19 @@ export function SettingsScreen({
                     </View>
                 </View>
 
-                {isGuest ? (
+                {showGuestAccountCta ? (
                     <View style={styles.section}>
                         <Text style={styles.sectionLabel}>{t("settings.section.account")}</Text>
                         <GuestActionCard onSignUp={handleSignUpPress} onLogin={handleLoginPress} />
                     </View>
-                ) : (
+                ) : !isGuest ? (
                     <AuthenticatedActions
                         canLogout={canLogout}
                         onLogout={handleLogoutPress}
                         onNavigateProfile={handleNavigateProfile}
                         onNavigateAccountDeletion={handleNavigateAccountDeletion}
                     />
-                )}
+                ) : null}
             </ScrollView>
             {activeDocument ? (
                 <LegalDocumentModal

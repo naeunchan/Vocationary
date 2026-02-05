@@ -77,6 +77,7 @@ import {
 } from "@/theme/constants";
 import type { ThemeMode } from "@/theme/types";
 import { playRemoteAudio } from "@/utils/audio";
+import { getGooglePasswordValidationError } from "@/utils/authValidation";
 
 export function useAppScreen(): AppScreenHookResult {
     const [searchTerm, setSearchTerm] = useState("");

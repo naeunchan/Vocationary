@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { AuthModeSwitch } from "@/screens/Auth/components/AuthModeSwitch";
 import { GuestButton } from "@/screens/Auth/components/GuestButton";
 import { LoginHeader } from "@/screens/Auth/components/LoginHeader";
@@ -13,14 +14,15 @@ import { useThemedStyles } from "@/theme/useThemedStyles";
 export function LoginScreen({ onGuest, errorMessage, loading = false }: LoginScreenProps) {
     const styles = useThemedStyles(createLoginScreenStyles);
     const [mode, setMode] = useState<"login" | "signup">("login");
+    const authUiEnabled = FEATURE_FLAGS.authUi;
     const copy = useMemo(() => getLoginCopy(mode), [mode]);
 
     const handleToggleMode = useCallback(() => {
-        if (loading) {
+        if (loading || !authUiEnabled) {
             return;
         }
         setMode((previous) => (previous === "login" ? "signup" : "login"));
-    }, [loading]);
+    }, [authUiEnabled, loading]);
 
     const handleGuestPress = useCallback(() => {
         if (loading) {
@@ -40,18 +42,25 @@ export function LoginScreen({ onGuest, errorMessage, loading = false }: LoginScr
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.content}>
-                    <LoginHeader title={copy.title} subtitle={copy.subtitle} />
+                    <LoginHeader
+                        title={authUiEnabled ? copy.title : "MyVoc"}
+                        subtitle={
+                            authUiEnabled ? copy.subtitle : "게스트 모드로 시작하고 단어 학습을 바로 진행해보세요."
+                        }
+                    />
 
                     {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
                     <GuestButton loading={loading} onPress={handleGuestPress} />
 
-                    <AuthModeSwitch
-                        prompt={copy.togglePrompt}
-                        actionLabel={copy.toggleAction}
-                        disabled={loading}
-                        onToggle={handleToggleMode}
-                    />
+                    {authUiEnabled ? (
+                        <AuthModeSwitch
+                            prompt={copy.togglePrompt}
+                            actionLabel={copy.toggleAction}
+                            disabled={loading}
+                            onToggle={handleToggleMode}
+                        />
+                    ) : null}
                 </View>
             </ScrollView>
         </SafeAreaView>

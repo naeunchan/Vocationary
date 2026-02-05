@@ -35,6 +35,8 @@
             "versionLabel": "1.0.0",
             "openAIProxyUrl": "https://vocationary.onrender.com",
             "openAIProxyKey": "dev-proxy-key",
+            "featureAuthUi": false,
+            "featureGuestAccountCta": false,
             "privacyPolicyUrl": "https://vocationary.app/legal/privacy",
             "termsOfServiceUrl": "https://vocationary.app/legal/terms"
         }
