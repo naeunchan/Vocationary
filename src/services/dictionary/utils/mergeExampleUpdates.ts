@@ -26,6 +26,9 @@ export function applyExampleUpdates(result: WordResult, updates: ExampleUpdate[]
                 if (update?.example) {
                     next.example = update.example;
                 }
+                if (mode === "en-ko" && update?.translatedExample) {
+                    next.translatedExample = update.translatedExample;
+                }
                 if (update) {
                     next.pendingExample = false;
                 } else if (next.pendingExample) {

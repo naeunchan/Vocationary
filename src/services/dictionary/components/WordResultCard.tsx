@@ -83,7 +83,14 @@ export function WordResultCard({
                                         definition.pendingExample ? (
                                             <View style={styles.exampleSkeleton} />
                                         ) : definition.example ? (
-                                            <Text style={styles.exampleText}>ex) {definition.example}</Text>
+                                            <View>
+                                                <Text style={styles.exampleText}>ex) {definition.example}</Text>
+                                                {definition.translatedExample ? (
+                                                    <Text style={styles.exampleTranslationText}>
+                                                        해석) {definition.translatedExample}
+                                                    </Text>
+                                                ) : null}
+                                            </View>
                                         ) : null
                                     ) : null}
                                 </View>

@@ -30,7 +30,7 @@ const baseResult: WordResult = {
         {
             partOfSpeech: "noun",
             definitions: [
-                { definition: "Fruit", example: "I ate an apple." },
+                { definition: "Fruit", example: "I ate an apple.", translatedExample: "나는 사과를 먹었다." },
                 { definition: "Company", pendingExample: true },
             ],
         },
@@ -53,6 +53,7 @@ describe("WordResultCard", () => {
         );
 
         expect(getByText(/ex\) I ate an apple\./)).toBeTruthy();
+        expect(getByText(/해석\) 나는 사과를 먹었다\./)).toBeTruthy();
     });
 
     it("shows fallback text when no examples available", () => {

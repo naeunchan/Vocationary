@@ -119,6 +119,11 @@ export const createWordResultCardStyles = (theme: AppThemeColors, fontScale: num
             color: theme.textSecondary,
             marginTop: 4,
         },
+        exampleTranslationText: {
+            fontSize: scaleFont(13, fontScale),
+            color: theme.textMuted,
+            marginTop: 2,
+        },
         exampleSkeleton: {
             height: 14,
             backgroundColor: theme.border,
