@@ -121,11 +121,18 @@ const EXAMPLE_SCHEMA = {
                 items: {
                     type: "object",
                     additionalProperties: false,
-                    required: ["meaningIndex", "definitionIndex", "example", "translatedDefinition"],
+                    required: [
+                        "meaningIndex",
+                        "definitionIndex",
+                        "example",
+                        "translatedExample",
+                        "translatedDefinition",
+                    ],
                     properties: {
                         meaningIndex: { type: "integer" },
                         definitionIndex: { type: "integer" },
                         example: { type: "string" },
+                        translatedExample: { type: ["string", "null"] },
                         translatedDefinition: { type: ["string", "null"] },
                     },
                 },
@@ -160,6 +167,7 @@ function normalizeItems(payload) {
             meaningIndex: Number(item.meaningIndex),
             definitionIndex: Number(item.definitionIndex),
             example: typeof item.example === "string" ? item.example.trim() : "",
+            translatedExample: typeof item.translatedExample === "string" ? item.translatedExample.trim() : null,
             translatedDefinition:
                 typeof item.translatedDefinition === "string" ? item.translatedDefinition.trim() : null,
         }))

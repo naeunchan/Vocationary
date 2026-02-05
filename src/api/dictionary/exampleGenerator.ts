@@ -8,6 +8,7 @@ export type ExampleUpdate = {
     meaningIndex: number;
     definitionIndex: number;
     example?: string;
+    translatedExample?: string;
     translatedDefinition?: string;
 };
 
@@ -54,7 +55,7 @@ function collectDescriptors(meanings: MeaningEntry[], shouldTranslate: boolean):
 function buildPrompt(word: string, mode: DictionaryMode, descriptors: DefinitionDescriptor[]): string {
     const shouldTranslate = mode === "en-ko";
     const hint = shouldTranslate
-        ? "Create concise English examples (<20 tokens) and add Korean translations."
+        ? "Create concise English examples (<20 tokens), Korean translation for each example, and Korean translation for each definition."
         : "Create concise English examples (<20 tokens).";
 
     const compactData = JSON.stringify(
@@ -65,7 +66,7 @@ function buildPrompt(word: string, mode: DictionaryMode, descriptors: Definition
         })),
     );
 
-    return `Word:${word}\n${hint}\nData:${compactData}\nOutput JSON:{items:[{meaningIndex,definitionIndex,example${shouldTranslate ? ",translatedDefinition" : ""}]}]}`;
+    return `Word:${word}\n${hint}\nData:${compactData}\nOutput JSON:{items:[{meaningIndex,definitionIndex,example,translatedExample,translatedDefinition}]}`;
 }
 
 const EXAMPLE_SCHEMA = {
@@ -79,11 +80,18 @@ const EXAMPLE_SCHEMA = {
                 items: {
                     type: "object",
                     additionalProperties: false,
-                    required: ["meaningIndex", "definitionIndex", "example", "translatedDefinition"],
+                    required: [
+                        "meaningIndex",
+                        "definitionIndex",
+                        "example",
+                        "translatedExample",
+                        "translatedDefinition",
+                    ],
                     properties: {
                         meaningIndex: { type: "integer" },
                         definitionIndex: { type: "integer" },
                         example: { type: "string" },
+                        translatedExample: { type: ["string", "null"] },
                         translatedDefinition: { type: ["string", "null"] },
                     },
                 },
@@ -113,6 +121,7 @@ function parseCompletionContent(content: string | null | undefined): ExampleUpda
             meaningIndex: Number(item.meaningIndex),
             definitionIndex: Number(item.definitionIndex),
             example: typeof item.example === "string" ? item.example.trim() : undefined,
+            translatedExample: typeof item.translatedExample === "string" ? item.translatedExample.trim() : undefined,
             translatedDefinition:
                 typeof item.translatedDefinition === "string" ? item.translatedDefinition.trim() : undefined,
         }));

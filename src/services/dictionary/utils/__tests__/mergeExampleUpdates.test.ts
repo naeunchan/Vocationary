@@ -34,7 +34,13 @@ describe("mergeExampleUpdates", () => {
     it("applies example updates and clears flags for en-en", () => {
         const result = buildResult();
         const updates: ExampleUpdate[] = [
-            { meaningIndex: 0, definitionIndex: 0, example: "This is an apple.", translatedDefinition: null },
+            {
+                meaningIndex: 0,
+                definitionIndex: 0,
+                example: "This is an apple.",
+                translatedExample: null,
+                translatedDefinition: null,
+            },
         ];
 
         const merged = applyExampleUpdates(result, updates, "en-en");
@@ -52,15 +58,17 @@ describe("mergeExampleUpdates", () => {
                 meaningIndex: 0,
                 definitionIndex: 0,
                 example: "This is an apple.",
-                translatedDefinition: "이것은 사과입니다.",
+                translatedExample: "이것은 사과입니다.",
+                translatedDefinition: "사과",
             },
         ];
 
         const merged = applyExampleUpdates(result, updates, "en-ko" as DictionaryMode);
         const definition = merged.meanings[0].definitions[0];
 
-        expect(definition.definition).toBe("이것은 사과입니다.");
+        expect(definition.definition).toBe("사과");
         expect(definition.originalDefinition).toBe("An apple");
+        expect(definition.translatedExample).toBe("이것은 사과입니다.");
         expect(definition.pendingTranslation).toBe(false);
     });
 });

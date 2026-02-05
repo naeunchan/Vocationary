@@ -37,8 +37,8 @@ type FreeDictionaryEntry = {
 
 type FreeDictionaryResponse = FreeDictionaryEntry[];
 
-function buildCacheKey(word: string): string {
-    return word.toLowerCase();
+function buildCacheKey(word: string, mode: DictionaryMode): string {
+    return `${mode}:${word.toLowerCase()}`;
 }
 
 function pickPhonetic(entry: FreeDictionaryEntry): { phonetic?: string; audioUrl?: string } {
@@ -171,7 +171,7 @@ async function fetchFromSource(word: string): Promise<FreeDictionaryResponse> {
 
 export async function fetchDictionaryEntry(word: string, mode: DictionaryMode): Promise<WordResult> {
     const normalized = word.trim().toLowerCase();
-    const cacheKey = buildCacheKey(normalized);
+    const cacheKey = buildCacheKey(normalized, mode);
     const now = Date.now();
 
     const cached = dictionaryCache.get(cacheKey);
