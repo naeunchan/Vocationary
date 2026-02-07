@@ -48,9 +48,11 @@ describe("LoginScreen", () => {
         expect(alertSpy).toHaveBeenCalled();
     });
 
-    it("displays error message when provided", () => {
-        const { getByText } = render(<LoginScreen {...baseProps} errorMessage="로그인에 실패했어요." />, { wrapper });
+    it("displays error message when provided", async () => {
+        const { findByText } = render(<LoginScreen {...baseProps} errorMessage="로그인에 실패했어요." />, {
+            wrapper,
+        });
 
-        expect(getByText("로그인에 실패했어요.")).toBeTruthy();
+        expect(await findByText("로그인에 실패했어요.")).toBeTruthy();
     });
 });
