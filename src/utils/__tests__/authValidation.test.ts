@@ -1,4 +1,9 @@
-import { getEmailValidationError, getGooglePasswordValidationError } from "@/utils/authValidation";
+import {
+    getEmailValidationError,
+    getGooglePasswordValidationError,
+    getNameValidationError,
+    getPhoneNumberValidationError,
+} from "@/utils/authValidation";
 
 describe("getEmailValidationError", () => {
     it("requires a non-empty value", () => {
@@ -33,5 +38,42 @@ describe("getGooglePasswordValidationError", () => {
 
     it("returns null for a valid password", () => {
         expect(getGooglePasswordValidationError("Secure123")).toBeNull();
+    });
+});
+
+describe("getNameValidationError", () => {
+    it("requires a non-empty value", () => {
+        expect(getNameValidationError("")).toBe("이름을 입력해주세요.");
+        expect(getNameValidationError("   ")).toBe("이름을 입력해주세요.");
+    });
+
+    it("requires at least two characters", () => {
+        expect(getNameValidationError("김")).toBe("이름은 2자 이상 입력해주세요.");
+        expect(getNameValidationError("홍")).toBe("이름은 2자 이상 입력해주세요.");
+    });
+
+    it("accepts valid names", () => {
+        expect(getNameValidationError("홍길동")).toBeNull();
+    });
+});
+
+describe("getPhoneNumberValidationError", () => {
+    it("requires a non-empty value", () => {
+        expect(getPhoneNumberValidationError("")).toBe("휴대폰 번호를 입력해주세요.");
+        expect(getPhoneNumberValidationError("   ")).toBe("휴대폰 번호를 입력해주세요.");
+    });
+
+    it("rejects non-numeric characters", () => {
+        expect(getPhoneNumberValidationError("010-12ab-3456")).toBe("휴대폰 번호 형식을 확인해주세요.");
+    });
+
+    it("rejects out-of-range lengths", () => {
+        expect(getPhoneNumberValidationError("0101234")).toBe("휴대폰 번호 형식을 확인해주세요.");
+        expect(getPhoneNumberValidationError("12345678901234567")).toBe("휴대폰 번호 형식을 확인해주세요.");
+    });
+
+    it("accepts valid phone numbers", () => {
+        expect(getPhoneNumberValidationError("01012345678")).toBeNull();
+        expect(getPhoneNumberValidationError("+821012345678")).toBeNull();
     });
 });

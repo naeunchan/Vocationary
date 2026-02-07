@@ -32,6 +32,7 @@ type UserRow = {
     id: number;
     username: string;
     display_name: string | null;
+    phone_number: string | null;
     password_hash: string | null;
     oauth_provider: string | null;
     oauth_sub: string | null;
@@ -60,6 +61,7 @@ export type UserRecord = {
     id: number;
     username: string;
     displayName: string | null;
+    phoneNumber: string | null;
     oauthProvider?: string | null;
     oauthSubject?: string | null;
 };
@@ -96,6 +98,7 @@ function mapUserRow(row: UserRow, fallbackDisplayName?: string): UserRecord {
         id: row.id,
         username: row.username,
         displayName: row.display_name ?? fallbackDisplayName ?? null,
+        phoneNumber: row.phone_number ?? null,
         oauthProvider: row.oauth_provider ?? null,
         oauthSubject: row.oauth_sub ?? null,
     };
@@ -253,7 +256,10 @@ function serializeSearchHistoryPayload(entries: SearchHistoryEntry[]) {
 export type BackupPayload = {
     version: number;
     exportedAt: string;
-    users: Pick<UserRow, "username" | "display_name" | "password_hash" | "oauth_provider" | "oauth_sub">[];
+    users: Pick<
+        UserRow,
+        "username" | "display_name" | "phone_number" | "password_hash" | "oauth_provider" | "oauth_sub"
+    >[];
     favorites: Record<string, FavoriteWordEntry[]>;
     searchHistory: SearchHistoryEntry[];
 };
@@ -262,8 +268,8 @@ export async function exportBackup(): Promise<BackupPayload> {
     const db = await getDatabase();
     const timestamp = new Date().toISOString();
     const users = await db.getAllAsync<
-        Pick<UserRow, "username" | "display_name" | "password_hash" | "oauth_provider" | "oauth_sub">
-    >("SELECT username, display_name, password_hash, oauth_provider, oauth_sub FROM users");
+        Pick<UserRow, "username" | "display_name" | "phone_number" | "password_hash" | "oauth_provider" | "oauth_sub">
+    >("SELECT username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users");
     const favorites: Record<string, FavoriteWordEntry[]> = {};
 
     for (const user of users) {
@@ -307,9 +313,10 @@ export async function importBackup(payload: BackupPayload) {
             );
             if (!existing) {
                 await tx.runAsync(
-                    "INSERT INTO users (username, display_name, password_hash, oauth_provider, oauth_sub) VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO users (username, display_name, phone_number, password_hash, oauth_provider, oauth_sub) VALUES (?, ?, ?, ?, ?, ?)",
                     normalizedUsername,
                     user.display_name,
+                    user.phone_number ?? null,
                     user.password_hash,
                     user.oauth_provider,
                     user.oauth_sub,
@@ -321,9 +328,10 @@ export async function importBackup(payload: BackupPayload) {
             } else {
                 await tx.runAsync(
                     `UPDATE users
-					SET display_name = ?, password_hash = ?, oauth_provider = ?, oauth_sub = ?, updated_at = CURRENT_TIMESTAMP
+					SET display_name = ?, phone_number = ?, password_hash = ?, oauth_provider = ?, oauth_sub = ?, updated_at = CURRENT_TIMESTAMP
 					WHERE id = ?`,
                     user.display_name,
+                    user.phone_number ?? null,
                     user.password_hash,
                     user.oauth_provider,
                     user.oauth_sub,
@@ -360,6 +368,7 @@ async function initializeDatabaseNative() {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			username TEXT NOT NULL UNIQUE,
 			display_name TEXT,
+			phone_number TEXT,
 			password_hash TEXT,
 			oauth_provider TEXT,
 			oauth_sub TEXT,
@@ -371,6 +380,10 @@ async function initializeDatabaseNative() {
     const hasPasswordColumn = userColumns.some((column) => column.name === "password_hash");
     if (!hasPasswordColumn) {
         await db.execAsync("ALTER TABLE users ADD COLUMN password_hash TEXT");
+    }
+    const hasPhoneColumn = userColumns.some((column) => column.name === "phone_number");
+    if (!hasPhoneColumn) {
+        await db.execAsync("ALTER TABLE users ADD COLUMN phone_number TEXT");
     }
     const hasOAuthProviderColumn = userColumns.some((column) => column.name === "oauth_provider");
     if (!hasOAuthProviderColumn) {
@@ -512,6 +525,8 @@ function normalizeUserRows(value: unknown): UserRow[] {
                 username: row.username,
                 display_name:
                     typeof row.display_name === "string" ? row.display_name : row.display_name === null ? null : null,
+                phone_number:
+                    typeof row.phone_number === "string" ? row.phone_number : row.phone_number === null ? null : null,
                 password_hash:
                     typeof row.password_hash === "string"
                         ? row.password_hash
@@ -700,7 +715,7 @@ async function initializeDatabaseWeb() {
 async function findUserByUsernameNative(username: string): Promise<UserWithPasswordRecord | null> {
     const db = await getDatabase();
     const rows = await db.getAllAsync<UserRow>(
-        "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
+        "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
         [username],
     );
 
@@ -717,18 +732,18 @@ async function findUserByUsernameWeb(username: string): Promise<UserWithPassword
     return row ? mapUserRowWithPassword(row) : null;
 }
 
-async function createUserNative(username: string, password: string, displayName?: string) {
+async function createUserNative(username: string, password: string, displayName?: string, phoneNumber?: string | null) {
     const normalizedDisplayName = (displayName ?? username).trim() || username;
     const passwordHash = await hashPassword(password);
     const db = await getDatabase();
 
     await db.runAsync(
-        "INSERT INTO users (username, display_name, password_hash, oauth_provider, oauth_sub) VALUES (?, ?, ?, NULL, NULL)",
-        [username, normalizedDisplayName, passwordHash],
+        "INSERT INTO users (username, display_name, phone_number, password_hash, oauth_provider, oauth_sub) VALUES (?, ?, ?, ?, NULL, NULL)",
+        [username, normalizedDisplayName, phoneNumber ?? null, passwordHash],
     );
 
     const inserted = await db.getAllAsync<UserRow>(
-        "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
+        "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
         [username],
     );
     if (inserted.length === 0) {
@@ -738,7 +753,7 @@ async function createUserNative(username: string, password: string, displayName?
     return mapUserRow(inserted[0], normalizedDisplayName);
 }
 
-async function createUserWeb(username: string, password: string, displayName?: string) {
+async function createUserWeb(username: string, password: string, displayName?: string, phoneNumber?: string | null) {
     const state = readWebState();
     if (state.users.some((user) => user.username === username)) {
         throw new Error("이미 사용 중인 이메일이에요. 다른 이메일을 사용해주세요.");
@@ -750,6 +765,7 @@ async function createUserWeb(username: string, password: string, displayName?: s
         id: generateWebUserId(state.users),
         username,
         display_name: normalizedDisplayName,
+        phone_number: phoneNumber ?? null,
         password_hash: passwordHash,
         oauth_provider: null,
         oauth_sub: null,
@@ -782,7 +798,7 @@ async function upsertOAuthUserNative(profile: OAuthProfilePayload): Promise<User
     const db = await getDatabase();
     return await db.withTransactionAsync(async (tx) => {
         const existingBySub = await tx.getFirstAsync<UserRow>(
-            "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE oauth_provider = ? AND oauth_sub = ? LIMIT 1",
+            "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE oauth_provider = ? AND oauth_sub = ? LIMIT 1",
             profile.provider,
             normalizedSubject,
         );
@@ -796,7 +812,7 @@ async function upsertOAuthUserNative(profile: OAuthProfilePayload): Promise<User
                 existingBySub.id,
             );
             const refreshed = await tx.getFirstAsync<UserRow>(
-                "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
+                "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
                 existingBySub.id,
             );
             if (!refreshed) {
@@ -806,7 +822,7 @@ async function upsertOAuthUserNative(profile: OAuthProfilePayload): Promise<User
         }
 
         const existingByEmail = await tx.getFirstAsync<UserRow>(
-            "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
+            "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
             normalizedEmail,
         );
         if (existingByEmail) {
@@ -827,7 +843,7 @@ async function upsertOAuthUserNative(profile: OAuthProfilePayload): Promise<User
                 existingByEmail.id,
             );
             const refreshed = await tx.getFirstAsync<UserRow>(
-                "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
+                "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
                 existingByEmail.id,
             );
             if (!refreshed) {
@@ -837,15 +853,15 @@ async function upsertOAuthUserNative(profile: OAuthProfilePayload): Promise<User
         }
 
         await tx.runAsync(
-            `INSERT INTO users (username, display_name, password_hash, oauth_provider, oauth_sub)
-			VALUES (?, ?, NULL, ?, ?)`,
+            `INSERT INTO users (username, display_name, phone_number, password_hash, oauth_provider, oauth_sub)
+			VALUES (?, ?, NULL, NULL, ?, ?)`,
             normalizedEmail,
             normalizedDisplayName,
             profile.provider,
             normalizedSubject,
         );
         const created = await tx.getFirstAsync<UserRow>(
-            "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
+            "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
             normalizedEmail,
         );
         if (!created) {
@@ -898,6 +914,7 @@ async function upsertOAuthUserWeb(profile: OAuthProfilePayload): Promise<UserRec
             id: generateWebUserId(state.users),
             username: normalizedEmail,
             display_name: normalizedDisplayName,
+            phone_number: null,
             password_hash: null,
             oauth_provider: profile.provider,
             oauth_sub: normalizedSubject,
@@ -1092,7 +1109,7 @@ async function updateUserDisplayNameNative(userId: number, displayName: string |
     ]);
 
     const updated = await db.getAllAsync<UserRow>(
-        "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
+        "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
         [userId],
     );
     if (updated.length === 0) {
@@ -1127,7 +1144,7 @@ async function updateUserPasswordNative(userId: number, password: string) {
         userId,
     ]);
     const rows = await db.getAllAsync<UserRow>(
-        "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
+        "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
         [userId],
     );
     if (rows.length === 0) {
@@ -1537,7 +1554,7 @@ async function getActiveSessionNative(): Promise<{ isGuest: boolean; user: UserR
     }
 
     const userRows = await db.getAllAsync<UserRow>(
-        "SELECT id, username, display_name, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
+        "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
         [session.user_id],
     );
 
@@ -1594,17 +1611,23 @@ export async function findUserByUsername(username: string): Promise<UserWithPass
     return await findUserByUsernameNative(normalizedUsername);
 }
 
-export async function createUser(username: string, password: string, displayName?: string) {
+export async function createUser(
+    username: string,
+    password: string,
+    displayName?: string,
+    phoneNumber?: string | null,
+) {
     const normalizedUsername = username.trim();
     if (!normalizedUsername) {
         throw new Error("이메일 주소를 입력해주세요.");
     }
     const normalizedDisplayName = displayName ?? normalizedUsername;
+    const normalizedPhoneNumber = phoneNumber?.trim() || null;
 
     if (isWeb) {
-        return await createUserWeb(normalizedUsername, password, normalizedDisplayName);
+        return await createUserWeb(normalizedUsername, password, normalizedDisplayName, normalizedPhoneNumber);
     }
-    return await createUserNative(normalizedUsername, password, normalizedDisplayName);
+    return await createUserNative(normalizedUsername, password, normalizedDisplayName, normalizedPhoneNumber);
 }
 
 export async function upsertOAuthUser(profile: OAuthProfilePayload) {

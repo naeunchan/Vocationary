@@ -10,6 +10,37 @@ export function getEmailValidationError(email: string): string | null {
     return null;
 }
 
+export function getNameValidationError(name: string): string | null {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+        return "이름을 입력해주세요.";
+    }
+    if (trimmedName.length < 2) {
+        return "이름은 2자 이상 입력해주세요.";
+    }
+    return null;
+}
+
+export function normalizePhoneNumber(phoneNumber: string): string {
+    return phoneNumber.trim().replace(/[\s-]/g, "");
+}
+
+export function getPhoneNumberValidationError(phoneNumber: string): string | null {
+    const trimmedPhone = phoneNumber.trim();
+    if (!trimmedPhone) {
+        return "휴대폰 번호를 입력해주세요.";
+    }
+    const normalized = normalizePhoneNumber(trimmedPhone);
+    const numeric = normalized.startsWith("+") ? normalized.slice(1) : normalized;
+    if (!/^\d+$/.test(numeric)) {
+        return "휴대폰 번호 형식을 확인해주세요.";
+    }
+    if (numeric.length < 9 || numeric.length > 15) {
+        return "휴대폰 번호 형식을 확인해주세요.";
+    }
+    return null;
+}
+
 export function getGooglePasswordValidationError(password: string): string | null {
     if (!password) {
         return "비밀번호를 입력해주세요.";

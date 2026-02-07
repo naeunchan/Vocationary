@@ -4,6 +4,12 @@ import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 
 export type AuthStackParamList = {
     Login: undefined;
+    SignUpIntro: undefined;
+    SignUpEmail: undefined;
+    SignUpName: undefined;
+    SignUpPhone: undefined;
+    SignUpPassword: undefined;
+    SignUpSuccess: undefined;
 };
 
 export type AuthNavigatorProps = {

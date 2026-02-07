@@ -8,6 +8,14 @@ import React, { useMemo } from "react";
 
 import { AuthNavigatorProps, AuthStackParamList } from "@/screens/Auth/AuthNavigator.types";
 import { LoginScreen } from "@/screens/Auth/LoginScreen";
+import { SignUpEmailScreen } from "@/screens/Auth/signup/SignUpEmailScreen";
+import { SignUpFormProvider } from "@/screens/Auth/signup/SignUpFormProvider";
+import { SignUpIntroScreen } from "@/screens/Auth/signup/SignUpIntroScreen";
+import { SignUpNameScreen } from "@/screens/Auth/signup/SignUpNameScreen";
+import { SignUpPasswordScreen } from "@/screens/Auth/signup/SignUpPasswordScreen";
+import { SignUpPhoneScreen } from "@/screens/Auth/signup/SignUpPhoneScreen";
+import { SignUpSuccessScreen } from "@/screens/Auth/signup/SignUpSuccessScreen";
+import { SignupProvider } from "@/store/signupStore";
 import { useAppAppearance } from "@/theme/AppearanceContext";
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -40,11 +48,51 @@ export function AuthNavigator({ loginProps }: AuthNavigatorProps) {
 
     return (
         <NavigationContainer independent theme={navigationTheme}>
-            <Stack.Navigator screenOptions={stackScreenOptions}>
-                <Stack.Screen name="Login" options={{ headerShown: false }}>
-                    {() => <LoginScreen {...loginProps} />}
-                </Stack.Screen>
-            </Stack.Navigator>
+            <SignupProvider>
+                <SignUpFormProvider>
+                    <Stack.Navigator screenOptions={stackScreenOptions}>
+                        <Stack.Screen name="Login" options={{ headerShown: false }}>
+                            {(props) => (
+                                <LoginScreen
+                                    {...loginProps}
+                                    onOpenSignUpFlow={() => props.navigation.navigate("SignUpIntro")}
+                                />
+                            )}
+                        </Stack.Screen>
+                        <Stack.Screen
+                            name="SignUpIntro"
+                            options={{ headerShown: false }}
+                            component={SignUpIntroScreen}
+                        />
+                        <Stack.Screen
+                            name="SignUpEmail"
+                            options={{ headerShown: false }}
+                            component={SignUpEmailScreen}
+                        />
+                        <Stack.Screen name="SignUpName" options={{ headerShown: false }} component={SignUpNameScreen} />
+                        <Stack.Screen
+                            name="SignUpPhone"
+                            options={{ headerShown: false }}
+                            component={SignUpPhoneScreen}
+                        />
+                        <Stack.Screen
+                            name="SignUpPassword"
+                            options={{ headerShown: false }}
+                            component={SignUpPasswordScreen}
+                        />
+                        <Stack.Screen name="SignUpSuccess" options={{ headerShown: false }}>
+                            {(props) => (
+                                <SignUpSuccessScreen
+                                    {...props}
+                                    onSignUp={loginProps.onSignUp}
+                                    loading={loginProps.loading ?? false}
+                                    errorMessage={loginProps.errorMessage}
+                                />
+                            )}
+                        </Stack.Screen>
+                    </Stack.Navigator>
+                </SignUpFormProvider>
+            </SignupProvider>
         </NavigationContainer>
     );
 }

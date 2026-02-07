@@ -28,12 +28,18 @@ import {
     GUEST_ACCESS_ERROR_MESSAGE,
     HELP_MODAL_ERROR_MESSAGE,
     HELP_MODAL_SAVE_ERROR_MESSAGE,
+    LOGIN_FAILED_ERROR_MESSAGE,
+    LOGIN_GENERIC_ERROR_MESSAGE,
+    LOGIN_INPUT_ERROR_MESSAGE,
     LOGOUT_ERROR_MESSAGE,
     MISSING_USER_ERROR_MESSAGE,
+    PASSWORD_MISMATCH_ERROR_MESSAGE,
     PASSWORD_REQUIRED_ERROR_MESSAGE,
     PASSWORD_UPDATE_ERROR_MESSAGE,
     PROFILE_UPDATE_ERROR_MESSAGE,
     REMOVE_FAVORITE_ERROR_MESSAGE,
+    SIGNUP_DUPLICATE_ERROR_MESSAGE,
+    SIGNUP_GENERIC_ERROR_MESSAGE,
     TOGGLE_FAVORITE_ERROR_MESSAGE,
     UPDATE_STATUS_ERROR_MESSAGE,
 } from "@/screens/App/AppScreen.constants";
@@ -44,6 +50,7 @@ import {
     clearAutoLoginCredentials,
     clearSearchHistoryEntries,
     clearSession,
+    createUser,
     deleteUserAccount,
     findUserByUsername,
     getActiveSession,
@@ -63,6 +70,7 @@ import {
     updateUserPassword,
     upsertFavoriteForUser,
     type UserRecord,
+    verifyPasswordHash,
 } from "@/services/database";
 import { WordResult } from "@/services/dictionary/types";
 import { applyExampleUpdates, clearPendingFlags } from "@/services/dictionary/utils/mergeExampleUpdates";
@@ -77,7 +85,13 @@ import {
 } from "@/theme/constants";
 import type { ThemeMode } from "@/theme/types";
 import { playRemoteAudio } from "@/utils/audio";
-import { getGooglePasswordValidationError } from "@/utils/authValidation";
+import {
+    getEmailValidationError,
+    getGooglePasswordValidationError,
+    getNameValidationError,
+    getPhoneNumberValidationError,
+    normalizePhoneNumber,
+} from "@/utils/authValidation";
 
 export function useAppScreen(): AppScreenHookResult {
     const [searchTerm, setSearchTerm] = useState("");
@@ -762,6 +776,100 @@ export function useAppScreen(): AppScreenHookResult {
         [hydrateFavorites],
     );
 
+    const handleLogin = useCallback(
+        async ({ email, password }: { email: string; password: string }) => {
+            setAuthLoading(true);
+            setAuthError(null);
+            try {
+                const emailError = getEmailValidationError(email);
+                if (emailError) {
+                    throw new Error(emailError);
+                }
+                const trimmedPassword = password.trim();
+                if (!trimmedPassword) {
+                    throw new Error(LOGIN_INPUT_ERROR_MESSAGE);
+                }
+
+                const normalizedEmail = email.trim().toLowerCase();
+                const record = await findUserByUsername(normalizedEmail);
+                if (!record || !record.passwordHash) {
+                    throw new Error(LOGIN_FAILED_ERROR_MESSAGE);
+                }
+                const ok = await verifyPasswordHash(trimmedPassword, record.passwordHash);
+                if (!ok) {
+                    throw new Error(LOGIN_FAILED_ERROR_MESSAGE);
+                }
+                const { passwordHash: _passwordHash, ...userRecord } = record;
+                await loadUserState(userRecord);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : LOGIN_GENERIC_ERROR_MESSAGE;
+                setAuthError(message);
+            } finally {
+                setAuthLoading(false);
+            }
+        },
+        [findUserByUsername, loadUserState, verifyPasswordHash],
+    );
+
+    const handleSignUp = useCallback(
+        async ({
+            email,
+            password,
+            confirmPassword,
+            fullName,
+            phoneNumber,
+        }: {
+            email: string;
+            password: string;
+            confirmPassword: string;
+            fullName: string;
+            phoneNumber: string;
+        }) => {
+            setAuthLoading(true);
+            setAuthError(null);
+            try {
+                const emailError = getEmailValidationError(email);
+                if (emailError) {
+                    throw new Error(emailError);
+                }
+                const nameError = getNameValidationError(fullName);
+                if (nameError) {
+                    throw new Error(nameError);
+                }
+                const phoneError = getPhoneNumberValidationError(phoneNumber);
+                if (phoneError) {
+                    throw new Error(phoneError);
+                }
+
+                const trimmedPassword = password.trim();
+                const trimmedConfirm = confirmPassword.trim();
+                const passwordValidationError = getGooglePasswordValidationError(trimmedPassword);
+                if (passwordValidationError) {
+                    throw new Error(passwordValidationError);
+                }
+                if (trimmedPassword !== trimmedConfirm) {
+                    throw new Error(PASSWORD_MISMATCH_ERROR_MESSAGE);
+                }
+
+                const normalizedEmail = email.trim().toLowerCase();
+                const normalizedName = fullName.trim();
+                const normalizedPhone = normalizePhoneNumber(phoneNumber);
+                const userRecord = await createUser(normalizedEmail, trimmedPassword, normalizedName, normalizedPhone);
+                await loadUserState(userRecord);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : SIGNUP_GENERIC_ERROR_MESSAGE;
+                if (message.includes("UNIQUE") || message.includes("unique")) {
+                    setAuthError(SIGNUP_DUPLICATE_ERROR_MESSAGE);
+                } else {
+                    setAuthError(message);
+                }
+            } finally {
+                setAuthLoading(false);
+            }
+        },
+        [createUser, loadUserState],
+    );
+
     const handleDismissHelp = useCallback(() => {
         setIsHelpVisible(false);
         markAppHelpSeen().catch((err) => {
@@ -1054,10 +1162,12 @@ export function useAppScreen(): AppScreenHookResult {
     const loginBindings = useMemo<LoginScreenProps>(
         () => ({
             onGuest: handleGuestAccess,
+            onLogin: handleLogin,
+            onSignUp: handleSignUp,
             loading: authLoading,
             errorMessage: authError,
         }),
-        [authError, authLoading, handleGuestAccess],
+        [authError, authLoading, handleGuestAccess, handleLogin, handleSignUp],
     );
 
     useEffect(() => {

@@ -1,28 +1,30 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, ScrollView, Text, View } from "react-native";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FEATURE_FLAGS } from "@/config/featureFlags";
-import { AuthModeSwitch } from "@/screens/Auth/components/AuthModeSwitch";
+import { CredentialFields } from "@/screens/Auth/components/CredentialFields";
 import { GuestButton } from "@/screens/Auth/components/GuestButton";
 import { LoginHeader } from "@/screens/Auth/components/LoginHeader";
+import { PrimaryActionButton } from "@/screens/Auth/components/PrimaryActionButton";
 import { getLoginCopy } from "@/screens/Auth/constants/loginCopy";
 import { createLoginScreenStyles } from "@/screens/Auth/LoginScreen.styles";
 import { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
-export function LoginScreen({ onGuest, errorMessage, loading = false }: LoginScreenProps) {
+export function LoginScreen({
+    onGuest,
+    onLogin,
+    onSignUp: _onSignUp,
+    onOpenSignUpFlow,
+    errorMessage,
+    loading = false,
+}: LoginScreenProps) {
     const styles = useThemedStyles(createLoginScreenStyles);
-    const [mode, setMode] = useState<"login" | "signup">("login");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const authUiEnabled = FEATURE_FLAGS.authUi;
-    const copy = useMemo(() => getLoginCopy(mode), [mode]);
-
-    const handleToggleMode = useCallback(() => {
-        if (loading || !authUiEnabled) {
-            return;
-        }
-        setMode((previous) => (previous === "login" ? "signup" : "login"));
-    }, [authUiEnabled, loading]);
+    const copy = useMemo(() => getLoginCopy("login"), []);
 
     const handleGuestPress = useCallback(() => {
         if (loading) {
@@ -34,6 +36,15 @@ export function LoginScreen({ onGuest, errorMessage, loading = false }: LoginScr
         ]);
     }, [loading, onGuest]);
 
+    const handlePrimaryPress = useCallback(async () => {
+        if (loading) {
+            return;
+        }
+        await onLogin({ email, password });
+    }, [email, loading, onLogin, password]);
+
+    const isPrimaryDisabled = loading;
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView
@@ -43,7 +54,7 @@ export function LoginScreen({ onGuest, errorMessage, loading = false }: LoginScr
             >
                 <View style={styles.content}>
                     <LoginHeader
-                        title={authUiEnabled ? copy.title : "MyVoc"}
+                        title={authUiEnabled ? copy.title : "Vocationary"}
                         subtitle={
                             authUiEnabled ? copy.subtitle : "게스트 모드로 시작하고 단어 학습을 바로 진행해보세요."
                         }
@@ -51,15 +62,39 @@ export function LoginScreen({ onGuest, errorMessage, loading = false }: LoginScr
 
                     {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-                    <GuestButton loading={loading} onPress={handleGuestPress} />
-
                     {authUiEnabled ? (
-                        <AuthModeSwitch
-                            prompt={copy.togglePrompt}
-                            actionLabel={copy.toggleAction}
-                            disabled={loading}
-                            onToggle={handleToggleMode}
-                        />
+                        <View style={styles.card}>
+                            <Text style={styles.cardTitle}>계정 정보</Text>
+                            <CredentialFields
+                                username={email}
+                                password={password}
+                                loading={loading}
+                                onChangeUsername={setEmail}
+                                onChangePassword={setPassword}
+                            />
+                            <PrimaryActionButton
+                                label={copy.primaryButton}
+                                loading={loading}
+                                disabled={isPrimaryDisabled}
+                                onPress={handlePrimaryPress}
+                                mode="login"
+                            />
+                        </View>
+                    ) : null}
+
+                    <View style={styles.guestSection}>
+                        <View style={styles.dividerRow}>
+                            <View style={styles.dividerLine} />
+                            <Text style={styles.dividerText}>또는</Text>
+                            <View style={styles.dividerLine} />
+                        </View>
+                        <GuestButton loading={loading} onPress={handleGuestPress} />
+                    </View>
+
+                    {authUiEnabled && onOpenSignUpFlow ? (
+                        <TouchableOpacity style={styles.flowLink} onPress={onOpenSignUpFlow} disabled={loading}>
+                            <Text style={styles.flowLinkText}>회원가입</Text>
+                        </TouchableOpacity>
                     ) : null}
                 </View>
             </ScrollView>

@@ -24,6 +24,8 @@ const wrapper: React.ComponentType<React.PropsWithChildren> = ({ children }) => 
 
 const baseProps = {
     onGuest: jest.fn(),
+    onLogin: jest.fn().mockResolvedValue(undefined),
+    onSignUp: jest.fn().mockResolvedValue(undefined),
     loading: false,
 };
 
