@@ -80,6 +80,7 @@ import {
     BIOMETRIC_LOGIN_PREFERENCE_KEY,
     DEFAULT_FONT_SCALE,
     FONT_SCALE_PREFERENCE_KEY,
+    GUEST_USED_PREFERENCE_KEY,
     ONBOARDING_PREFERENCE_KEY,
     THEME_MODE_PREFERENCE_KEY,
 } from "@/theme/constants";
@@ -334,26 +335,6 @@ export function useAppScreen(): AppScreenHookResult {
 
         void loadAppearancePreferences();
 
-        return () => {
-            isMounted = false;
-        };
-    }, []);
-
-    useEffect(() => {
-        let isMounted = true;
-        getPreferenceValue(ONBOARDING_PREFERENCE_KEY)
-            .then((value) => {
-                if (!isMounted) {
-                    return;
-                }
-                setIsOnboardingVisible(value !== "true");
-            })
-            .catch((error) => {
-                console.warn("온보딩 상태를 불러오는 중 문제가 발생했어요.", error);
-                if (isMounted) {
-                    setIsOnboardingVisible(true);
-                }
-            });
         return () => {
             isMounted = false;
         };
@@ -719,6 +700,7 @@ export function useAppScreen(): AppScreenHookResult {
         setAuthError(null);
         try {
             await setGuestSession();
+            await setPreferenceValue(GUEST_USED_PREFERENCE_KEY, "true");
             setIsGuest(true);
             setUser(null);
             setFavorites([]);
@@ -772,6 +754,21 @@ export function useAppScreen(): AppScreenHookResult {
             setExamplesVisible(false);
             setError(null);
             setAuthError(null);
+            try {
+                const [onboardingValue, guestUsedValue] = await Promise.all([
+                    getPreferenceValue(ONBOARDING_PREFERENCE_KEY),
+                    getPreferenceValue(GUEST_USED_PREFERENCE_KEY),
+                ]);
+                if (guestUsedValue === "true") {
+                    setIsOnboardingVisible(false);
+                    await setPreferenceValue(ONBOARDING_PREFERENCE_KEY, "true");
+                } else {
+                    setIsOnboardingVisible(onboardingValue !== "true");
+                }
+            } catch (error) {
+                console.warn("온보딩 상태를 불러오는 중 문제가 발생했어요.", error);
+                setIsOnboardingVisible(true);
+            }
         },
         [hydrateFavorites],
     );
