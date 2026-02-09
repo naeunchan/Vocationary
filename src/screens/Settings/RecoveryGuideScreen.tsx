@@ -2,6 +2,7 @@ import React from "react";
 import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { createRecoveryGuideStyles } from "@/screens/Settings/RecoveryGuideScreen.styles";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
@@ -16,6 +17,19 @@ type RecoveryGuideScreenProps = {
 export function RecoveryGuideScreen({ onRequestSignUp, onContinueAsGuest }: RecoveryGuideScreenProps) {
     const styles = useThemedStyles(createRecoveryGuideStyles);
     const showAuthActions = Boolean(onRequestSignUp || onContinueAsGuest);
+    const recoveryAlternatives = React.useMemo(() => {
+        const steps = [
+            "새 계정으로 다시 가입하기",
+            "동일 기기에서 자동 로그인/생체 인증이 켜져 있다면 유지된 세션 확인",
+        ];
+
+        if (FEATURE_FLAGS.backupRestore) {
+            steps.push("복원 가능한 백업 파일이 있다면 설정 > 백업 및 복원 > 백업에서 복원하기 이용");
+        }
+
+        steps.push("기존 계정 데이터가 필요한 경우 고객센터로 문의하기");
+        return steps;
+    }, []);
 
     const handleContactSupport = React.useCallback(async () => {
         const subject = encodeURIComponent(CONTACT_SUBJECT);
@@ -44,14 +58,11 @@ export function RecoveryGuideScreen({ onRequestSignUp, onContinueAsGuest }: Reco
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>가능한 대체 방법</Text>
-                    <Text style={styles.body}>1. 새 계정으로 다시 가입하기</Text>
-                    <Text style={styles.body}>
-                        2. 동일 기기에서 자동 로그인/생체 인증이 켜져 있다면 유지된 세션 확인
-                    </Text>
-                    <Text style={styles.body}>
-                        3. 복원 가능한 백업 파일이 있다면 설정 {">"} 백업 및 복원 {">"} 백업에서 복원하기 이용
-                    </Text>
-                    <Text style={styles.body}>4. 기존 계정 데이터가 필요한 경우 고객센터로 문의하기</Text>
+                    {recoveryAlternatives.map((step, index) => (
+                        <Text key={step} style={styles.body}>
+                            {`${index + 1}. ${step}`}
+                        </Text>
+                    ))}
                 </View>
 
                 <View style={styles.section}>

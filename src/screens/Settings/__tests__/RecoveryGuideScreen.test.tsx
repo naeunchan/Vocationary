@@ -2,11 +2,21 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import React from "react";
 import { Linking } from "react-native";
 
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { RecoveryGuideScreen } from "@/screens/Settings/RecoveryGuideScreen";
+
+jest.mock("@/config/featureFlags", () => ({
+    FEATURE_FLAGS: {
+        guestAccountCta: false,
+        backupRestore: false,
+        biometricAutoLogin: false,
+    },
+}));
 
 describe("RecoveryGuideScreen", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        FEATURE_FLAGS.backupRestore = false;
     });
 
     afterEach(() => {
@@ -39,5 +49,20 @@ describe("RecoveryGuideScreen", () => {
 
         expect(onRequestSignUp).toHaveBeenCalled();
         expect(onContinueAsGuest).toHaveBeenCalled();
+    });
+
+    it("hides backup restore path copy when backupRestore flag is disabled", () => {
+        const { queryByText, getByText } = render(<RecoveryGuideScreen />);
+
+        expect(queryByText(/백업 및 복원/)).toBeNull();
+        expect(getByText("3. 기존 계정 데이터가 필요한 경우 고객센터로 문의하기")).toBeTruthy();
+    });
+
+    it("shows backup restore path copy when backupRestore flag is enabled", () => {
+        FEATURE_FLAGS.backupRestore = true;
+        const { getByText } = render(<RecoveryGuideScreen />);
+
+        expect(getByText(/설정 > 백업 및 복원 > 백업에서 복원하기/)).toBeTruthy();
+        expect(getByText("4. 기존 계정 데이터가 필요한 경우 고객센터로 문의하기")).toBeTruthy();
     });
 });
