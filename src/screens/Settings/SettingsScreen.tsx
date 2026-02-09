@@ -44,6 +44,7 @@ export function SettingsScreen({
     fontScale,
     onNavigateThemeSettings,
     onNavigateFontSettings,
+    onNavigateRecoveryGuide,
 }: SettingsScreenProps) {
     const styles = useThemedStyles(createStyles);
     const showGuestAccountCta = isGuest && FEATURE_FLAGS.guestAccountCta;
@@ -250,6 +251,10 @@ export function SettingsScreen({
                             onPress: () => {
                                 handleOpenDocument("legalNotice");
                             },
+                        })}
+                        {renderRow(t("settings.link.recovery"), {
+                            onPress: onNavigateRecoveryGuide,
+                            value: t("settings.label.recoveryUnavailable"),
                         })}
                         {isBiometricSettingVisible
                             ? renderRow(t("settings.link.biometric"), {

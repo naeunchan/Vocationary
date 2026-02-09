@@ -110,6 +110,7 @@ export function useAppScreen(): AppScreenHookResult {
     const [initializing, setInitializing] = useState(true);
     const [isGuest, setIsGuest] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
+    const [signUpError, setSignUpError] = useState<string | null>(null);
     const [authLoading, setAuthLoading] = useState(false);
     const [isHelpVisible, setIsHelpVisible] = useState(false);
     const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
@@ -752,11 +753,13 @@ export function useAppScreen(): AppScreenHookResult {
         setExamplesVisible(false);
         setError(null);
         setAuthError(null);
+        setSignUpError(null);
     }, []);
 
     const handleGuestAccessAsync = useCallback(async () => {
         setAuthLoading(true);
         setAuthError(null);
+        setSignUpError(null);
         try {
             await setGuestSession();
             await setPreferenceValue(GUEST_USED_PREFERENCE_KEY, "true");
@@ -782,6 +785,7 @@ export function useAppScreen(): AppScreenHookResult {
 
     const handleGuestAuthRedirectAsync = useCallback(async () => {
         setAuthError(null);
+        setSignUpError(null);
         try {
             await clearSession();
         } catch (err) {
@@ -858,6 +862,7 @@ export function useAppScreen(): AppScreenHookResult {
         async ({ email, password }: { email: string; password: string }) => {
             setAuthLoading(true);
             setAuthError(null);
+            setSignUpError(null);
             try {
                 const emailError = getEmailValidationError(email);
                 if (emailError) {
@@ -904,7 +909,7 @@ export function useAppScreen(): AppScreenHookResult {
             phoneNumber: string;
         }) => {
             setAuthLoading(true);
-            setAuthError(null);
+            setSignUpError(null);
             try {
                 const emailError = getEmailValidationError(email);
                 if (emailError) {
@@ -937,9 +942,9 @@ export function useAppScreen(): AppScreenHookResult {
             } catch (err) {
                 const message = err instanceof Error ? err.message : SIGNUP_GENERIC_ERROR_MESSAGE;
                 if (message.includes("UNIQUE") || message.includes("unique")) {
-                    setAuthError(SIGNUP_DUPLICATE_ERROR_MESSAGE);
+                    setSignUpError(SIGNUP_DUPLICATE_ERROR_MESSAGE);
                 } else {
-                    setAuthError(message);
+                    setSignUpError(message);
                 }
             } finally {
                 setAuthLoading(false);
@@ -972,6 +977,7 @@ export function useAppScreen(): AppScreenHookResult {
     const handleLogoutAsync = useCallback(async () => {
         setAuthLoading(true);
         setAuthError(null);
+        setSignUpError(null);
         try {
             await clearSession();
             await clearAutoLoginCredentials();
@@ -1244,8 +1250,9 @@ export function useAppScreen(): AppScreenHookResult {
             onSignUp: handleSignUp,
             loading: authLoading,
             errorMessage: authError,
+            signUpErrorMessage: signUpError,
         }),
-        [authError, authLoading, handleGuestAccess, handleLogin, handleSignUp],
+        [authError, authLoading, handleGuestAccess, handleLogin, handleSignUp, signUpError],
     );
 
     useEffect(() => {

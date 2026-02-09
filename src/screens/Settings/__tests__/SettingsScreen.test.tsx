@@ -48,6 +48,7 @@ describe("SettingsScreen", () => {
         fontScale: 1,
         onNavigateThemeSettings: jest.fn(),
         onNavigateFontSettings: jest.fn(),
+        onNavigateRecoveryGuide: jest.fn(),
     };
 
     beforeEach(() => {
@@ -114,5 +115,12 @@ describe("SettingsScreen", () => {
 
         fireEvent.press(getByText("글자 크기"));
         expect(baseProps.onNavigateFontSettings).toHaveBeenCalled();
+    });
+
+    it("navigates to recovery guide when recovery row tapped", () => {
+        const { getByText } = render(<SettingsScreen {...baseProps} />);
+
+        fireEvent.press(getByText("계정 복구 안내"));
+        expect(baseProps.onNavigateRecoveryGuide).toHaveBeenCalled();
     });
 });

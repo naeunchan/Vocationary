@@ -4,7 +4,7 @@ const translations: Record<Locale, Record<string, string>> = {
     ko: {
         "auth.login.title": "다시 만나서 반가워요!",
         "auth.signup.title": "처음 오셨군요!",
-        "auth.login.subtitle": "",
+        "auth.login.subtitle": "로그인에 문제가 있으면 아래의 계정 복구 안내를 확인하세요.",
         "auth.signup.subtitle": "게스트로 시작한 뒤 설정에서 계정 정보를 관리할 수 있어요.",
         "auth.login.primary": "이메일로 로그인",
         "auth.signup.primary": "회원가입",
@@ -54,7 +54,7 @@ const translations: Record<Locale, Record<string, string>> = {
     en: {
         "auth.login.title": "Welcome back!",
         "auth.signup.title": "Nice to meet you!",
-        "auth.login.subtitle": "",
+        "auth.login.subtitle": "If you have trouble signing in, check the account recovery guidance below.",
         "auth.signup.subtitle": "Start as a guest and manage account details in Settings.",
         "auth.login.primary": "Log in with email",
         "auth.signup.primary": "Sign up",

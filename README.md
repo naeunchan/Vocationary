@@ -48,4 +48,4 @@
 - Automatic login credentials are stored with SecureStore/Keychain on device; logout clears the secure entry.
 - Optional biometric-gated auto-login is available via device capabilities (toggle in Settings).
 - AI-powered examples/TTS require a backend proxy (`OPENAI_PROXY_URL`). Without it, the UI keeps the feature disabled and surfaces an in-app notice.
-- No password recovery is provided; passwords are device-local. Set clear store copy or add a reset flow before launch.
+- Password reset is not provided; credentials are device-local. Recovery alternatives are guided in-app via `Settings > 계정 복구 안내` and the login recovery entry point.

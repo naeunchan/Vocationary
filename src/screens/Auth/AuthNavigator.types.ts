@@ -4,6 +4,7 @@ import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 
 export type AuthStackParamList = {
     Login: undefined;
+    RecoveryGuide: undefined;
     SignUpIntro: undefined;
     SignUpEmail: undefined;
     SignUpName: undefined;

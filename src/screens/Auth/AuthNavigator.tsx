@@ -15,6 +15,7 @@ import { SignUpNameScreen } from "@/screens/Auth/signup/SignUpNameScreen";
 import { SignUpPasswordScreen } from "@/screens/Auth/signup/SignUpPasswordScreen";
 import { SignUpPhoneScreen } from "@/screens/Auth/signup/SignUpPhoneScreen";
 import { SignUpSuccessScreen } from "@/screens/Auth/signup/SignUpSuccessScreen";
+import { RecoveryGuideScreen } from "@/screens/Settings/RecoveryGuideScreen";
 import { SignupProvider } from "@/store/signupStore";
 import { useAppAppearance } from "@/theme/AppearanceContext";
 
@@ -56,6 +57,17 @@ export function AuthNavigator({ loginProps }: AuthNavigatorProps) {
                                 <LoginScreen
                                     {...loginProps}
                                     onOpenSignUpFlow={() => props.navigation.navigate("SignUpIntro")}
+                                    onOpenRecoveryGuide={() => props.navigation.navigate("RecoveryGuide")}
+                                />
+                            )}
+                        </Stack.Screen>
+                        <Stack.Screen name="RecoveryGuide" options={{ title: "계정 복구 안내", headerBackTitle: "" }}>
+                            {({ navigation }) => (
+                                <RecoveryGuideScreen
+                                    onRequestSignUp={() => {
+                                        navigation.navigate("SignUpIntro");
+                                    }}
+                                    onContinueAsGuest={loginProps.onGuest}
                                 />
                             )}
                         </Stack.Screen>
@@ -81,7 +93,7 @@ export function AuthNavigator({ loginProps }: AuthNavigatorProps) {
                                     {...props}
                                     onSignUp={loginProps.onSignUp}
                                     loading={loginProps.loading ?? false}
-                                    errorMessage={loginProps.errorMessage}
+                                    errorMessage={loginProps.signUpErrorMessage}
                                 />
                             )}
                         </Stack.Screen>

@@ -55,4 +55,17 @@ describe("LoginScreen", () => {
 
         expect(await findByText("로그인에 실패했어요.")).toBeTruthy();
     });
+
+    it("opens recovery guide when recovery link is pressed", () => {
+        const onOpenRecoveryGuide = jest.fn();
+        const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
+        const { getByText } = render(<LoginScreen {...baseProps} onOpenRecoveryGuide={onOpenRecoveryGuide} />, {
+            wrapper,
+        });
+
+        fireEvent.press(getByText("비밀번호를 잊으셨나요?"));
+
+        expect(onOpenRecoveryGuide).toHaveBeenCalled();
+        expect(alertSpy).not.toHaveBeenCalled();
+    });
 });

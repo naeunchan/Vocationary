@@ -11,6 +11,7 @@ import { getLoginCopy } from "@/screens/Auth/constants/loginCopy";
 import { createLoginScreenStyles } from "@/screens/Auth/LoginScreen.styles";
 import { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 import { getPreferenceValue, setPreferenceValue } from "@/services/database";
+import { t } from "@/shared/i18n";
 import { BIOMETRIC_LOGIN_PREFERENCE_KEY } from "@/theme/constants";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 import { getEmailValidationError } from "@/utils/authValidation";
@@ -20,6 +21,7 @@ export function LoginScreen({
     onLogin,
     onSignUp: _onSignUp,
     onOpenSignUpFlow,
+    onOpenRecoveryGuide,
     errorMessage,
     loading = false,
 }: LoginScreenProps) {
@@ -63,6 +65,20 @@ export function LoginScreen({
         ]);
     }, [loading, onGuest]);
 
+    const handleRecoveryPress = useCallback(() => {
+        if (loading) {
+            return;
+        }
+        if (onOpenRecoveryGuide) {
+            onOpenRecoveryGuide();
+            return;
+        }
+        Alert.alert(
+            "비밀번호 복구 안내",
+            "현재 Vocationary는 비밀번호 복구를 지원하지 않습니다. 새 계정을 생성하거나 고객센터로 문의해주세요.",
+        );
+    }, [loading, onOpenRecoveryGuide]);
+
     const handlePrimaryPress = useCallback(async () => {
         if (loading) {
             return;
@@ -105,6 +121,9 @@ export function LoginScreen({
                             onChangeUsername={setEmail}
                             onChangePassword={setPassword}
                         />
+                        <TouchableOpacity style={styles.recoveryLink} onPress={handleRecoveryPress} disabled={loading}>
+                            <Text style={styles.recoveryLinkText}>{t("auth.forgotPassword")}</Text>
+                        </TouchableOpacity>
                         <RememberMeToggle
                             value={biometricEnabled}
                             disabled={loading}

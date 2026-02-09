@@ -9,6 +9,8 @@ export type LoginScreenProps = {
         phoneNumber: string;
     }) => Promise<void>;
     onOpenSignUpFlow?: () => void;
+    onOpenRecoveryGuide?: () => void;
     errorMessage?: string | null;
+    signUpErrorMessage?: string | null;
     loading?: boolean;
 };

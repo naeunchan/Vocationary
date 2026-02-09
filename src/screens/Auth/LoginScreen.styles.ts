@@ -143,6 +143,15 @@ export const createLoginScreenStyles = (theme: AppThemeColors, fontScale: number
             color: theme.accent,
             fontWeight: "600",
         },
+        recoveryLink: {
+            marginTop: 8,
+            alignSelf: "flex-end",
+        },
+        recoveryLinkText: {
+            fontSize: scaleFont(12, fontScale),
+            color: theme.textSecondary,
+            fontWeight: "600",
+        },
         disabledButton: {
             opacity: 0.6,
         },

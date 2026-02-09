@@ -7,6 +7,7 @@ import { FontSizeScreen } from "@/screens/Settings/FontSizeScreen";
 import { MyPageNicknameScreen } from "@/screens/Settings/MyPageNicknameScreen";
 import { MyPagePasswordScreen } from "@/screens/Settings/MyPagePasswordScreen";
 import { MyPageScreen } from "@/screens/Settings/MyPageScreen";
+import { RecoveryGuideScreen } from "@/screens/Settings/RecoveryGuideScreen";
 import { SettingsNavigatorProps, SettingsStackParamList } from "@/screens/Settings/SettingsNavigator.types";
 import { SettingsScreen } from "@/screens/Settings/SettingsScreen";
 import { ThemeModeScreen } from "@/screens/Settings/ThemeModeScreen";
@@ -93,6 +94,13 @@ export function SettingsNavigator({
         }),
         [],
     );
+    const recoveryGuideOptions = React.useMemo<NativeStackNavigationOptions>(
+        () => ({
+            title: "계정 복구 안내",
+            headerBackButtonDisplayMode: "minimal",
+        }),
+        [],
+    );
     return (
         <Stack.Navigator screenOptions={baseHeaderOptions}>
             <Stack.Screen name="SettingsHome" options={settingsHomeOptions}>
@@ -122,6 +130,9 @@ export function SettingsNavigator({
                         }}
                         onNavigateFontSettings={() => {
                             navigation.navigate("FontSizeSettings");
+                        }}
+                        onNavigateRecoveryGuide={() => {
+                            navigation.navigate("RecoveryGuide");
                         }}
                     />
                 )}
@@ -189,6 +200,7 @@ export function SettingsNavigator({
                     />
                 )}
             </Stack.Screen>
+            <Stack.Screen name="RecoveryGuide" options={recoveryGuideOptions} component={RecoveryGuideScreen} />
         </Stack.Navigator>
     );
 }
