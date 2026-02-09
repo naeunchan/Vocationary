@@ -13,7 +13,6 @@
         "lint:pre-commit": "eslint . --ext .js,.jsx,.ts,.tsx --fix --max-warnings=1000",
         "format": "prettier --write .",
         "ci:build": "npx expo export --platform web --non-interactive --output-dir dist-web",
-        "test:e2e:recovery:android": "maestro test .maestro/flows --format JUNIT --output .maestro/results/junit.xml --debug-output .maestro/results/debug --test-output-dir .maestro/results/artifacts --flatten-debug-output",
         "proxy": "node server/index.js",
         "prepare": "husky || true"
     },

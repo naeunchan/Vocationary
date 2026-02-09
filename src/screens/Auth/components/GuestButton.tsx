@@ -13,7 +13,6 @@ export function GuestButton({ loading, onPress }: GuestButtonProps) {
     const styles = useThemedStyles(createLoginScreenStyles);
     return (
         <TouchableOpacity
-            testID="login-guest-button"
             style={[styles.guestButton, loading && styles.disabledButton]}
             onPress={onPress}
             disabled={loading}

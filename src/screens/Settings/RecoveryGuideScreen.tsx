@@ -76,18 +76,12 @@ export function RecoveryGuideScreen({ onRequestSignUp, onContinueAsGuest }: Reco
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>바로 이동</Text>
                     {showAuthActions && onRequestSignUp ? (
-                        <TouchableOpacity
-                            testID="recovery-action-sign-up"
-                            style={styles.primaryButton}
-                            onPress={onRequestSignUp}
-                            activeOpacity={0.85}
-                        >
+                        <TouchableOpacity style={styles.primaryButton} onPress={onRequestSignUp} activeOpacity={0.85}>
                             <Text style={styles.primaryButtonText}>새 계정 만들기</Text>
                         </TouchableOpacity>
                     ) : null}
                     {showAuthActions && onContinueAsGuest ? (
                         <TouchableOpacity
-                            testID="recovery-action-continue-guest"
                             style={styles.secondaryButton}
                             onPress={onContinueAsGuest}
                             activeOpacity={0.85}
@@ -96,7 +90,6 @@ export function RecoveryGuideScreen({ onRequestSignUp, onContinueAsGuest }: Reco
                         </TouchableOpacity>
                     ) : null}
                     <TouchableOpacity
-                        testID="recovery-action-contact-support"
                         style={styles.secondaryButton}
                         onPress={handleContactSupport}
                         activeOpacity={0.85}

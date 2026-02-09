@@ -46,6 +46,3 @@ yarn-error.*
 scripts/
 audit/
 .vscode
-
-# runtime e2e artifacts
-.maestro/results/

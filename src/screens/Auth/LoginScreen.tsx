@@ -121,12 +121,7 @@ export function LoginScreen({
                             onChangeUsername={setEmail}
                             onChangePassword={setPassword}
                         />
-                        <TouchableOpacity
-                            testID="login-forgot-password-link"
-                            style={styles.recoveryLink}
-                            onPress={handleRecoveryPress}
-                            disabled={loading}
-                        >
+                        <TouchableOpacity style={styles.recoveryLink} onPress={handleRecoveryPress} disabled={loading}>
                             <Text style={styles.recoveryLinkText}>{t("auth.forgotPassword")}</Text>
                         </TouchableOpacity>
                         <RememberMeToggle

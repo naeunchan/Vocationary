@@ -71,7 +71,6 @@ export function RootTabNavigator({
                     tabBarStyle: tabStyles.tabBar,
                     tabBarShowLabel: TAB_BAR_OPTIONS.showLabel,
                     tabBarLabel: label,
-                    tabBarButtonTestID: `tab-${route.name.toLowerCase()}`,
                     tabBarIcon: ({ color, size }) => <MaterialIcons name={icon} color={color} size={size} />,
                 };
             }}

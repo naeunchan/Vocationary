@@ -24,7 +24,6 @@ type RowOptions = {
     value?: string;
     isLast?: boolean;
     disabled?: boolean;
-    testID?: string;
 };
 
 export function SettingsScreen({
@@ -208,12 +207,11 @@ export function SettingsScreen({
     }, [biometricEnabled]);
 
     const renderRow = (label: string, options: RowOptions = {}) => {
-        const { onPress, value, isLast = false, disabled = false, testID } = options;
+        const { onPress, value, isLast = false, disabled = false } = options;
         const isPressable = Boolean(onPress) && !disabled;
         return (
             <TouchableOpacity
                 key={label}
-                testID={testID}
                 activeOpacity={isPressable ? 0.6 : 1}
                 disabled={!isPressable}
                 onPress={onPress}
@@ -257,7 +255,6 @@ export function SettingsScreen({
                         {renderRow(t("settings.link.recovery"), {
                             onPress: onNavigateRecoveryGuide,
                             value: t("settings.label.recoveryUnavailable"),
-                            testID: "settings-row-recovery-guide",
                         })}
                         {isBiometricSettingVisible
                             ? renderRow(t("settings.link.biometric"), {
