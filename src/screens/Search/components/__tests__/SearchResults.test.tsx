@@ -86,4 +86,27 @@ describe("SearchResults", () => {
             }),
         );
     });
+
+    it("renders AI warning card without hiding result and supports retry", () => {
+        const onRetryAiAssist = jest.fn();
+        const aiAssistError: AppError = {
+            kind: "NetworkError",
+            message: "AI 연결이 원활하지 않아요. 잠시 후 다시 시도해주세요.",
+            retryable: true,
+        };
+
+        const { getByText, getByTestId } = render(
+            <SearchResults
+                {...defaultProps}
+                result={baseResult}
+                aiAssistError={aiAssistError}
+                onRetryAiAssist={onRetryAiAssist}
+            />,
+        );
+
+        expect(getByTestId("word-result-card")).toBeTruthy();
+        expect(getByTestId("search-results-ai-warning")).toBeTruthy();
+        fireEvent.press(getByText("다시 시도하기"));
+        expect(onRetryAiAssist).toHaveBeenCalled();
+    });
 });

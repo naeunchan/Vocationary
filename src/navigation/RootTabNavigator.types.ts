@@ -14,6 +14,7 @@ export type RootTabNavigatorProps = {
     onSubmitSearch: () => void;
     loading: boolean;
     error: AppError | null;
+    aiAssistError?: AppError | null;
     result: WordResult | null;
     examplesVisible: boolean;
     onToggleExamples: () => void;
@@ -28,6 +29,7 @@ export type RootTabNavigatorProps = {
     onSelectRecentSearch: (entry: SearchHistoryEntry) => void;
     onClearRecentSearches: () => void;
     onRetrySearch: () => void;
+    onRetryAiAssist?: () => void;
     userName: string;
     onLogout: () => void;
     canLogout: boolean;

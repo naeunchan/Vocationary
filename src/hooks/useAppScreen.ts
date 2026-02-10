@@ -3,12 +3,14 @@ import * as LocalAuthentication from "expo-local-authentication";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
+import { normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
+import { generateDefinitionExamples } from "@/api/dictionary/exampleGenerator";
 import { fetchDictionaryEntry } from "@/api/dictionary/freeDictionaryClient";
 import { getPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
 import { getWordData } from "@/api/dictionary/getWordData";
 import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
 import type { AppError } from "@/errors/AppError";
-import { createAppError, normalizeError } from "@/errors/AppError";
+import { createAppError, normalizeError, shouldRetry } from "@/errors/AppError";
 import { captureAppError, setUserContext } from "@/logging/logger";
 import type { RootTabNavigatorProps } from "@/navigation/RootTabNavigator.types";
 import {
@@ -99,6 +101,7 @@ export function useAppScreen(): AppScreenHookResult {
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<AppError | null>(null);
+    const [aiAssistError, setAiAssistError] = useState<AppError | null>(null);
     const [result, setResult] = useState<WordResult | null>(null);
     const [examplesVisible, setExamplesVisible] = useState(false);
     const [favorites, setFavorites] = useState<FavoriteWordEntry[]>([]);
@@ -463,69 +466,103 @@ export function useAppScreen(): AppScreenHookResult {
         });
     }, []);
 
-    const executeSearch = useCallback(async (term: string) => {
-        const normalizedTerm = term.trim();
-        if (!normalizedTerm) {
-            activeLookupRef.current += 1;
-            setErrorMessage(EMPTY_SEARCH_ERROR_MESSAGE, "ValidationError", { retryable: false });
-            setResult(null);
-            setExamplesVisible(false);
-            setLoading(false);
-            return;
-        }
-
-        const lookupId = activeLookupRef.current + 1;
-        activeLookupRef.current = lookupId;
-
-        setError(null);
-        setLoading(true);
-        setExamplesVisible(false);
-
-        try {
-            const { base, examplesPromise } = await getWordData(normalizedTerm);
-            if (lookupId !== activeLookupRef.current) {
-                return;
-            }
-
-            setResult(base);
-            setLoading(false);
-
-            void examplesPromise
-                .then((updates) => {
-                    if (lookupId !== activeLookupRef.current) {
-                        return;
+    const toRetryableExampleState = useCallback((base: WordResult): WordResult => {
+        return {
+            ...base,
+            meanings: base.meanings.map((meaning) => ({
+                ...meaning,
+                definitions: meaning.definitions.map((definition) => {
+                    if (definition.example) {
+                        return definition;
                     }
-                    setResult((previous) => {
-                        if (!previous) {
-                            return previous;
-                        }
-                        if (updates.length === 0) {
-                            return clearPendingFlags(previous);
-                        }
-                        return applyExampleUpdates(previous, updates);
-                    });
-                })
-                .catch((err) => {
-                    console.warn("예문 생성 중 문제가 발생했어요.", err);
-                    if (lookupId !== activeLookupRef.current) {
-                        return;
-                    }
-                    setResult((previous) => (previous ? clearPendingFlags(previous) : previous));
-                });
-        } catch (err) {
-            if (lookupId !== activeLookupRef.current) {
-                return;
-            }
-            setResult(null);
-            setExamplesVisible(false);
-            setLoading(false);
-            const appError = normalizeError(err, GENERIC_ERROR_MESSAGE);
-            setError(appError);
-            if (appError.kind !== "ValidationError") {
-                captureAppError(appError, { scope: "search.execute" });
-            }
-        }
+                    return {
+                        ...definition,
+                        pendingExample: true,
+                    };
+                }),
+            })),
+        };
     }, []);
+
+    const reportAiAssistError = useCallback((error: unknown, scope: "examples" | "tts"): AppError => {
+        const appError = normalizeAIProxyError(error, scope);
+        if (appError.kind !== "ValidationError") {
+            captureAppError(appError, { scope: `ai.${scope}` });
+        }
+        return appError;
+    }, []);
+
+    const executeSearch = useCallback(
+        async (term: string) => {
+            const normalizedTerm = term.trim();
+            if (!normalizedTerm) {
+                activeLookupRef.current += 1;
+                setErrorMessage(EMPTY_SEARCH_ERROR_MESSAGE, "ValidationError", { retryable: false });
+                setAiAssistError(null);
+                setResult(null);
+                setExamplesVisible(false);
+                setLoading(false);
+                return;
+            }
+
+            const lookupId = activeLookupRef.current + 1;
+            activeLookupRef.current = lookupId;
+
+            setError(null);
+            setAiAssistError(null);
+            setLoading(true);
+            setExamplesVisible(false);
+
+            try {
+                const { base, examplesPromise } = await getWordData(normalizedTerm);
+                if (lookupId !== activeLookupRef.current) {
+                    return;
+                }
+
+                setResult(base);
+                setLoading(false);
+
+                void examplesPromise
+                    .then((updates) => {
+                        if (lookupId !== activeLookupRef.current) {
+                            return;
+                        }
+                        setAiAssistError(null);
+                        setResult((previous) => {
+                            if (!previous) {
+                                return previous;
+                            }
+                            if (updates.length === 0) {
+                                return clearPendingFlags(previous);
+                            }
+                            return applyExampleUpdates(previous, updates);
+                        });
+                    })
+                    .catch((err) => {
+                        if (lookupId !== activeLookupRef.current) {
+                            return;
+                        }
+                        const appError = reportAiAssistError(err, "examples");
+                        setAiAssistError(appError);
+                        setResult((previous) => (previous ? clearPendingFlags(previous) : previous));
+                    });
+            } catch (err) {
+                if (lookupId !== activeLookupRef.current) {
+                    return;
+                }
+                setResult(null);
+                setExamplesVisible(false);
+                setAiAssistError(null);
+                setLoading(false);
+                const appError = normalizeError(err, GENERIC_ERROR_MESSAGE);
+                setError(appError);
+                if (appError.kind !== "ValidationError") {
+                    captureAppError(appError, { scope: "search.execute" });
+                }
+            }
+        },
+        [reportAiAssistError, setErrorMessage],
+    );
 
     const handleSearchTermChange = useCallback((text: string) => {
         setSearchTerm(text);
@@ -534,14 +571,56 @@ export function useAppScreen(): AppScreenHookResult {
         if (!trimmed) {
             activeLookupRef.current += 1;
             setError(null);
+            setAiAssistError(null);
             setLoading(false);
             setExamplesVisible(false);
             return;
         }
         // Cancel any in-flight result updates; user must submit explicitly.
         activeLookupRef.current += 1;
+        setAiAssistError(null);
         setLoading(false);
     }, []);
+
+    const retryExamplesAsync = useCallback(async () => {
+        if (!result) {
+            return;
+        }
+
+        const lookupId = activeLookupRef.current;
+        const retryBase = toRetryableExampleState(result);
+        setAiAssistError(null);
+        setResult((previous) => {
+            if (!previous || previous.word !== retryBase.word) {
+                return previous;
+            }
+            return retryBase;
+        });
+
+        try {
+            const updates = await generateDefinitionExamples(retryBase.word, retryBase.meanings);
+            if (lookupId !== activeLookupRef.current) {
+                return;
+            }
+            setAiAssistError(null);
+            setResult((previous) => {
+                if (!previous || previous.word !== retryBase.word) {
+                    return previous;
+                }
+                if (updates.length === 0) {
+                    return clearPendingFlags(previous);
+                }
+                return applyExampleUpdates(previous, updates);
+            });
+        } catch (error) {
+            if (lookupId !== activeLookupRef.current) {
+                return;
+            }
+            const appError = reportAiAssistError(error, "examples");
+            setAiAssistError(appError);
+            setResult((previous) => (previous ? clearPendingFlags(previous) : previous));
+        }
+    }, [reportAiAssistError, result, toRetryableExampleState]);
 
     const handleSearch = useCallback(() => {
         const trimmed = searchTerm.trim();
@@ -692,6 +771,17 @@ export function useAppScreen(): AppScreenHookResult {
         [isGuest, removeFavoritePersisted],
     );
 
+    const showAudioErrorAlert = useCallback((appError: AppError, retryAction: () => void) => {
+        if (shouldRetry(appError)) {
+            Alert.alert(AUDIO_PLAY_ERROR_MESSAGE, appError.message, [
+                { text: "취소", style: "cancel" },
+                { text: "다시 시도", onPress: retryAction },
+            ]);
+            return;
+        }
+        Alert.alert(AUDIO_PLAY_ERROR_MESSAGE, appError.message);
+    }, []);
+
     const playPronunciationAsync = useCallback(async () => {
         const currentWord = result?.word?.trim();
         if (!currentWord) {
@@ -710,12 +800,15 @@ export function useAppScreen(): AppScreenHookResult {
         try {
             const uri = await getPronunciationAudio(currentWord);
             await playRemoteAudio(uri);
+            setAiAssistError(null);
         } catch (err) {
-            const message = err instanceof Error ? err.message : AUDIO_PLAY_ERROR_MESSAGE;
-            setErrorMessage(message);
-            Alert.alert(AUDIO_PLAY_ERROR_MESSAGE, message);
+            const appError = reportAiAssistError(err, "tts");
+            setAiAssistError(appError);
+            showAudioErrorAlert(appError, () => {
+                void playPronunciationAsync();
+            });
         }
-    }, [result?.word, isPronunciationAvailable]);
+    }, [isPronunciationAvailable, reportAiAssistError, result?.word, showAudioErrorAlert]);
 
     const handlePlayWordAudioAsync = useCallback(
         async (word: WordResult) => {
@@ -736,12 +829,16 @@ export function useAppScreen(): AppScreenHookResult {
             try {
                 const uri = await getPronunciationAudio(target);
                 await playRemoteAudio(uri);
+                setAiAssistError(null);
             } catch (err) {
-                const message = err instanceof Error ? err.message : AUDIO_PLAY_ERROR_MESSAGE;
-                Alert.alert(AUDIO_PLAY_ERROR_MESSAGE, message);
+                const appError = reportAiAssistError(err, "tts");
+                setAiAssistError(appError);
+                showAudioErrorAlert(appError, () => {
+                    void handlePlayWordAudioAsync(word);
+                });
             }
         },
-        [isPronunciationAvailable],
+        [isPronunciationAvailable, reportAiAssistError, showAudioErrorAlert],
     );
 
     const setInitialAuthState = useCallback(() => {
@@ -752,6 +849,7 @@ export function useAppScreen(): AppScreenHookResult {
         setResult(null);
         setExamplesVisible(false);
         setError(null);
+        setAiAssistError(null);
         setAuthError(null);
         setSignUpError(null);
     }, []);
@@ -770,6 +868,7 @@ export function useAppScreen(): AppScreenHookResult {
             setResult(null);
             setExamplesVisible(false);
             setError(null);
+            setAiAssistError(null);
         } catch (err) {
             const message = err instanceof Error ? err.message : GUEST_ACCESS_ERROR_MESSAGE;
             setAuthError(message);
@@ -832,6 +931,7 @@ export function useAppScreen(): AppScreenHookResult {
             setResult(null);
             setExamplesVisible(false);
             setError(null);
+            setAiAssistError(null);
             setAuthError(null);
             if (mergedCount > 0) {
                 Alert.alert(
@@ -1169,6 +1269,7 @@ export function useAppScreen(): AppScreenHookResult {
             onSubmitSearch: handleSearch,
             loading,
             error,
+            aiAssistError,
             result,
             examplesVisible,
             onToggleExamples: handleToggleExamples,
@@ -1183,6 +1284,7 @@ export function useAppScreen(): AppScreenHookResult {
             onSelectRecentSearch: handleSelectRecentSearch,
             onClearRecentSearches: handleClearRecentSearches,
             onRetrySearch: handleSearch,
+            onRetryAiAssist: retryExamplesAsync,
             userName,
             onLogout: handleLogout,
             canLogout,
@@ -1203,6 +1305,7 @@ export function useAppScreen(): AppScreenHookResult {
         }),
         [
             canLogout,
+            aiAssistError,
             error,
             examplesVisible,
             favorites,
@@ -1222,6 +1325,7 @@ export function useAppScreen(): AppScreenHookResult {
             handleRemoveFavorite,
             handleSearch,
             handleSearchTermChange,
+            retryExamplesAsync,
             handleBackupExport,
             handleBackupImport,
             isCurrentFavorite,

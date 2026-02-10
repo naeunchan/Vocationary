@@ -11,6 +11,7 @@ import { useThemedStyles } from "@/theme/useThemedStyles";
 type SearchResultsProps = {
     loading: boolean;
     error: AppError | null;
+    aiAssistError?: AppError | null;
     result: WordResult | null;
     examplesVisible: boolean;
     onToggleExamples: () => void;
@@ -19,11 +20,13 @@ type SearchResultsProps = {
     onPlayPronunciation: () => void;
     pronunciationAvailable: boolean;
     onRetry?: () => void;
+    onRetryAiAssist?: () => void;
 };
 
 export function SearchResults({
     loading,
     error,
+    aiAssistError,
     result,
     examplesVisible,
     onToggleExamples,
@@ -32,6 +35,7 @@ export function SearchResults({
     onPlayPronunciation,
     pronunciationAvailable,
     onRetry,
+    onRetryAiAssist,
 }: SearchResultsProps) {
     const styles = useThemedStyles(createSearchScreenStyles);
     if (loading) {
@@ -66,15 +70,35 @@ export function SearchResults({
         return null;
     }
 
+    const canRetryAiAssist = shouldRetry(aiAssistError) && typeof onRetryAiAssist === "function";
+
     return (
-        <WordResultCard
-            result={result}
-            onToggleFavorite={onToggleFavorite}
-            onPlayPronunciation={onPlayPronunciation}
-            pronunciationAvailable={pronunciationAvailable}
-            examplesVisible={examplesVisible}
-            onToggleExamples={onToggleExamples}
-            isFavorite={isFavorite}
-        />
+        <View style={styles.resultsStack}>
+            <WordResultCard
+                result={result}
+                onToggleFavorite={onToggleFavorite}
+                onPlayPronunciation={onPlayPronunciation}
+                pronunciationAvailable={pronunciationAvailable}
+                examplesVisible={examplesVisible}
+                onToggleExamples={onToggleExamples}
+                isFavorite={isFavorite}
+            />
+            {aiAssistError ? (
+                <View style={styles.errorCard} testID="search-results-ai-warning">
+                    <Text style={styles.errorTitle}>AI 연결에 문제가 있어요</Text>
+                    <Text style={styles.errorDescription}>{aiAssistError.message}</Text>
+                    {canRetryAiAssist ? (
+                        <TouchableOpacity
+                            style={styles.retryButton}
+                            onPress={onRetryAiAssist}
+                            accessibilityRole="button"
+                            accessibilityLabel="AI 기능 다시 시도하기"
+                        >
+                            <Text style={styles.retryButtonLabel}>다시 시도하기</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                </View>
+            ) : null}
+        </View>
     );
 }

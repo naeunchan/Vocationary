@@ -76,6 +76,9 @@ export const createSearchScreenStyles = (theme: AppThemeColors, fontScale: numbe
             justifyContent: "center",
             paddingVertical: 24,
         },
+        resultsStack: {
+            gap: 12,
+        },
         errorText: {
             color: theme.danger,
             fontWeight: "600",

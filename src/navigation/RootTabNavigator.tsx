@@ -25,6 +25,7 @@ export function RootTabNavigator({
     onSubmitSearch,
     loading,
     error,
+    aiAssistError,
     result,
     examplesVisible,
     onToggleExamples,
@@ -39,6 +40,7 @@ export function RootTabNavigator({
     onSelectRecentSearch,
     onClearRecentSearches,
     onRetrySearch,
+    onRetryAiAssist,
     userName,
     onLogout,
     canLogout,
@@ -105,6 +107,7 @@ export function RootTabNavigator({
                         onSubmit={onSubmitSearch}
                         loading={loading}
                         error={error}
+                        aiAssistError={aiAssistError}
                         result={result}
                         examplesVisible={examplesVisible}
                         onToggleExamples={onToggleExamples}
@@ -118,6 +121,7 @@ export function RootTabNavigator({
                         onSelectRecentSearch={onSelectRecentSearch}
                         onClearRecentSearches={onClearRecentSearches}
                         onRetry={onRetrySearch}
+                        onRetryAiAssist={onRetryAiAssist}
                     />
                 )}
             </Tab.Screen>

@@ -8,6 +8,7 @@ export type SearchScreenProps = {
     onSubmit: () => void;
     loading: boolean;
     error: AppError | null;
+    aiAssistError?: AppError | null;
     result: WordResult | null;
     examplesVisible: boolean;
     onToggleExamples: () => void;
@@ -19,4 +20,5 @@ export type SearchScreenProps = {
     onSelectRecentSearch: (entry: SearchHistoryEntry) => void;
     onClearRecentSearches: () => void;
     onRetry?: () => void;
+    onRetryAiAssist?: () => void;
 };

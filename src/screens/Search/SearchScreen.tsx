@@ -17,6 +17,7 @@ export function SearchScreen({
     onSubmit,
     loading,
     error,
+    aiAssistError,
     result,
     examplesVisible,
     onToggleExamples,
@@ -28,6 +29,7 @@ export function SearchScreen({
     onSelectRecentSearch,
     onClearRecentSearches,
     onRetry,
+    onRetryAiAssist,
 }: SearchScreenProps) {
     const styles = useThemedStyles(createSearchScreenStyles);
     const { theme } = useAppAppearance();
@@ -59,6 +61,7 @@ export function SearchScreen({
                         <SearchResults
                             loading={loading}
                             error={error}
+                            aiAssistError={aiAssistError}
                             result={result}
                             examplesVisible={examplesVisible}
                             onToggleExamples={onToggleExamples}
@@ -67,6 +70,7 @@ export function SearchScreen({
                             onPlayPronunciation={onPlayPronunciation}
                             pronunciationAvailable={pronunciationAvailable}
                             onRetry={onRetry ?? onSubmit}
+                            onRetryAiAssist={onRetryAiAssist}
                         />
                     )}
                 </View>

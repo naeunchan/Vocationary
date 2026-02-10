@@ -1,5 +1,6 @@
 import QuickLRU from "quick-lru";
 
+import { createAIHttpError, createAIInvalidPayloadError, normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
 import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_KEY, OPENAI_PROXY_URL } from "@/config/openAI";
 import { MeaningEntry } from "@/services/dictionary/types/WordResult";
 
@@ -162,19 +163,21 @@ async function requestOpenAI(word: string, descriptors: DefinitionDescriptor[]):
         });
 
         if (!response.ok) {
-            return [];
+            throw createAIHttpError(response.status, "examples");
         }
 
-        const data = await response.json();
-        const items = Array.isArray(data?.items) ? data.items : [];
+        let data: unknown;
+        try {
+            data = await response.json();
+        } catch (error) {
+            throw createAIInvalidPayloadError("examples", error);
+        }
+
+        const payload = (data ?? {}) as { items?: unknown };
+        const items = Array.isArray(payload.items) ? payload.items : [];
         return parseCompletionContent(JSON.stringify({ items }));
     } catch (error) {
-        const name = typeof error === "object" && error !== null ? (error as { name?: string }).name : undefined;
-        const isAbort = name === "AbortError" || name === "AbortErrorException";
-        if (!isAbort) {
-            console.warn("예문 생성 프록시 호출 중 문제가 발생했어요.", error);
-        }
-        return [];
+        throw normalizeAIProxyError(error, "examples");
     } finally {
         clearTimeout(timeoutId);
     }
