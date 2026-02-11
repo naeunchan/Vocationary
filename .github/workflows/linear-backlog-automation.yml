@@ -1,0 +1,96 @@
+name: Linear Backlog Automation
+
+on:
+    workflow_dispatch:
+        inputs:
+            max_issues:
+                description: Number of backlog issues to process in this run
+                required: true
+                default: "1"
+            target_issue_identifier:
+                description: Optional single issue identifier (e.g. VOC-53)
+                required: false
+                default: ""
+            include_label:
+                description: Optional label filter for issue selection
+                required: false
+                default: ""
+            dry_run:
+                description: Run without writing to git/Linear/GitHub
+                required: true
+                default: true
+                type: boolean
+            auto_merge:
+                description: Merge PR automatically after checks pass
+                required: true
+                default: false
+                type: boolean
+            implement_command:
+                description: Command that performs issue implementation
+                required: false
+                default: ""
+            verify_commands:
+                description: Verification commands (lint/test/build)
+                required: false
+                default: npm run lint -- --max-warnings=0 && npm test -- --watch=false
+            auto_fix_command:
+                description: Optional command for CI auto-fix retries
+                required: false
+                default: ""
+            max_fix_attempts:
+                description: Max CI auto-fix attempts per issue
+                required: true
+                default: "2"
+
+permissions:
+    contents: write
+    pull-requests: write
+
+concurrency:
+    group: linear-backlog-automation
+    cancel-in-progress: false
+
+jobs:
+    run:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Configure git identity
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            - name: Run linear backlog automation
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+                  LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}
+                  LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
+                  LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
+                  LINEAR_STATE_TODO: ${{ vars.LINEAR_STATE_TODO }}
+                  LINEAR_STATE_INPROGRESS: ${{ vars.LINEAR_STATE_INPROGRESS }}
+                  LINEAR_STATE_DONE: ${{ vars.LINEAR_STATE_DONE }}
+                  DEFAULT_BRANCH: ${{ vars.DEFAULT_BRANCH }}
+                  MAX_ISSUES: ${{ inputs.max_issues }}
+                  TARGET_ISSUE_IDENTIFIER: ${{ inputs.target_issue_identifier }}
+                  INCLUDE_LABEL: ${{ inputs.include_label }}
+                  DRY_RUN: ${{ inputs.dry_run }}
+                  AUTO_MERGE: ${{ inputs.auto_merge }}
+                  IMPLEMENT_COMMAND: ${{ inputs.implement_command }}
+                  VERIFY_COMMANDS: ${{ inputs.verify_commands }}
+                  AUTO_FIX_COMMAND: ${{ inputs.auto_fix_command }}
+                  MAX_FIX_ATTEMPTS: ${{ inputs.max_fix_attempts }}
+              run: |
+                  chmod +x scripts/automation/linear_backlog_e2e.sh
+                  scripts/automation/linear_backlog_e2e.sh

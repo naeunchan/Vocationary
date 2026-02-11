@@ -1,0 +1,48 @@
+# Linear Backlog Automation (GitHub Actions)
+
+This repository includes:
+
+- Workflow: `.github/workflows/linear-backlog-automation.yml`
+- Runner script: `scripts/automation/linear_backlog_e2e.sh`
+
+The workflow is manual (`workflow_dispatch`) and processes Linear backlog issues one-by-one.
+
+## Required secrets
+
+- `LINEAR_API_KEY`: Linear personal/workspace API key
+
+## Optional repo variables
+
+- `LINEAR_TEAM_ID`
+- `LINEAR_PROJECT_ID`
+- `LINEAR_ASSIGNEE_ID`
+- `LINEAR_STATE_TODO`
+- `LINEAR_STATE_INPROGRESS`
+- `LINEAR_STATE_DONE`
+- `DEFAULT_BRANCH` (`main` by default)
+
+If workflow state IDs are not provided, the script tries to resolve them automatically.
+
+## How to run
+
+1. Open **Actions** -> **Linear Backlog Automation** -> **Run workflow**
+2. Set inputs:
+    - `max_issues`: number of issues to process
+    - `dry_run`: `true` first (recommended)
+    - `implement_command`: command that performs implementation for each issue
+    - `verify_commands`: lint/test/build commands
+    - `auto_merge`: `true` only after dry-run validation
+
+## Important behavior
+
+- The script requires a clean working tree for each issue.
+- It creates branches as `linear/<IDENTIFIER>-<kebab-title>`.
+- It opens PRs, waits for checks, optionally auto-merges, then marks the Linear issue Done.
+- If `implement_command` is missing, automation stops with a Linear comment.
+
+## Example input commands
+
+```bash
+implement_command: ./scripts/automation/your_issue_worker.sh
+verify_commands: npm run lint -- --max-warnings=0 && npm test -- --watch=false
+```

@@ -44,5 +44,10 @@ yarn-error.*
 
 # scripts
 scripts/
+!scripts/
+scripts/*
+!scripts/automation/
+scripts/automation/*
+!scripts/automation/linear_backlog_e2e.sh
 audit/
 .vscode
