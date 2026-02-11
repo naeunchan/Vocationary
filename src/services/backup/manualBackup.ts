@@ -6,6 +6,8 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
+import { classifyUnsealError } from "@/services/backup/classifyUnsealError";
+import { BackupUnsealError, decryptFailed, invalidPayload, unsupportedVersion } from "@/services/backup/errors";
 import { createRestoreError, type RestoreResult } from "@/services/backup/restoreResult";
 import { validateBackupPayload } from "@/services/backup/validateBackupPayload";
 import { type BackupPayload, exportBackup, importBackup } from "@/services/database";
@@ -45,24 +47,11 @@ async function ensureBackupDirectory() {
 function assertValidBackupPayload(payload: unknown): BackupPayload {
     const validation = validateBackupPayload(payload);
     if (!validation.ok) {
-        throw new Error(validation.message);
+        throw new BackupUnsealError(validation.code, validation.message, {
+            details: validation.details,
+        });
     }
     return validation.parsed;
-}
-
-function mapUnsealErrorToRestoreResult(error: unknown): RestoreResult {
-    const message = error instanceof Error ? error.message : "백업 파일을 불러오지 못했어요.";
-
-    if (message.includes("지원하지 않는 백업 형식")) {
-        return createRestoreError("UNSUPPORTED_VERSION", message);
-    }
-    if (message.includes("복호화") || message.includes("무결성") || message.includes("암호")) {
-        return createRestoreError("DECRYPT_FAILED", message);
-    }
-    if (message.includes("압축")) {
-        return createRestoreError("DECOMPRESS_FAILED", message);
-    }
-    return createRestoreError("INVALID_PAYLOAD", message);
 }
 
 async function deriveKey(passphrase: string, salt: string) {
@@ -126,56 +115,75 @@ async function sealPayload(payload: BackupPayload, passphrase: string): Promise<
 
 async function unsealPayload(serialized: string, passphrase: string): Promise<BackupPayload> {
     if (!passphrase.trim()) {
-        throw new Error("암호를 입력해주세요.");
+        throw decryptFailed(undefined, "암호를 입력해주세요.");
     }
     let parsed: SealedBackupV1 | SealedBackupV2 | BackupPayload;
     try {
         parsed = JSON.parse(serialized);
-    } catch {
-        throw new Error("백업 파일을 읽을 수 없어요.");
+    } catch (error) {
+        throw invalidPayload("백업 파일을 읽을 수 없어요.", undefined, error);
     }
 
     if ((parsed as SealedBackupV1 | SealedBackupV2).encrypted) {
         const sealed = parsed as SealedBackupV1 | SealedBackupV2;
+        if (sealed.version !== 1 && sealed.version !== 2) {
+            throw unsupportedVersion(sealed.version);
+        }
+
         if (sealed.version === 2) {
             if (!sealed.ciphertext || !sealed.salt || !sealed.iv || !sealed.integrity) {
-                throw new Error("백업 파일 형식이 올바르지 않아요.");
+                throw invalidPayload("백업 파일 형식이 올바르지 않아요.");
             }
-            const saltWordArray = CryptoJS.enc.Hex.parse(sealed.salt);
-            const ivWordArray = CryptoJS.enc.Hex.parse(sealed.iv);
-            const key = CryptoJS.PBKDF2(passphrase, saltWordArray, {
-                keySize: 256 / 32,
-                iterations: sealed.iterations || 120_000,
-                hasher: CryptoJS.algo.SHA256,
-            });
-            const macKey = CryptoJS.PBKDF2(`${passphrase}-mac`, saltWordArray, {
-                keySize: 256 / 32,
-                iterations: sealed.iterations || 120_000,
-                hasher: CryptoJS.algo.SHA256,
-            });
-            const expectedIntegrity = CryptoJS.HmacSHA256(
-                `${sealed.ciphertext}:${sealed.iv}:${sealed.salt}`,
-                macKey,
-            ).toString(CryptoJS.enc.Hex);
-            if (expectedIntegrity !== sealed.integrity) {
-                throw new Error("백업 파일 무결성 검증에 실패했어요.");
+            let plaintext: string;
+            try {
+                const saltWordArray = CryptoJS.enc.Hex.parse(sealed.salt);
+                const ivWordArray = CryptoJS.enc.Hex.parse(sealed.iv);
+                const key = CryptoJS.PBKDF2(passphrase, saltWordArray, {
+                    keySize: 256 / 32,
+                    iterations: sealed.iterations || 120_000,
+                    hasher: CryptoJS.algo.SHA256,
+                });
+                const macKey = CryptoJS.PBKDF2(`${passphrase}-mac`, saltWordArray, {
+                    keySize: 256 / 32,
+                    iterations: sealed.iterations || 120_000,
+                    hasher: CryptoJS.algo.SHA256,
+                });
+                const expectedIntegrity = CryptoJS.HmacSHA256(
+                    `${sealed.ciphertext}:${sealed.iv}:${sealed.salt}`,
+                    macKey,
+                ).toString(CryptoJS.enc.Hex);
+                if (expectedIntegrity !== sealed.integrity) {
+                    throw decryptFailed(undefined, "백업 파일 무결성 검증에 실패했어요.");
+                }
+
+                const decrypted = CryptoJS.AES.decrypt(sealed.ciphertext, key, {
+                    iv: ivWordArray,
+                    mode: CryptoJS.mode.CBC,
+                    padding: CryptoJS.pad.Pkcs7,
+                });
+                plaintext = decrypted.toString(CryptoJS.enc.Utf8);
+            } catch (error) {
+                if (error instanceof BackupUnsealError) {
+                    throw error;
+                }
+                throw decryptFailed(error);
             }
 
-            const decrypted = CryptoJS.AES.decrypt(sealed.ciphertext, key, {
-                iv: ivWordArray,
-                mode: CryptoJS.mode.CBC,
-                padding: CryptoJS.pad.Pkcs7,
-            });
-            const plaintext = decrypted.toString(CryptoJS.enc.Utf8);
             if (!plaintext) {
-                throw new Error("백업 파일을 복호화하지 못했어요.");
+                throw decryptFailed(undefined, "백업 파일을 복호화하지 못했어요.");
             }
-            const payload = JSON.parse(plaintext) as unknown;
+
+            let payload: unknown;
+            try {
+                payload = JSON.parse(plaintext);
+            } catch (error) {
+                throw invalidPayload("백업 파일 구조가 올바르지 않아요.", undefined, error);
+            }
             return assertValidBackupPayload(payload);
         }
 
-        if (sealed.version !== 1 || !sealed.ciphertext || !sealed.salt || !sealed.integrity) {
-            throw new Error("백업 파일 형식이 올바르지 않아요.");
+        if (!sealed.ciphertext || !sealed.salt || !sealed.integrity) {
+            throw invalidPayload("백업 파일 형식이 올바르지 않아요.");
         }
 
         const expectedIntegrity = await Crypto.digestStringAsync(
@@ -183,14 +191,22 @@ async function unsealPayload(serialized: string, passphrase: string): Promise<Ba
             `${sealed.ciphertext}:${sealed.salt}`,
         );
         if (expectedIntegrity !== sealed.integrity) {
-            throw new Error("백업 파일 무결성 검증에 실패했어요.");
+            throw decryptFailed(undefined, "백업 파일 무결성 검증에 실패했어요.");
         }
 
-        const key = await deriveKey(passphrase, sealed.salt);
-        const cipherBytes = Buffer.from(sealed.ciphertext, "base64");
-        const plainBytes = xorBytes(cipherBytes, key);
-        const plaintext = Buffer.from(plainBytes).toString("utf8");
-        const payload = JSON.parse(plaintext) as unknown;
+        let payload: unknown;
+        try {
+            const key = await deriveKey(passphrase, sealed.salt);
+            const cipherBytes = Buffer.from(sealed.ciphertext, "base64");
+            const plainBytes = xorBytes(cipherBytes, key);
+            const plaintext = Buffer.from(plainBytes).toString("utf8");
+            payload = JSON.parse(plaintext);
+        } catch (error) {
+            if (error instanceof BackupUnsealError) {
+                throw error;
+            }
+            throw invalidPayload("백업 파일 구조가 올바르지 않아요.", undefined, error);
+        }
         return assertValidBackupPayload(payload);
     }
 
@@ -246,7 +262,8 @@ export async function importBackupFromDocument(passphrase: string): Promise<Impo
     try {
         payload = await unsealPayload(contents, passphrase);
     } catch (error) {
-        return mapUnsealErrorToRestoreResult(error);
+        const classified = classifyUnsealError(error);
+        return createRestoreError(classified.code, classified.message, classified.details);
     }
 
     return await importBackup(payload);
