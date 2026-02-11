@@ -44,6 +44,18 @@ function all<T = Record<string, unknown>>(db: SqliteDatabase, sql: string, param
     });
 }
 
+function run(db: SqliteDatabase, sql: string, params: unknown[]) {
+    return new Promise<void>((resolve, reject) => {
+        db.run(sql, params, (error) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+            resolve();
+        });
+    });
+}
+
 function close(db: SqliteDatabase) {
     return new Promise<void>((resolve, reject) => {
         db.close((error) => {
@@ -57,6 +69,7 @@ function close(db: SqliteDatabase) {
 }
 
 export type TestMigrationDatabase = MigrationDatabase & {
+    runAsync: (sql: string, ...params: unknown[]) => Promise<void>;
     filePath: string;
     close: () => Promise<void>;
 };
@@ -66,23 +79,24 @@ export async function createTestMigrationDatabase(): Promise<TestMigrationDataba
     const filePath = join(directory, "migration-test.sqlite");
     const raw = await openDatabase(filePath);
 
-    const db: MigrationDatabase = {
+    const db: TestMigrationDatabase = {
         async execAsync(sql: string) {
             await exec(raw, sql);
         },
         async getAllAsync<T = Record<string, unknown>>(sql: string, ...params: unknown[]) {
             return await all<T>(raw, sql, params);
         },
-    };
-
-    await db.execAsync("PRAGMA foreign_keys = ON;");
-
-    return {
-        ...db,
+        async runAsync(sql: string, ...params: unknown[]) {
+            await run(raw, sql, params);
+        },
         filePath,
         async close() {
             await close(raw);
             await rm(directory, { recursive: true, force: true });
         },
     };
+
+    await db.execAsync("PRAGMA foreign_keys = ON;");
+
+    return db;
 }

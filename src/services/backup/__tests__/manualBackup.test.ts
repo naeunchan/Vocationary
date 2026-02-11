@@ -35,7 +35,15 @@ jest.mock("@/services/database", () => ({
         favorites: {},
         searchHistory: [],
     })),
-    importBackup: jest.fn(async () => {}),
+    importBackup: jest.fn(async () => ({
+        ok: true,
+        code: "OK",
+        restored: {
+            users: 0,
+            favorites: 0,
+            searchHistory: 0,
+        },
+    })),
 }));
 
 const mockDocumentPicker = jest.requireMock("expo-document-picker");
@@ -81,16 +89,24 @@ describe("manualBackup", () => {
 
         const result = await importBackupFromDocument("secret");
 
-        expect(result).toBe(true);
+        expect(result).toEqual({
+            ok: true,
+            code: "OK",
+            restored: {
+                users: 0,
+                favorites: 0,
+                searchHistory: 0,
+            },
+        });
         expect(mockDatabase.importBackup).toHaveBeenCalled();
     });
 
-    it("returns false when the document picker is cancelled", async () => {
+    it("returns canceled result when the document picker is cancelled", async () => {
         mockDocumentPicker.getDocumentAsync.mockResolvedValue({ canceled: true });
 
         const result = await importBackupFromDocument("secret");
 
-        expect(result).toBe(false);
+        expect(result).toEqual({ canceled: true });
         expect(mockDatabase.importBackup).not.toHaveBeenCalled();
     });
 });

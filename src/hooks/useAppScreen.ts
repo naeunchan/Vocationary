@@ -1231,8 +1231,12 @@ export function useAppScreen(): AppScreenHookResult {
     const handleBackupImport = useCallback(
         async (passphrase: string) => {
             try {
-                const restored = await importBackupFromDocument(passphrase);
-                if (!restored) {
+                const restoreResult = await importBackupFromDocument(passphrase);
+                if ("canceled" in restoreResult) {
+                    return;
+                }
+                if (!restoreResult.ok) {
+                    Alert.alert("복원 실패", restoreResult.message);
                     return;
                 }
                 if (user?.username) {
@@ -1249,7 +1253,10 @@ export function useAppScreen(): AppScreenHookResult {
                 }
                 const history = await getSearchHistoryEntries();
                 setRecentSearches(history);
-                Alert.alert("복원 완료", "백업 데이터로 복원했어요.");
+                Alert.alert(
+                    "복원 완료",
+                    `백업 데이터로 복원했어요.\n계정 ${restoreResult.restored.users}개, 단어 ${restoreResult.restored.favorites}개, 검색 ${restoreResult.restored.searchHistory}개`,
+                );
             } catch (error) {
                 const message = error instanceof Error ? error.message : "백업 데이터를 불러오지 못했어요.";
                 Alert.alert("복원 실패", message);

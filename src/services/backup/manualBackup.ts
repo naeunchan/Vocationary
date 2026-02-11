@@ -6,6 +6,8 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
+import { createRestoreError, type RestoreResult } from "@/services/backup/restoreResult";
+import { validateBackupPayload } from "@/services/backup/validateBackupPayload";
 import { type BackupPayload, exportBackup, importBackup } from "@/services/database";
 
 const BACKUP_DIRECTORY = `${FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? ""}backups`;
@@ -40,17 +42,27 @@ async function ensureBackupDirectory() {
     }
 }
 
-function validateBackupPayload(payload: BackupPayload) {
-    if (!payload || typeof payload !== "object" || payload.version !== 1) {
-        throw new Error("지원하지 않는 백업 형식이에요.");
+function assertValidBackupPayload(payload: unknown): BackupPayload {
+    const validation = validateBackupPayload(payload);
+    if (!validation.ok) {
+        throw new Error(validation.message);
     }
-    if (
-        !Array.isArray(payload.users) ||
-        typeof payload.favorites !== "object" ||
-        !Array.isArray(payload.searchHistory)
-    ) {
-        throw new Error("백업 파일 구조가 올바르지 않아요.");
+    return validation.parsed;
+}
+
+function mapUnsealErrorToRestoreResult(error: unknown): RestoreResult {
+    const message = error instanceof Error ? error.message : "백업 파일을 불러오지 못했어요.";
+
+    if (message.includes("지원하지 않는 백업 형식")) {
+        return createRestoreError("UNSUPPORTED_VERSION", message);
     }
+    if (message.includes("복호화") || message.includes("무결성") || message.includes("암호")) {
+        return createRestoreError("DECRYPT_FAILED", message);
+    }
+    if (message.includes("압축")) {
+        return createRestoreError("DECOMPRESS_FAILED", message);
+    }
+    return createRestoreError("INVALID_PAYLOAD", message);
 }
 
 async function deriveKey(passphrase: string, salt: string) {
@@ -70,7 +82,7 @@ async function sealPayload(payload: BackupPayload, passphrase: string): Promise<
     if (!passphrase.trim()) {
         throw new Error("암호를 입력해주세요.");
     }
-    validateBackupPayload(payload);
+    const normalizedPayload = assertValidBackupPayload(payload);
     const saltBytes = await getRandomBytesAsync(16);
     const ivBytes = await getRandomBytesAsync(16);
     const salt = Buffer.from(saltBytes).toString("hex");
@@ -90,7 +102,7 @@ async function sealPayload(payload: BackupPayload, passphrase: string): Promise<
         hasher: CryptoJS.algo.SHA256,
     });
 
-    const plaintext = JSON.stringify(payload);
+    const plaintext = JSON.stringify(normalizedPayload);
     const encrypted = CryptoJS.AES.encrypt(plaintext, key, {
         iv: ivWordArray,
         mode: CryptoJS.mode.CBC,
@@ -158,9 +170,8 @@ async function unsealPayload(serialized: string, passphrase: string): Promise<Ba
             if (!plaintext) {
                 throw new Error("백업 파일을 복호화하지 못했어요.");
             }
-            const payload = JSON.parse(plaintext) as BackupPayload;
-            validateBackupPayload(payload);
-            return payload;
+            const payload = JSON.parse(plaintext) as unknown;
+            return assertValidBackupPayload(payload);
         }
 
         if (sealed.version !== 1 || !sealed.ciphertext || !sealed.salt || !sealed.integrity) {
@@ -179,14 +190,12 @@ async function unsealPayload(serialized: string, passphrase: string): Promise<Ba
         const cipherBytes = Buffer.from(sealed.ciphertext, "base64");
         const plainBytes = xorBytes(cipherBytes, key);
         const plaintext = Buffer.from(plainBytes).toString("utf8");
-        const payload = JSON.parse(plaintext) as BackupPayload;
-        validateBackupPayload(payload);
-        return payload;
+        const payload = JSON.parse(plaintext) as unknown;
+        return assertValidBackupPayload(payload);
     }
 
     // Legacy unencrypted payload
-    validateBackupPayload(parsed as BackupPayload);
-    return parsed as BackupPayload;
+    return assertValidBackupPayload(parsed as unknown);
 }
 
 export async function exportBackupToFile(passphrase: string) {
@@ -208,21 +217,37 @@ export async function exportBackupToFile(passphrase: string) {
     return fileUri;
 }
 
-export async function importBackupFromDocument(passphrase: string): Promise<boolean> {
+export type ImportBackupFromDocumentResult = RestoreResult | { canceled: true };
+
+export async function importBackupFromDocument(passphrase: string): Promise<ImportBackupFromDocumentResult> {
     const result = await DocumentPicker.getDocumentAsync({
         type: ["application/json", "text/json"],
         copyToCacheDirectory: true,
         multiple: false,
     });
     if (result.canceled) {
-        return false;
+        return { canceled: true };
     }
     const asset = result.assets?.[0];
     if (!asset?.uri) {
-        throw new Error("선택한 파일을 불러올 수 없어요.");
+        return createRestoreError("INVALID_PAYLOAD", "선택한 파일을 불러올 수 없어요.");
     }
-    const contents = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.UTF8 });
-    const payload = await unsealPayload(contents, passphrase);
-    await importBackup(payload);
-    return true;
+
+    let contents: string;
+    try {
+        contents = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.UTF8 });
+    } catch (error) {
+        return createRestoreError("INVALID_PAYLOAD", "백업 파일을 읽을 수 없어요.", {
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
+    }
+
+    let payload: BackupPayload;
+    try {
+        payload = await unsealPayload(contents, passphrase);
+    } catch (error) {
+        return mapUnsealErrorToRestoreResult(error);
+    }
+
+    return await importBackup(payload);
 }

@@ -5,6 +5,8 @@ import * as SecureStore from "expo-secure-store";
 import type { SQLiteDatabase } from "expo-sqlite";
 import { Platform } from "react-native";
 
+import { importBackupAtomic } from "@/services/backup/importBackup";
+import type { RestoreResult } from "@/services/backup/restoreResult";
 import { runMigrations } from "@/services/database/migrations/runMigrations";
 import type { MigrationLogger } from "@/services/database/migrations/types";
 import type { DictionaryMode, WordResult } from "@/services/dictionary/types";
@@ -84,6 +86,7 @@ export type OAuthProfilePayload = {
 
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 let databaseInitializationPromise: Promise<void> | null = null;
+let backupRestorePromise: Promise<RestoreResult> | null = null;
 
 async function getDatabase() {
     if (isWeb) {
@@ -303,65 +306,49 @@ export async function exportBackup(): Promise<BackupPayload> {
     };
 }
 
-export async function importBackup(payload: BackupPayload) {
-    if (payload?.version !== 1) {
-        throw new Error("지원하지 않는 백업 형식이에요.");
+export async function importBackup(payload: BackupPayload): Promise<RestoreResult> {
+    if (isWeb) {
+        return {
+            ok: false,
+            code: "DB_ERROR",
+            message: "웹 환경에서는 백업 복원을 지원하지 않아요.",
+            details: {
+                platform: "web",
+            },
+        };
     }
-    const db = await getDatabase();
-    await db.withTransactionAsync(async (tx) => {
-        for (const user of payload.users) {
-            const normalizedUsername = user.username.toLowerCase();
-            let existing = await tx.getFirstAsync<UserRow>(
-                "SELECT id FROM users WHERE username = ?",
-                normalizedUsername,
-            );
-            if (!existing) {
-                await tx.runAsync(
-                    "INSERT INTO users (username, display_name, phone_number, password_hash, oauth_provider, oauth_sub) VALUES (?, ?, ?, ?, ?, ?)",
-                    normalizedUsername,
-                    user.display_name,
-                    user.phone_number ?? null,
-                    user.password_hash,
-                    user.oauth_provider,
-                    user.oauth_sub,
-                );
-                existing = await tx.getFirstAsync<UserRow>(
-                    "SELECT id FROM users WHERE username = ?",
-                    normalizedUsername,
-                );
-            } else {
-                await tx.runAsync(
-                    `UPDATE users
-					SET display_name = ?, phone_number = ?, password_hash = ?, oauth_provider = ?, oauth_sub = ?, updated_at = CURRENT_TIMESTAMP
-					WHERE id = ?`,
-                    user.display_name,
-                    user.phone_number ?? null,
-                    user.password_hash,
-                    user.oauth_provider,
-                    user.oauth_sub,
-                    existing.id,
-                );
+
+    if (backupRestorePromise) {
+        return await backupRestorePromise;
+    }
+
+    backupRestorePromise = (async () => {
+        const db = await getDatabase();
+        const captureRestoreException = (error: unknown, context?: Record<string, unknown>) => {
+            try {
+                const { captureException } = require("@/logging/logger") as typeof import("@/logging/logger");
+                captureException(error, {
+                    feature: "backup_restore",
+                    ...context,
+                });
+            } catch (captureError) {
+                console.error("[backup:restore] failed to capture exception", captureError, context);
             }
-            if (!existing) {
-                continue;
-            }
-            await tx.runAsync("DELETE FROM favorites WHERE user_id = ?", existing.id);
-            const favoriteEntries = payload.favorites[user.username] ?? [];
-            for (const entry of favoriteEntries) {
-                await tx.runAsync(
-                    `
-						INSERT INTO favorites (user_id, word, data, updated_at)
-						VALUES (?, ?, ?, ?)
-					`,
-                    existing.id,
-                    entry.word.word,
-                    JSON.stringify(entry),
-                    entry.updatedAt ?? new Date().toISOString(),
-                );
-            }
-        }
+        };
+
+        return await importBackupAtomic(db, payload, {
+            error(message, context) {
+                console.error("[backup:restore]", message, context ?? {});
+            },
+            captureException(error, context) {
+                captureRestoreException(error, context);
+            },
+        });
+    })().finally(() => {
+        backupRestorePromise = null;
     });
-    await saveSearchHistoryNative(payload.searchHistory ?? []);
+
+    return await backupRestorePromise;
 }
 
 async function initializeDatabaseNative() {
