@@ -70,6 +70,9 @@ linear_graphql() {
     if [ -z "$variables" ]; then
         variables="{}"
     fi
+    if ! jq -e . >/dev/null 2>&1 <<<"$variables"; then
+        variables="{}"
+    fi
     payload="$(jq -cn --arg query "$query" --argjson variables "$variables" '{query:$query,variables:$variables}')"
     response="$(curl -sS "https://api.linear.app/graphql" \
         -H "Content-Type: application/json" \

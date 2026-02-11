@@ -75,9 +75,6 @@ jobs:
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-                  LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}
-                  LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
-                  LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
                   LINEAR_STATE_TODO: ${{ vars.LINEAR_STATE_TODO }}
                   LINEAR_STATE_INPROGRESS: ${{ vars.LINEAR_STATE_INPROGRESS }}
                   LINEAR_STATE_DONE: ${{ vars.LINEAR_STATE_DONE }}
