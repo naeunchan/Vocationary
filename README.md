@@ -28,6 +28,13 @@
 - `android.versionCode` starts at `1` and must be incremented for every Play Store upload.
 - Update all three fields before cutting a new store build.
 
+## Database Schema Migrations
+
+- Native SQLite schema is versioned via `PRAGMA user_version`.
+- Forward-only migrations are defined in `src/services/database/migrations/steps/` and executed sequentially at app startup.
+- Migration runner applies each step inside `BEGIN IMMEDIATE`/`COMMIT`; failures trigger `ROLLBACK` and raise a controlled error.
+- Regression tests for old-schema upgrade and rollback safety live in `src/services/database/migrations/__tests__/migration.test.ts`.
+
 ## Environment & Security
 
 - Use `.env` (local only) and never commit real API keys. Configure Expo public vars for client proxy routing:

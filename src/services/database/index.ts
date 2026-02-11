@@ -5,6 +5,8 @@ import * as SecureStore from "expo-secure-store";
 import type { SQLiteDatabase } from "expo-sqlite";
 import { Platform } from "react-native";
 
+import { runMigrations } from "@/services/database/migrations/runMigrations";
+import type { MigrationLogger } from "@/services/database/migrations/types";
 import type { DictionaryMode, WordResult } from "@/services/dictionary/types";
 import {
     createFavoriteEntry,
@@ -18,6 +20,7 @@ import { SEARCH_HISTORY_LIMIT } from "@/services/searchHistory/types";
 const DATABASE_NAME = "vocationary.db";
 const PASSWORD_HASH_PREFIX = "sha256.v1";
 const LEGACY_PASSWORD_SALT = "vocationary::salt";
+const isDevelopmentBuild = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
 const isWeb = Platform.OS === "web";
 const APP_HELP_KEY = "app.help.seen";
 const SEARCH_HISTORY_KEY = "search.history";
@@ -80,6 +83,7 @@ export type OAuthProfilePayload = {
 };
 
 let databasePromise: Promise<SQLiteDatabase> | null = null;
+let databaseInitializationPromise: Promise<void> | null = null;
 
 async function getDatabase() {
     if (isWeb) {
@@ -363,85 +367,41 @@ export async function importBackup(payload: BackupPayload) {
 async function initializeDatabaseNative() {
     const db = await getDatabase();
     await db.execAsync("PRAGMA foreign_keys = ON;");
-    await db.execAsync(`
-		CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			username TEXT NOT NULL UNIQUE,
-			display_name TEXT,
-			phone_number TEXT,
-			password_hash TEXT,
-			oauth_provider TEXT,
-			oauth_sub TEXT,
-			created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-			updated_at TEXT
-		);
-	`);
-    const userColumns = await db.getAllAsync<{ name: string }>("PRAGMA table_info(users)");
-    const hasPasswordColumn = userColumns.some((column) => column.name === "password_hash");
-    if (!hasPasswordColumn) {
-        await db.execAsync("ALTER TABLE users ADD COLUMN password_hash TEXT");
+
+    const captureMigrationException = (error: unknown, context?: Record<string, unknown>) => {
+        try {
+            // Keep logger dependency lazy so pure DB helper tests can run without sentry-expo transforms.
+            const { captureException } = require("@/logging/logger") as typeof import("@/logging/logger");
+            captureException(error, {
+                feature: "database_migration",
+                ...context,
+            });
+        } catch (captureError) {
+            console.error("[database:migration] failed to capture exception", captureError, context);
+        }
+    };
+
+    const migrationLogger: MigrationLogger = {
+        info(message, context) {
+            if (isDevelopmentBuild) {
+                console.info("[database:migration]", message, context ?? {});
+            }
+        },
+        warn(message, context) {
+            console.warn("[database:migration]", message, context ?? {});
+        },
+        error(message, context) {
+            console.error("[database:migration]", message, context ?? {});
+        },
+        captureException(error, context) {
+            captureMigrationException(error, context);
+        },
+    };
+
+    const result = await runMigrations(db, migrationLogger);
+    if (isDevelopmentBuild && result.applied.length > 0) {
+        console.info("[database:migration] applied", result);
     }
-    const hasPhoneColumn = userColumns.some((column) => column.name === "phone_number");
-    if (!hasPhoneColumn) {
-        await db.execAsync("ALTER TABLE users ADD COLUMN phone_number TEXT");
-    }
-    const hasOAuthProviderColumn = userColumns.some((column) => column.name === "oauth_provider");
-    if (!hasOAuthProviderColumn) {
-        await db.execAsync("ALTER TABLE users ADD COLUMN oauth_provider TEXT");
-    }
-    const hasOAuthSubColumn = userColumns.some((column) => column.name === "oauth_sub");
-    if (!hasOAuthSubColumn) {
-        await db.execAsync("ALTER TABLE users ADD COLUMN oauth_sub TEXT");
-    }
-    await db.execAsync(`
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oauth_identity
-		ON users(oauth_provider, oauth_sub)
-	`);
-    await db.execAsync(`
-		CREATE TABLE IF NOT EXISTS favorites (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id INTEGER NOT NULL,
-			word TEXT NOT NULL,
-			data TEXT NOT NULL,
-			created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-			updated_at TEXT,
-			UNIQUE(user_id, word),
-			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-		);
-	`);
-    await db.execAsync(`
-		CREATE TABLE IF NOT EXISTS session (
-			id INTEGER PRIMARY KEY CHECK (id = 1),
-			user_id INTEGER,
-			is_guest INTEGER NOT NULL DEFAULT 0,
-			updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-		);
-	`);
-    await db.execAsync(`
-		CREATE TABLE IF NOT EXISTS auto_login (
-			id INTEGER PRIMARY KEY CHECK (id = 1),
-			username TEXT NOT NULL,
-			password_hash TEXT NOT NULL,
-			updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-		);
-	`);
-    await db.execAsync(`
-		CREATE TABLE IF NOT EXISTS app_preferences (
-			key TEXT PRIMARY KEY,
-			value TEXT NOT NULL,
-			updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-		);
-	`);
-    await db.execAsync(`
-		CREATE TABLE IF NOT EXISTS email_verifications (
-			email TEXT PRIMARY KEY,
-			code TEXT NOT NULL,
-			expires_at TEXT NOT NULL,
-			verified_at TEXT,
-			updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-		);
-	`);
 }
 
 const WEB_DB_STORAGE_KEY = "vocationary:web-db";
@@ -1592,11 +1552,19 @@ async function getActiveSessionWeb(): Promise<{ isGuest: boolean; user: UserReco
 }
 
 export async function initializeDatabase() {
-    if (isWeb) {
-        await initializeDatabaseWeb();
-        return;
+    if (!databaseInitializationPromise) {
+        databaseInitializationPromise = (async () => {
+            if (isWeb) {
+                await initializeDatabaseWeb();
+                return;
+            }
+            await initializeDatabaseNative();
+        })().catch((error) => {
+            databaseInitializationPromise = null;
+            throw error;
+        });
     }
-    await initializeDatabaseNative();
+    await databaseInitializationPromise;
 }
 
 export async function findUserByUsername(username: string): Promise<UserWithPasswordRecord | null> {
