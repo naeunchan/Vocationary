@@ -800,10 +800,8 @@ export function useAppScreen(): AppScreenHookResult {
         try {
             const uri = await getPronunciationAudio(currentWord);
             await playRemoteAudio(uri);
-            setAiAssistError(null);
         } catch (err) {
             const appError = reportAiAssistError(err, "tts");
-            setAiAssistError(appError);
             showAudioErrorAlert(appError, () => {
                 void playPronunciationAsync();
             });
@@ -829,10 +827,8 @@ export function useAppScreen(): AppScreenHookResult {
             try {
                 const uri = await getPronunciationAudio(target);
                 await playRemoteAudio(uri);
-                setAiAssistError(null);
             } catch (err) {
                 const appError = reportAiAssistError(err, "tts");
-                setAiAssistError(appError);
                 showAudioErrorAlert(appError, () => {
                     void handlePlayWordAudioAsync(word);
                 });

@@ -38,6 +38,8 @@ export function SearchResults({
     onRetryAiAssist,
 }: SearchResultsProps) {
     const styles = useThemedStyles(createSearchScreenStyles);
+    const isAiExamplesError = aiAssistError?.code === "AI_EXAMPLES";
+
     if (loading) {
         return (
             <View style={styles.centered} testID="search-results-loading">
@@ -70,7 +72,7 @@ export function SearchResults({
         return null;
     }
 
-    const canRetryAiAssist = shouldRetry(aiAssistError) && typeof onRetryAiAssist === "function";
+    const canRetryAiAssist = isAiExamplesError && shouldRetry(aiAssistError) && typeof onRetryAiAssist === "function";
 
     return (
         <View style={styles.resultsStack}>
@@ -83,7 +85,7 @@ export function SearchResults({
                 onToggleExamples={onToggleExamples}
                 isFavorite={isFavorite}
             />
-            {aiAssistError ? (
+            {isAiExamplesError ? (
                 <View style={styles.errorCard} testID="search-results-ai-warning">
                     <Text style={styles.errorTitle}>AI 연결에 문제가 있어요</Text>
                     <Text style={styles.errorDescription}>{aiAssistError.message}</Text>

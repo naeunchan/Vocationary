@@ -91,6 +91,7 @@ describe("SearchResults", () => {
         const onRetryAiAssist = jest.fn();
         const aiAssistError: AppError = {
             kind: "NetworkError",
+            code: "AI_EXAMPLES",
             message: "AI 연결이 원활하지 않아요. 잠시 후 다시 시도해주세요.",
             retryable: true,
         };
@@ -108,5 +109,26 @@ describe("SearchResults", () => {
         expect(getByTestId("search-results-ai-warning")).toBeTruthy();
         fireEvent.press(getByText("다시 시도하기"));
         expect(onRetryAiAssist).toHaveBeenCalled();
+    });
+
+    it("does not render AI warning card for TTS-only errors", () => {
+        const aiAssistError: AppError = {
+            kind: "NetworkError",
+            code: "AI_TTS",
+            message: "발음 생성에 실패했어요.",
+            retryable: true,
+        };
+
+        const { getByTestId, queryByTestId } = render(
+            <SearchResults
+                {...defaultProps}
+                result={baseResult}
+                aiAssistError={aiAssistError}
+                onRetryAiAssist={jest.fn()}
+            />,
+        );
+
+        expect(getByTestId("word-result-card")).toBeTruthy();
+        expect(queryByTestId("search-results-ai-warning")).toBeNull();
     });
 });
