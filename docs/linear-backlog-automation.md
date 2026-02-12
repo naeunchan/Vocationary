@@ -28,8 +28,11 @@ If workflow state IDs are not provided, the script tries to resolve them automat
 1. Open **Actions** -> **Linear Backlog Automation** -> **Run workflow**
 2. Set inputs:
     - `max_issues`: number of issues to process
-    - `dry_run`: `true` first (recommended)
+    - `dry_run`: `false` (default). Set `true` for simulation-only run
     - `implement_command`: command that performs implementation for each issue
+    - `issue_script_path`: optional explicit script path
+    - `implement_fallback_command`: fallback command when no issue script exists
+    - `auto_generate_issue_script`: auto-create `scripts/automation/issues/<ISSUE_IDENTIFIER>.sh` when missing
     - `verify_commands`: lint/test/build commands
     - `auto_merge`: `true` only after dry-run validation
 
@@ -49,6 +52,8 @@ It dispatches to `scripts/automation/issues/<ISSUE_IDENTIFIER>.sh`.
 - Strict one-by-one mode: next issue is not processed until PR merge + default branch sync + Linear Done update.
 - If `auto_merge=false`, the run stops after PR creation (it will not continue to the next issue).
 - If `implement_command` is missing, automation stops with a Linear comment.
+- `issue_worker.sh` can auto-generate issue scripts if `auto_generate_issue_script=true`.
+- Generated scripts call `IMPLEMENT_FALLBACK_COMMAND` when configured.
 
 ## Stopping conditions
 
@@ -61,5 +66,7 @@ It dispatches to `scripts/automation/issues/<ISSUE_IDENTIFIER>.sh`.
 
 ```bash
 implement_command: scripts/automation/issue_worker.sh
+auto_generate_issue_script: true
+implement_fallback_command: ./scripts/automation/your_generic_issue_impl.sh
 verify_commands: npm run lint -- --max-warnings=0 && npm test -- --watch=false
 ```

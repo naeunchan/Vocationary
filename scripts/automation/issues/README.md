@@ -8,6 +8,12 @@
 4. `scripts/automation/issues/default.sh`
 5. `IMPLEMENT_FALLBACK_COMMAND` env command
 
+If `AUTO_GENERATE_ISSUE_SCRIPT=true` and no script is found, it generates:
+
+- `scripts/automation/issues/<ISSUE_IDENTIFIER>.sh`
+
+The generated script delegates to `IMPLEMENT_FALLBACK_COMMAND` when set.
+
 ## Quick start
 
 Create an issue worker script:

@@ -18,7 +18,7 @@ on:
             dry_run:
                 description: Run without writing to git/Linear/GitHub
                 required: true
-                default: true
+                default: false
                 type: boolean
             auto_merge:
                 description: Merge PR automatically after checks pass
@@ -29,6 +29,19 @@ on:
                 description: Command that performs issue implementation
                 required: false
                 default: scripts/automation/issue_worker.sh
+            issue_script_path:
+                description: Optional explicit issue implementation script path
+                required: false
+                default: ""
+            implement_fallback_command:
+                description: Fallback command when no issue script is found
+                required: false
+                default: ""
+            auto_generate_issue_script:
+                description: Auto-generate scripts/automation/issues/<ISSUE_IDENTIFIER>.sh when missing
+                required: true
+                default: false
+                type: boolean
             verify_commands:
                 description: Verification commands (lint/test/build)
                 required: false
@@ -88,6 +101,9 @@ jobs:
                   DRY_RUN: ${{ inputs.dry_run }}
                   AUTO_MERGE: ${{ inputs.auto_merge }}
                   IMPLEMENT_COMMAND: ${{ inputs.implement_command }}
+                  ISSUE_SCRIPT_PATH: ${{ inputs.issue_script_path }}
+                  IMPLEMENT_FALLBACK_COMMAND: ${{ inputs.implement_fallback_command }}
+                  AUTO_GENERATE_ISSUE_SCRIPT: ${{ inputs.auto_generate_issue_script }}
                   VERIFY_COMMANDS: ${{ inputs.verify_commands }}
                   AUTO_FIX_COMMAND: ${{ inputs.auto_fix_command }}
                   MAX_FIX_ATTEMPTS: ${{ inputs.max_fix_attempts }}
