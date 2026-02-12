@@ -35,10 +35,24 @@ If workflow state IDs are not provided, the script tries to resolve them automat
 
 ## Important behavior
 
-- The script requires a clean working tree for each issue.
-- It creates branches as `linear/<IDENTIFIER>-<kebab-title>`.
-- It opens PRs, waits for checks, optionally auto-merges, then marks the Linear issue Done.
+- The script enforces clean working tree checks before each issue.
+- Backlog selection is `not Done/canceled`, ordered by `priority` then `createdAt`, with optional label filtering.
+- Issues already labeled `automation-in-progress` are skipped.
+- If `LINEAR_ASSIGNEE_ID` is unset, assigned issues are skipped unless assigned to the current Linear viewer.
+- Branch format is `linear/<IDENTIFIER>-<kebab-title>`.
+- It runs implementation, verification commands, an additional diff/secret second-check, then opens a PR.
+- CI is watched (`gh pr checks --watch`), with retry support via `auto_fix_command`.
+- Merge conflicts trigger automatic rebase retry; if unresolved, automation stops with Linear diagnostics.
+- Strict one-by-one mode: next issue is not processed until PR merge + default branch sync + Linear Done update.
+- If `auto_merge=false`, the run stops after PR creation (it will not continue to the next issue).
 - If `implement_command` is missing, automation stops with a Linear comment.
+
+## Stopping conditions
+
+- Missing `LINEAR_API_KEY` and no Linear CLI available.
+- `gh` not authenticated.
+- Push/PR/merge permissions failure.
+- Repeated CI failures beyond `max_fix_attempts`.
 
 ## Example input commands
 
