@@ -97,14 +97,14 @@ sanitize_for_branch() {
 
 linear_graphql() {
     local query="$1"
-    local variables="${2:-{}}"
+    local variables="${2-}"
     local payload
     local response
-    if [ -z "$variables" ]; then
+    if [ -z "${variables}" ]; then
         variables="{}"
     fi
-    if ! jq -e . >/dev/null 2>&1 <<<"$variables"; then
-        variables="{}"
+    if ! jq -e 'type == "object"' >/dev/null 2>&1 <<<"$variables"; then
+        fail "linear_graphql variables must be a JSON object."
     fi
     payload="$(jq -cn --arg query "$query" --argjson variables "$variables" '{query:$query,variables:$variables}')"
     response="$(curl -sS "https://api.linear.app/graphql" \
@@ -114,6 +114,9 @@ linear_graphql() {
 
     if echo "$response" | jq -e '.errors and (.errors | length > 0)' >/dev/null 2>&1; then
         echo "$response" | jq -c '.errors' >&2
+        if echo "$response" | jq -e '.errors[]?.message | test("was not provided")' >/dev/null 2>&1; then
+            printf "%s %s\n" "$LOG_PREFIX" "GraphQL variables: $(jq -c . <<<"$variables")" >&2
+        fi
         return 1
     fi
     echo "$response"
@@ -315,7 +318,8 @@ filter_issue_list() {
             end
         ))
         | map(select($includeLabel == "" or any(.labels.nodes[]?; .name == $includeLabel)))
-        | sort_by((if .priority == null then 999 else .priority end), .createdAt)
+        # Linear priority: 1=Urgent,2=High,3=Medium,4=Low,0/NULL=None.
+        | sort_by((if (.priority == null or .priority == 0) then 999 else .priority end), .createdAt)
         ' <<<"$source_json"
 }
 
