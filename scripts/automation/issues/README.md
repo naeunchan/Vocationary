@@ -12,7 +12,11 @@ If `AUTO_GENERATE_ISSUE_SCRIPT=true` and no script is found, it generates:
 
 - `scripts/automation/issues/<ISSUE_IDENTIFIER>.sh`
 
-The generated script delegates to `IMPLEMENT_FALLBACK_COMMAND` when set.
+When `AI_GENERATE_ISSUE_SCRIPT=true` and `OPENAI_API_KEY` is available,
+the script is generated via OpenAI.
+
+If AI generation is not available, the generated script delegates to
+`IMPLEMENT_FALLBACK_COMMAND` when set.
 
 ## Quick start
 

@@ -42,6 +42,15 @@ on:
                 required: true
                 default: true
                 type: boolean
+            ai_generate_issue_script:
+                description: Use OpenAI Codex model to generate missing issue script
+                required: true
+                default: true
+                type: boolean
+            openai_model:
+                description: OpenAI model used for AI script generation
+                required: false
+                default: gpt-5
             verify_commands:
                 description: Verification commands (lint/test/build)
                 required: false
@@ -88,6 +97,7 @@ jobs:
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+                  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
                   LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}
                   LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
                   LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
@@ -104,6 +114,8 @@ jobs:
                   ISSUE_SCRIPT_PATH: ${{ inputs.issue_script_path }}
                   IMPLEMENT_FALLBACK_COMMAND: ${{ inputs.implement_fallback_command }}
                   AUTO_GENERATE_ISSUE_SCRIPT: ${{ inputs.auto_generate_issue_script }}
+                  AI_GENERATE_ISSUE_SCRIPT: ${{ inputs.ai_generate_issue_script }}
+                  OPENAI_MODEL: ${{ inputs.openai_model }}
                   VERIFY_COMMANDS: ${{ inputs.verify_commands }}
                   AUTO_FIX_COMMAND: ${{ inputs.auto_fix_command }}
                   MAX_FIX_ATTEMPTS: ${{ inputs.max_fix_attempts }}

@@ -11,6 +11,10 @@ ISSUE_SCRIPT_PATH="${ISSUE_SCRIPT_PATH:-}"
 IMPLEMENT_FALLBACK_COMMAND="${IMPLEMENT_FALLBACK_COMMAND:-}"
 AUTO_GENERATE_ISSUE_SCRIPT="${AUTO_GENERATE_ISSUE_SCRIPT:-false}"
 AUTO_GENERATED_ISSUE_SCRIPT_DIR="${AUTO_GENERATED_ISSUE_SCRIPT_DIR:-scripts/automation/issues}"
+AI_GENERATE_ISSUE_SCRIPT="${AI_GENERATE_ISSUE_SCRIPT:-true}"
+OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+OPENAI_MODEL="${OPENAI_MODEL:-gpt-5}"
+OPENAI_API_BASE="${OPENAI_API_BASE:-https://api.openai.com/v1}"
 
 log() {
     printf "%s %s\n" "$LOG_PREFIX" "$*"
@@ -32,12 +36,84 @@ is_truthy() {
     esac
 }
 
+strip_markdown_fence() {
+    local text="$1"
+    if printf '%s\n' "$text" | head -n1 | grep -q '^```'; then
+        printf '%s\n' "$text" | sed '1d;$d'
+        return 0
+    fi
+    printf '%s\n' "$text"
+}
+
 run_issue_script() {
     local script_path="$1"
-    [ -f "$script_path" ] || return 1
-
     log "Running implementation script: ${script_path}"
     bash "$script_path"
+}
+
+generate_issue_script_with_ai() {
+    local generated_script_path="$1"
+    local repo_name repo_root_dirs prompt payload response script_body
+
+    command -v curl >/dev/null 2>&1 || fail "curl is required for AI script generation."
+    command -v jq >/dev/null 2>&1 || fail "jq is required for AI script generation."
+
+    repo_name="$(basename "$ROOT_DIR")"
+    repo_root_dirs="$(find . -maxdepth 2 -mindepth 1 -type d 2>/dev/null | sed -E 's#^\./##' | sort | head -n 80)"
+    prompt="$(cat <<EOF
+You are Codex generating a bash implementation script for one Linear issue.
+
+Repository: ${repo_name}
+Issue Identifier: ${ISSUE_IDENTIFIER}
+Issue Title: ${ISSUE_TITLE:-}
+Issue URL: ${ISSUE_URL:-}
+Issue Description:
+${ISSUE_DESCRIPTION:-}
+
+Repository directories (sample):
+${repo_root_dirs}
+
+Return only valid bash code, no markdown.
+Script requirements:
+- Start with '#!/usr/bin/env bash' and 'set -euo pipefail'
+- Assume execution from repository root
+- Make minimal, concrete code edits for the issue
+- Do NOT run git commit/push/pr commands
+- Do NOT use interactive commands
+- Keep changes deterministic
+- If there is not enough context to implement safely, exit non-zero with a clear error message
+EOF
+)"
+
+    payload="$(jq -cn --arg model "$OPENAI_MODEL" --arg input "$prompt" '{model:$model,input:$input}')"
+    response="$(curl -sS "${OPENAI_API_BASE}/responses" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${OPENAI_API_KEY}" \
+        --data "$payload")"
+
+    if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+        fail "OpenAI API error: $(echo "$response" | jq -r '.error.message // "unknown error"')"
+    fi
+
+    script_body="$(jq -r '
+        if (.output_text? != null and .output_text != "") then
+            .output_text
+        else
+            [ .output[]?.content[]? | (.text // .content // "") ] | join("")
+        end
+    ' <<<"$response")"
+
+    [ -n "$script_body" ] || fail "OpenAI returned empty script output."
+    script_body="$(strip_markdown_fence "$script_body")"
+    if ! printf '%s\n' "$script_body" | head -n1 | grep -q '^#!/usr/bin/env bash'; then
+        script_body="#!/usr/bin/env bash
+set -euo pipefail
+
+${script_body}"
+    fi
+
+    printf '%s\n' "$script_body" >"$generated_script_path"
+    chmod +x "$generated_script_path"
 }
 
 generate_issue_script() {
@@ -46,7 +122,13 @@ generate_issue_script() {
 
     if [ ! -f "$generated_script_path" ]; then
         printf "%s %s\n" "$LOG_PREFIX" "Auto-generating issue script: ${generated_script_path}" >&2
-        cat >"$generated_script_path" <<EOF
+        if is_truthy "$AI_GENERATE_ISSUE_SCRIPT" && [ -n "$OPENAI_API_KEY" ]; then
+            generate_issue_script_with_ai "$generated_script_path"
+        else
+            if is_truthy "$AI_GENERATE_ISSUE_SCRIPT" && [ -z "$OPENAI_API_KEY" ]; then
+                printf "%s %s\n" "$LOG_PREFIX" "OPENAI_API_KEY is not set. Falling back to template script generation." >&2
+            fi
+            cat >"$generated_script_path" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -64,7 +146,8 @@ echo "[issue-worker-generated] No IMPLEMENT_FALLBACK_COMMAND configured." >&2
 echo "[issue-worker-generated] Add implementation steps to ${generated_script_path}." >&2
 exit 1
 EOF
-        chmod +x "$generated_script_path"
+            chmod +x "$generated_script_path"
+        fi
     fi
 
     echo "$generated_script_path"
@@ -87,17 +170,25 @@ main() {
     )
 
     for candidate in "${candidate_paths[@]}"; do
+        if [ ! -f "$candidate" ]; then
+            continue
+        fi
         if run_issue_script "$candidate"; then
             return 0
         fi
+        fail "Issue implementation script failed: ${candidate}"
     done
 
     if is_truthy "$AUTO_GENERATE_ISSUE_SCRIPT"; then
         local generated_script_path
         generated_script_path="$(generate_issue_script)"
+        if [ ! -f "$generated_script_path" ]; then
+            fail "Auto-generated issue script was not created: ${generated_script_path}"
+        fi
         if run_issue_script "$generated_script_path"; then
             return 0
         fi
+        fail "Auto-generated issue script failed: ${generated_script_path}"
     fi
 
     if [ -n "$IMPLEMENT_FALLBACK_COMMAND" ]; then
