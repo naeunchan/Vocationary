@@ -25,3 +25,48 @@ jobs:
             #   run: npx expo-doctor
             - name: Build (web export)
               run: npm run ci:build
+
+    android-smoke:
+        if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: 17
+                  cache: gradle
+
+            - uses: android-actions/setup-android@v3
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Android native smoke build (assembleDebug)
+              env:
+                  EXPO_NO_TELEMETRY: 1
+              run: |
+                  mkdir -p artifacts/android-smoke
+                  set -o pipefail
+                  cd android
+                  chmod +x gradlew
+                  ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../artifacts/android-smoke/gradle-assemble-debug.log
+
+            - name: Upload Android smoke diagnostics
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: android-smoke-diagnostics-${{ github.run_id }}
+                  if-no-files-found: warn
+                  retention-days: 14
+                  path: |
+                      artifacts/android-smoke/**
+                      android/**/build/reports/**
+                      android/**/build/outputs/logs/**
