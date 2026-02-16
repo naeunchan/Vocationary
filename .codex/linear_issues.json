@@ -1,0 +1,556 @@
+[
+  {
+    "id": "5849afd4-479f-4648-ac8d-3af2fa096398",
+    "identifier": "VOC-25",
+    "title": "SOCIAL-01 Google 로그인 1차 연동 (E2E)",
+    "description": "## Description\n\n* 실제 기기 기준 Google 로그인 연동\n* 로그인 성공 시 upsertOAuthUser 및 세션 생성\n\n## Acceptance Criteria\n\n* iOS/Android 중 최소 1개 플랫폼 E2E 성공\n* 재로그인 및 기존 계정 매핑 동작\n\n## Dependencies\n\n* AUTH-01",
+    "url": "https://linear.app/vocationary/issue/VOC-25/social-01-google-로그인-1차-연동-e2e",
+    "priority": 1,
+    "createdAt": "2026-02-05T14:32:55.636Z",
+    "updatedAt": "2026-02-16T11:37:04.317Z",
+    "branchName": "eunchan0492/voc-25-social-01-google-로그인-1차-연동-e2e",
+    "state": {
+      "id": "8bd4a065-f57e-4487-86df-773027ca88a4",
+      "name": "In Progress",
+      "type": "started"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "f69899eb-6cfb-4fd6-93ab-6a2f5f778a7b",
+          "name": "auth"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "1ba883b0-07ea-4671-8cc0-07b014f3e316",
+    "identifier": "VOC-31",
+    "title": "REL-01 보안/컴플라이언스 릴리즈 체크",
+    "description": "## Description\n\n* 키 노출, legal URL, HTTPS, 로그 민감정보 점검\n\n## Acceptance Criteria\n\n* 릴리즈 체크리스트 항목 전부 통과",
+    "url": "https://linear.app/vocationary/issue/VOC-31/rel-01-보안컴플라이언스-릴리즈-체크",
+    "priority": 1,
+    "createdAt": "2026-02-05T14:33:16.388Z",
+    "updatedAt": "2026-02-05T14:36:06.992Z",
+    "branchName": "eunchan0492/voc-31-rel-01-보안컴플라이언스-릴리즈-체크",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "54afa514-631c-4115-9daf-f087b67d46e1",
+          "name": "security"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "3d23fd57-c02b-4321-8d77-5eaae2e66e8e",
+    "identifier": "VOC-32",
+    "title": "REL-02 RC 빌드 및 회귀 테스트",
+    "description": "## Description\n\n* auth/search/favorites/settings/onboarding 회귀 테스트\n\n## Acceptance Criteria\n\n* blocker 0건\n* RC1 빌드 승인\n\n## Dependencies\n\n* AUTH-03\n* SOCIAL-01\n* AI-01\n* REL-01",
+    "url": "https://linear.app/vocationary/issue/VOC-32/rel-02-rc-빌드-및-회귀-테스트",
+    "priority": 1,
+    "createdAt": "2026-02-05T14:33:18.536Z",
+    "updatedAt": "2026-02-05T14:36:08.505Z",
+    "branchName": "eunchan0492/voc-32-rel-02-rc-빌드-및-회귀-테스트",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "4b45dd21-3661-429f-90dd-9b8daced6825",
+          "name": "release"
+        },
+        {
+          "id": "b80d4cbf-78c0-4f23-b4e4-910a84c45254",
+          "name": "qa"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "04989f80-5905-4327-b2d2-ac8f55c67d99",
+    "identifier": "VOC-43",
+    "title": "SEC-02 AI 프록시 인증 하드닝 (클라이언트 고정 API 키 의존 제거)",
+    "description": "## 배경\n\n현재 앱 클라이언트가 `EXPO_PUBLIC_OPENAI_PROXY_KEY`를 포함해 `x-api-key`로 AI 프록시에 요청합니다.\n공개 번들에 포함되는 키 특성상 키 추출/남용 리스크가 있어, 운영 환경에서 보안 게이트가 부족할 수 있습니다.\n\n## 작업\n\n* 클라이언트 고정 API 키 의존 제거 전략 확정\n* 서버에서 사용자/세션 기반 인증(예: Firebase ID token 강제 또는 단기 토큰) 적용\n* `REQUIRE_FIREBASE_ID_TOKEN` 운영 기본값/배포 정책 정리\n* 무인증/오인증 요청 차단 및 로깅 정책 정비\n\n## Acceptance Criteria\n\n* 운영 환경에서 클라이언트 번들만으로 AI 프록시 호출이 불가\n* 인증 실패 요청은 401/403으로 일관 차단\n* 인증 성공 사용자만 예문/TTS 사용 가능\n* 관련 운영 문서(runbook)와 환경변수 정책이 업데이트됨\n\n## Related\n\n* VOC-31 (REL-01 보안/컴플라이언스 릴리즈 체크)\n* VOC-37 (\\[Ops\\] AI 프록시 운영 환경변수 배포 구성 확정)",
+    "url": "https://linear.app/vocationary/issue/VOC-43/sec-02-ai-프록시-인증-하드닝-클라이언트-고정-api-키-의존-제거",
+    "priority": 1,
+    "createdAt": "2026-02-10T12:18:40.683Z",
+    "updatedAt": "2026-02-11T14:07:03.203Z",
+    "branchName": "eunchan0492/voc-43-sec-02-ai-프록시-인증-하드닝-클라이언트-고정-api-키",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "54afa514-631c-4115-9daf-f087b67d46e1",
+          "name": "security"
+        },
+        {
+          "id": "f6e48a6b-5ffa-485c-8083-33723ae0ffae",
+          "name": "ai-proxy"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "1f35ae83-b3d4-4ced-a04f-765881ca4edf",
+    "identifier": "VOC-45",
+    "title": "AUTH-09 서버 기반 이메일/비밀번호 계정 원장 도입 (로컬 전용 인증 탈피)",
+    "description": "## 배경\n\n현재 이메일/비밀번호 인증은 디바이스 로컬 DB 기반입니다.\n이 구조에서는 디바이스 분실/재설치 시 계정 복구 및 비밀번호 재설정의 실질 구현이 어렵습니다.\n\n## 작업\n\n* 서버 기반 계정 원장(이메일 식별자) 도입 방식 확정\n* 기존 로컬 인증과 병행/전환 전략 설계\n* 최소 1개 인증 채널(이메일) 검증 가능한 상태로 구성\n* 계정 생성/로그인 API 경계 및 에러 규약 정의\n\n## Acceptance Criteria\n\n* 비밀번호 재설정을 지원할 수 있는 서버 측 계정 구조가 준비됨\n* 신규 가입 계정은 서버 원장을 기준으로 식별 가능\n* 로컬 인증 전용 흐름에 대한 전환 계획(마이그레이션/호환)이 문서화됨\n\n## Related\n\n* VOC-24 (AUTH-05 최소 복구 UX)\n* VOC-25 (SOCIAL-01 Google 로그인)\n* VOC-43 (SEC-02 인증 하드닝)",
+    "url": "https://linear.app/vocationary/issue/VOC-45/auth-09-서버-기반-이메일비밀번호-계정-원장-도입-로컬-전용-인증-탈피",
+    "priority": 2,
+    "createdAt": "2026-02-10T12:21:02.597Z",
+    "updatedAt": "2026-02-11T14:07:00.578Z",
+    "branchName": "eunchan0492/voc-45-auth-09-서버-기반-이메일비밀번호-계정-원장-도입",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "f69899eb-6cfb-4fd6-93ab-6a2f5f778a7b",
+          "name": "auth"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "3c8b1895-7e44-465a-9c9e-16e05a7500a6",
+    "identifier": "VOC-46",
+    "title": "AUTH-10 비밀번호 재설정 실구현 (이메일 링크/OTP 기반)",
+    "description": "## 배경\n\n현재는 비밀번호 분실 시 대체 복구 UX만 제공하며, 실제 재설정 기능은 없습니다.\n\n## 작업\n\n* `비밀번호를 잊으셨나요?`에서 실제 재설정 요청 플로우 연결\n* 이메일 링크 또는 OTP 검증 후 새 비밀번호 설정 화면 구현\n* 재설정 완료 후 로그인/세션 동선 정리\n* 실패 케이스(만료 토큰/잘못된 코드/이미 사용된 토큰) 사용자 메시지 정리\n\n## Acceptance Criteria\n\n* 사용자가 앱 내에서 비밀번호 재설정을 완료할 수 있음\n* 만료/오류/재요청 케이스에서 막히는 경로 없이 복구 가능\n* 로그인/설정 진입 경로에서 동일 정책으로 동작함\n* 관련 단위/통합 테스트가 추가됨\n\n## Dependencies\n\n* AUTH-09\n\n## Related\n\n* VOC-24\n* VOC-36",
+    "url": "https://linear.app/vocationary/issue/VOC-46/auth-10-비밀번호-재설정-실구현-이메일-링크otp-기반",
+    "priority": 2,
+    "createdAt": "2026-02-10T12:21:04.005Z",
+    "updatedAt": "2026-02-11T14:06:59.334Z",
+    "branchName": "eunchan0492/voc-46-auth-10-비밀번호-재설정-실구현-이메일-링크otp-기반",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "f69899eb-6cfb-4fd6-93ab-6a2f5f778a7b",
+          "name": "auth"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "8db85ea5-8718-41dc-9c22-471577d1e499",
+    "identifier": "VOC-26",
+    "title": "SOCIAL-02 소셜 로그인 실패/취소/중복계정 예외 처리",
+    "description": "## Description\n\n* 취소/토큰실패/중복 이메일 케이스 처리\n\n## Acceptance Criteria\n\n* 주요 예외 케이스에서 앱 크래시 없음\n* 사용자 메시지 + 복귀 동선 제공\n\n## Dependencies\n\n* SOCIAL-01",
+    "url": "https://linear.app/vocationary/issue/VOC-26/social-02-소셜-로그인-실패취소중복계정-예외-처리",
+    "priority": 3,
+    "createdAt": "2026-02-05T14:32:57.150Z",
+    "updatedAt": "2026-02-05T14:35:51.599Z",
+    "branchName": "eunchan0492/voc-26-social-02-소셜-로그인-실패취소중복계정-예외-처리",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "f69899eb-6cfb-4fd6-93ab-6a2f5f778a7b",
+          "name": "auth"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "a57aae06-04d8-4321-b990-c43388b6c034",
+    "identifier": "VOC-29",
+    "title": "BACKUP-01 백업/복원 QA 시나리오 검증",
+    "description": "## Description\n\n* 암호 오류/깨진 파일/취소/빈데이터/대용량 시나리오 테스트\n\n## Acceptance Criteria\n\n* 치명 오류 0건\n* 실패 시 메시지 명확",
+    "url": "https://linear.app/vocationary/issue/VOC-29/backup-01-백업복원-qa-시나리오-검증",
+    "priority": 3,
+    "createdAt": "2026-02-05T14:33:13.144Z",
+    "updatedAt": "2026-02-11T13:42:06.926Z",
+    "branchName": "eunchan0492/voc-29-backup-01-백업복원-qa-시나리오-검증",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "b80d4cbf-78c0-4f23-b4e4-910a84c45254",
+          "name": "qa"
+        },
+        {
+          "id": "fa46215f-7aea-4b01-8a9f-ed9635b52899",
+          "name": "backup"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "39373936-62eb-47bc-9118-c051a8c9f5b0",
+    "identifier": "VOC-47",
+    "title": "AUTH-11 인증 보안 하드닝 (로그인 시도 제한/재설정 토큰 정책/세션 무효화)",
+    "description": "## 배경\n\n비밀번호 재설정을 실구현하면 인증 공격면이 커집니다.\n기능 구현과 함께 최소 보안 기준을 맞춰야 릴리즈 리스크를 줄일 수 있습니다.\n\n## 작업\n\n* 로그인 실패 횟수 제한 및 쿨다운 정책 도입\n* 재설정 토큰/코드의 만료 시간, 1회성 사용, 재발급 정책 정의\n* 비밀번호 변경/재설정 성공 시 기존 세션 무효화 정책 적용\n* 인증 이벤트(실패/잠금/재설정) 감사 로그 기준 정리\n\n## Acceptance Criteria\n\n* 짧은 시간 다중 로그인 시도가 제한됨\n* 재설정 토큰 재사용이 차단됨\n* 비밀번호 재설정 후 기존 세션이 정책에 따라 무효화됨\n* 보안 정책이 문서화되고 QA 시나리오로 검증됨\n\n## Dependencies\n\n* AUTH-10\n* VOC-31 (REL-01 보안/컴플라이언스)",
+    "url": "https://linear.app/vocationary/issue/VOC-47/auth-11-인증-보안-하드닝-로그인-시도-제한재설정-토큰-정책세션-무효화",
+    "priority": 3,
+    "createdAt": "2026-02-10T12:21:05.365Z",
+    "updatedAt": "2026-02-11T14:06:57.916Z",
+    "branchName": "eunchan0492/voc-47-auth-11-인증-보안-하드닝-로그인-시도-제한재설정",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "54afa514-631c-4115-9daf-f087b67d46e1",
+          "name": "security"
+        },
+        {
+          "id": "f69899eb-6cfb-4fd6-93ab-6a2f5f778a7b",
+          "name": "auth"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "0ea88c30-f427-4862-84c3-c9c2edb36111",
+    "identifier": "VOC-50",
+    "title": "DB-03 Web 로컬 DB(localStorage) 용량 초과/손상 복구 UX 및 가드레일 추가",
+    "description": "## 배경\n\n웹 환경의 로컬 DB는 단일 localStorage JSON(`vocationary:web-db`)에 저장되며, 저장 실패/파싱 실패 시 현재는 콘솔 경고 중심으로 처리됩니다.\n용량 초과(QuotaExceeded)나 데이터 손상 시 사용자 관점 복구 경로가 명확하지 않습니다.\n\n## 작업\n\n* localStorage 저장 실패(특히 QuotaExceeded) 감지 및 사용자 안내/복구 CTA 제공\n* 파싱 실패 시 손상 데이터 격리(reset 또는 백업 후 초기화) 정책 도입\n* 저장소 상태 진단 정보(오류 유형/빈도) 로깅 정비\n* 웹 환경 전용 장애 시나리오 테스트 추가\n\n## Acceptance Criteria\n\n* localStorage 용량 초과 시 앱이 조용히 실패하지 않고 사용자 안내를 제공함\n* 손상된 저장 데이터 감지 시 앱이 비정상 루프 없이 복구 경로를 제공함\n* 웹 저장소 장애 관련 로그로 원인 추적이 가능함\n* 회귀 테스트로 주요 실패 시나리오가 검증됨",
+    "url": "https://linear.app/vocationary/issue/VOC-50/db-03-web-로컬-dblocalstorage-용량-초과손상-복구-ux-및-가드레일-추가",
+    "priority": 3,
+    "createdAt": "2026-02-10T12:24:17.401Z",
+    "updatedAt": "2026-02-11T14:06:56.679Z",
+    "branchName": "eunchan0492/voc-50-db-03-web-로컬-dblocalstorage-용량-초과손상-복구-ux",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        },
+        {
+          "id": "2dae6044-6454-45fd-bc31-c2bffd5ccc87",
+          "name": "Improvement"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "c88792fa-169a-417d-b782-fe93e1941c0b",
+    "identifier": "VOC-51",
+    "title": "DB-04 실기기/에뮬레이터 기준 구버전 DB 업그레이드 검증 (v1 -> v2)",
+    "description": "## 배경\n\n`VOC-48`에서 스키마 버전 기반 마이그레이션과 Jest 회귀 테스트는 추가되었지만, Expo SQLite 런타임(iOS/Android)에서 실제 앱 업그레이드 경로 검증은 별도 확인이 필요합니다.\n\n## 작업\n\n* 구버전(v1) 상태의 앱 데이터셋을 준비하고 최신 앱으로 업그레이드 실행\n* iOS 또는 Android 최소 1개 플랫폼에서 앱 시작 시 마이그레이션 성공 여부 확인\n* 마이그레이션 후 핵심 데이터(users/favorites/session/app_preferences) 무결성 확인\n* 실패 시 로그 수집 절차(콘솔/Sentry breadcrumbs)와 재현 단계 문서화\n\n## Acceptance Criteria\n\n* 실제 런타임에서 v1 -> v2 마이그레이션이 앱 시작 시 정상 완료됨\n* 마이그레이션 후 사용자 핵심 데이터가 유실 없이 유지됨\n* 실패 케이스 재현 절차와 로그 수집 방법이 문서화됨\n* 검증 결과(스크린샷/로그)가 이슈에 첨부됨\n\n## Related\n\n* VOC-48 (DB-01)\n* VOC-49 (DB-02)",
+    "url": "https://linear.app/vocationary/issue/VOC-51/db-04-실기기에뮬레이터-기준-구버전-db-업그레이드-검증-v1-v2",
+    "priority": 3,
+    "createdAt": "2026-02-11T13:09:10.997Z",
+    "updatedAt": "2026-02-11T14:06:55.440Z",
+    "branchName": "eunchan0492/voc-51-db-04-실기기에뮬레이터-기준-구버전-db-업그레이드-검증",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "b80d4cbf-78c0-4f23-b4e4-910a84c45254",
+          "name": "qa"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "06e44144-97ed-4358-8c22-004989205494",
+    "identifier": "VOC-30",
+    "title": "BACKUP-02 백업 플래그 오픈 기준 문서화",
+    "description": "## Description\n\n* feature flag on 조건/롤백 조건 문서화\n\n## Acceptance Criteria\n\n* 릴리즈 노트/운영 가이드 반영\n\n## Dependencies\n\n* BACKUP-01",
+    "url": "https://linear.app/vocationary/issue/VOC-30/backup-02-백업-플래그-오픈-기준-문서화",
+    "priority": 4,
+    "createdAt": "2026-02-05T14:33:14.790Z",
+    "updatedAt": "2026-02-05T14:36:05.478Z",
+    "branchName": "eunchan0492/voc-30-backup-02-백업-플래그-오픈-기준-문서화",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "fa46215f-7aea-4b01-8a9f-ed9635b52899",
+          "name": "backup"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "cffbd470-a2bb-4864-9a39-0f3a023ea34b",
+    "identifier": "VOC-36",
+    "title": "[Test] 복구 플로우 E2E 재도입 및 회귀 검증 체계 복구",
+    "description": "`docs/test-backlog.md`에 있던 항목을 Linear 백로그로 이전합니다.\n\n## 작업 항목\n\n- [ ] Recovery flow runtime E2E 재도입 (Android 또는 iOS 최소 1개 플랫폼)\n- [ ] 로그인 경로 E2E 검증: `로그인 -> 비밀번호를 잊으셨나요? -> 계정 복구 안내`\n- [ ] 복구 안내 액션 E2E 검증: `새 계정 만들기`\n- [ ] 복구 안내 액션 E2E 검증: `게스트로 계속하기`\n- [ ] 복구 안내 액션 E2E 검증: `고객센터 문의하기`\n- [ ] 설정 경로 E2E 검증: `설정 -> 계정 복구 안내`\n- [ ] CI runtime E2E job 복구 및 실패 아티팩트(로그/스크린샷) 업로드 재구성\n- [ ] Jest 기반 recovery flow 통합 시나리오(`RecoveryFlow.e2e.test.tsx`) 재도입 여부 결정\n\n## Done 조건\n\n* 최소 1개 플랫폼에서 런타임 E2E가 CI에서 안정적으로 통과\n* 로그인/설정 두 진입 경로와 복구 안내 3개 액션이 자동 검증됨\n* 실패 시 디버깅 가능한 아티팩트가 CI에서 수집됨",
+    "url": "https://linear.app/vocationary/issue/VOC-36/test-복구-플로우-e2e-재도입-및-회귀-검증-체계-복구",
+    "priority": 4,
+    "createdAt": "2026-02-09T14:38:07.738Z",
+    "updatedAt": "2026-02-12T11:28:58.576Z",
+    "branchName": "eunchan0492/voc-36-test-복구-플로우-e2e-재도입-및-회귀-검증-체계-복구",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "b80d4cbf-78c0-4f23-b4e4-910a84c45254",
+          "name": "qa"
+        },
+        {
+          "id": "fa46215f-7aea-4b01-8a9f-ed9635b52899",
+          "name": "backup"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "e4218720-d81a-42cd-9b36-7d807e53806b",
+    "identifier": "VOC-37",
+    "title": "[Ops] AI 프록시 운영 환경변수 배포 구성 확정",
+    "description": "`VOC-27` 후속 작업입니다.\n\n## Description\n\n* 앱(EAS)와 서버(Render 등)에 필요한 운영 env를 배포 환경별로 확정/적용\n* 운영 키 관리 정책(저장 위치/교체 절차) 문서화\n\n## Acceptance Criteria\n\n- [ ] 앱 빌드 환경에 `EXPO_PUBLIC_OPENAI_PROXY_URL`, `EXPO_PUBLIC_OPENAI_PROXY_KEY`가 반영됨\n- [ ] 필요 시 `EXPO_PUBLIC_AI_HEALTH_URL` override 값이 반영됨\n- [ ] 서버 환경에 `AI_PROXY_KEY`, `OPENAI_API_KEY`가 반영됨\n- [ ] 운영 키 교체(runbook) 문서가 팀 내 공유됨",
+    "url": "https://linear.app/vocationary/issue/VOC-37/ops-ai-프록시-운영-환경변수-배포-구성-확정",
+    "priority": 4,
+    "createdAt": "2026-02-10T11:53:13.547Z",
+    "updatedAt": "2026-02-12T11:29:07.340Z",
+    "branchName": "eunchan0492/voc-37-ops-ai-프록시-운영-환경변수-배포-구성-확정",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "4b45dd21-3661-429f-90dd-9b8daced6825",
+          "name": "release"
+        },
+        {
+          "id": "f6e48a6b-5ffa-485c-8083-33723ae0ffae",
+          "name": "ai-proxy"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "d747dffd-8c98-4ccf-b42a-a0ccd58acdfa",
+    "identifier": "VOC-38",
+    "title": "[QA] AI 상태값 전이(healthy/degraded/unavailable) 실환경 검증",
+    "description": "`VOC-27` 후속 검증 작업입니다.\n\n## Description\n\n* 실제 빌드/실환경 기준으로 AI 상태 전이를 검증\n* 로그인/설정/검색 화면의 사용자 노출 상태를 QA 시나리오로 점검\n\n## Acceptance Criteria\n\n- [ ] 예문/TTS 정상 호출 후 상태가 `healthy`로 표시됨\n- [ ] 예문/TTS 장애(키 오류/업스트림 오류/네트워크 이슈) 시 `degraded`로 표시됨\n- [ ] 미설정 빌드에서 `unavailable`과 검색 화면 안내가 노출됨\n- [ ] 검증 결과(스크린샷/로그)가 이슈에 첨부됨",
+    "url": "https://linear.app/vocationary/issue/VOC-38/qa-ai-상태값-전이healthydegradedunavailable-실환경-검증",
+    "priority": 4,
+    "createdAt": "2026-02-10T11:53:15.567Z",
+    "updatedAt": "2026-02-12T11:29:23.531Z",
+    "branchName": "eunchan0492/voc-38-qa-ai-상태값-전이healthydegradedunavailable-실환경",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "b80d4cbf-78c0-4f23-b4e4-910a84c45254",
+          "name": "qa"
+        },
+        {
+          "id": "f6e48a6b-5ffa-485c-8083-33723ae0ffae",
+          "name": "ai-proxy"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "5c9d8be2-befe-4f24-8c40-aeb1d4d1d186",
+    "identifier": "VOC-39",
+    "title": "[Monitoring] AI /health 상태 모니터링 및 알람 기준 수립",
+    "description": "`VOC-27` 후속 운영 안정화 작업입니다.\n\n## Description\n\n* `/health` 상태(ok/degraded/unconfigured) 모니터링 지표와 알람 기준 정의\n* degraded 지속 시 대응 절차를 정리\n\n## Acceptance Criteria\n\n- [ ] `/health` 상태 변화를 추적할 수 있는 모니터링(로그/대시보드) 경로가 정의됨\n- [ ] `degraded` 지속(예: N분 이상) 알람 정책이 정의됨\n- [ ] on-call 대응 절차(초기 확인/롤백/키 점검)가 문서화됨",
+    "url": "https://linear.app/vocationary/issue/VOC-39/monitoring-ai-health-상태-모니터링-및-알람-기준-수립",
+    "priority": 4,
+    "createdAt": "2026-02-10T11:53:17.265Z",
+    "updatedAt": "2026-02-12T11:29:17.846Z",
+    "branchName": "eunchan0492/voc-39-monitoring-ai-health-상태-모니터링-및-알람-기준-수립",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "4b45dd21-3661-429f-90dd-9b8daced6825",
+          "name": "release"
+        },
+        {
+          "id": "f6e48a6b-5ffa-485c-8083-33723ae0ffae",
+          "name": "ai-proxy"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "29023dbe-42af-4453-8cc3-ca6ef6dda56d",
+    "identifier": "VOC-41",
+    "title": "AI 오류 안내 문구 i18n 적용 (ko/en)",
+    "description": "## 배경\n\n이번 변경에서 AI 오류 메시지/타이틀 일부가 코드에 하드코딩(한국어)되어 있습니다.\n앱이 ko/en 번역 리소스를 사용하므로 동일 정책으로 정리하는 것이 필요합니다.\n\n## 작업\n\n* 하드코딩된 AI 오류 카피를 i18n 키로 이관\n  * 예: `aiProxyError.ts`의 transient/unavailable 메시지\n  * 예: `SearchResults`의 `AI 연결에 문제가 있어요` 타이틀\n  * 예: Alert 버튼 텍스트(`다시 시도`, `취소`) 정책 점검\n* ko/en 번역 리소스 추가 및 기존 키 네이밍 규칙 정합화\n* 테스트에서 문자열 하드코딩 의존 제거(키/역할 기반 검증으로 정리)\n\n## 완료 기준\n\n* AI 오류 관련 사용자 노출 문구가 ko/en 모두 일관되게 번역됨\n* 코드 내 한국어 하드코딩 제거(상수/i18n 제외)\n* 회귀 테스트 통과",
+    "url": "https://linear.app/vocationary/issue/VOC-41/ai-오류-안내-문구-i18n-적용-koen",
+    "priority": 4,
+    "createdAt": "2026-02-10T12:09:24.437Z",
+    "updatedAt": "2026-02-11T14:07:14.341Z",
+    "branchName": "eunchan0492/voc-41-ai-오류-안내-문구-i18n-적용-koen",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "f6e48a6b-5ffa-485c-8083-33723ae0ffae",
+          "name": "ai-proxy"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  },
+  {
+    "id": "d805f152-83b8-4f1a-839b-d560f260e0eb",
+    "identifier": "VOC-44",
+    "title": "DOC-01 릴리즈 문서/설정 정합성 정리 (.env.example, feature flag 문서)",
+    "description": "## 배경\n\n문서와 실제 코드 설정 간 일부 불일치가 있습니다.\n\n* `docs/release-notes.md`는 `.env.example` 기준을 안내하지만 저장소에 파일이 없음\n* README에 `EXPO_PUBLIC_FEATURE_AUTH_UI` 플래그가 명시돼 있으나 현재 코드에서 사용되지 않음\n\n## 작업\n\n* `.env.example` 템플릿 추가(민감정보 제외)\n* README/릴리즈 노트의 환경변수·플래그 섹션을 실제 코드 기준으로 정리\n* 릴리즈 체크리스트 항목 최신화\n\n## Acceptance Criteria\n\n* 신규 개발자가 문서만으로 로컬/CI 환경변수 설정 가능\n* 문서의 feature flag 목록이 실제 코드와 일치\n* 릴리즈 체크리스트가 현재 빌드 파이프라인과 일치",
+    "url": "https://linear.app/vocationary/issue/VOC-44/doc-01-릴리즈-문서설정-정합성-정리-envexample-feature-flag-문서",
+    "priority": 4,
+    "createdAt": "2026-02-10T12:18:42.066Z",
+    "updatedAt": "2026-02-11T14:07:01.897Z",
+    "branchName": "eunchan0492/voc-44-doc-01-릴리즈-문서설정-정합성-정리-envexample",
+    "state": {
+      "id": "330f34ce-bd8b-4a2b-91b2-ed4b0240b3bc",
+      "name": "Backlog",
+      "type": "backlog"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "4b45dd21-3661-429f-90dd-9b8daced6825",
+          "name": "release"
+        },
+        {
+          "id": "c7631de5-b181-4817-8dab-4c97f0935d2d",
+          "name": "release-mvp"
+        }
+      ]
+    },
+    "assignee": null
+  }
+]
