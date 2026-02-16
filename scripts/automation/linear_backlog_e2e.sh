@@ -139,8 +139,8 @@ detect_default_branch() {
 }
 
 sync_default_branch() {
-    run_or_echo git checkout "$DEFAULT_BRANCH"
-    run_or_echo git pull origin "$DEFAULT_BRANCH"
+    run_or_echo git checkout "$DEFAULT_BRANCH" || fail "failed to checkout default branch: ${DEFAULT_BRANCH}"
+    run_or_echo git pull origin "$DEFAULT_BRANCH" || fail "failed to pull default branch: ${DEFAULT_BRANCH}"
 }
 
 ensure_clean_tree() {
@@ -510,13 +510,15 @@ merge_pr_with_retries() {
 
         append_issue_log "${issue_identifier}: merge failed (attempt ${attempt}), rebasing on ${DEFAULT_BRANCH}"
         sync_default_branch
-        run_or_echo git checkout "$branch_name"
+        run_or_echo git checkout "$branch_name" || return 1
         if ! run_or_echo git rebase "$DEFAULT_BRANCH"; then
             run_or_echo git rebase --abort || true
             return 1
         fi
-        run_shell_or_echo "$VERIFY_COMMANDS"
-        run_or_echo git push --force-with-lease
+        if ! run_shell_or_echo "$VERIFY_COMMANDS"; then
+            return 1
+        fi
+        run_or_echo git push --force-with-lease || return 1
         if [ "$DRY_RUN" != "true" ]; then
             gh pr checks "$pr_url" --watch
         fi
@@ -562,9 +564,9 @@ process_issue() {
     ensure_clean_tree
     sync_default_branch
     if git rev-parse --verify --quiet "$branch_name" >/dev/null; then
-        run_or_echo git branch -D "$branch_name"
+        run_or_echo git branch -D "$branch_name" || fail "failed to delete existing branch: ${branch_name}"
     fi
-    run_or_echo git checkout -b "$branch_name"
+    run_or_echo git checkout -b "$branch_name" || fail "failed to create branch: ${branch_name}"
 
     if [ -z "$IMPLEMENT_COMMAND" ]; then
         issue_add_comment "$issue_id" "Automation stopped: IMPLEMENT_COMMAND is not configured. Set IMPLEMENT_COMMAND in workflow env."
@@ -582,8 +584,14 @@ process_issue() {
     export ISSUE_URL="$issue_url"
     export ISSUE_PLAN_FILE=".codex/plans/${issue_identifier}.md"
 
-    run_shell_or_echo "$IMPLEMENT_COMMAND"
-    run_shell_or_echo "$VERIFY_COMMANDS"
+    if ! run_shell_or_echo "$IMPLEMENT_COMMAND"; then
+        issue_add_comment "$issue_id" "Automation stopped: implementation command failed.\n\nCommand:\n\`\`\`bash\n${IMPLEMENT_COMMAND}\n\`\`\`"
+        fail "implementation command failed for ${issue_identifier}"
+    fi
+    if ! run_shell_or_echo "$VERIFY_COMMANDS"; then
+        issue_add_comment "$issue_id" "Automation stopped: verification command failed.\n\nCommand:\n\`\`\`bash\n${VERIFY_COMMANDS}\n\`\`\`"
+        fail "verification command failed for ${issue_identifier}"
+    fi
     if [ -z "$(git status --porcelain)" ]; then
         issue_add_comment "$issue_id" "Automation stopped: no code changes detected after implementation."
         fail "no code changes detected for ${issue_identifier}"
@@ -602,9 +610,9 @@ process_issue() {
         issue_add_comment "$issue_id" "Follow-up items detected:\n\n$(cat "$followup_file")"
     fi
 
-    run_or_echo git add -A
-    run_or_echo git commit --no-verify -m "${issue_identifier}: ${issue_title}" -m "Linear: ${issue_url}" -m "Verified: ${VERIFY_COMMANDS}"
-    run_or_echo git push -u origin "$branch_name"
+    run_or_echo git add -A || fail "git add failed for ${issue_identifier}"
+    run_or_echo git commit --no-verify -m "${issue_identifier}: ${issue_title}" -m "Linear: ${issue_url}" -m "Verified: ${VERIFY_COMMANDS}" || fail "git commit failed for ${issue_identifier}"
+    run_or_echo git push -u origin "$branch_name" || fail "git push failed for ${issue_identifier}"
 
     local pr_body_file=".codex/pr/${issue_identifier}.md"
     cat >"$pr_body_file" <<EOF
@@ -631,7 +639,14 @@ EOF
         pr_url="https://github.com/<dry-run>"
         log "[dry-run] Would create PR: ${issue_identifier}: ${issue_title}"
     else
-        pr_url="$(gh pr create --title "${issue_identifier}: ${issue_title}" --body-file "$pr_body_file" --base "$DEFAULT_BRANCH" --head "$branch_name")"
+        if ! pr_url="$(gh pr create --title "${issue_identifier}: ${issue_title}" --body-file "$pr_body_file" --base "$DEFAULT_BRANCH" --head "$branch_name")"; then
+            issue_add_comment "$issue_id" "Automation stopped: failed to create pull request. Check repository Actions permissions (contents/pull-requests)."
+            fail "failed to create PR for ${issue_identifier}"
+        fi
+        if [ -z "$pr_url" ]; then
+            issue_add_comment "$issue_id" "Automation stopped: pull request URL was empty after creation."
+            fail "empty PR URL for ${issue_identifier}"
+        fi
     fi
     log "PR: ${pr_url}"
 
@@ -645,11 +660,17 @@ EOF
                 issue_add_comment "$issue_id" "Automation stopped: CI checks failed after ${check_attempt} attempts. See PR checks/logs."
                 fail "CI checks failed for ${issue_identifier}"
             fi
-            run_shell_or_echo "$AUTO_FIX_COMMAND"
-            run_shell_or_echo "$VERIFY_COMMANDS"
-            run_or_echo git add -A
-            run_or_echo git commit --no-verify -m "${issue_identifier}: fix CI (${check_attempt})"
-            run_or_echo git push
+            if ! run_shell_or_echo "$AUTO_FIX_COMMAND"; then
+                issue_add_comment "$issue_id" "Automation stopped: AUTO_FIX_COMMAND failed on CI retry ${check_attempt}."
+                fail "AUTO_FIX_COMMAND failed for ${issue_identifier}"
+            fi
+            if ! run_shell_or_echo "$VERIFY_COMMANDS"; then
+                issue_add_comment "$issue_id" "Automation stopped: verification failed after AUTO_FIX_COMMAND on retry ${check_attempt}."
+                fail "verification failed after AUTO_FIX_COMMAND for ${issue_identifier}"
+            fi
+            run_or_echo git add -A || fail "git add failed during CI retry for ${issue_identifier}"
+            run_or_echo git commit --no-verify -m "${issue_identifier}: fix CI (${check_attempt})" || fail "git commit failed during CI retry for ${issue_identifier}"
+            run_or_echo git push || fail "git push failed during CI retry for ${issue_identifier}"
         done
     fi
 

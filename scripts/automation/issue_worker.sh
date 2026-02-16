@@ -59,7 +59,7 @@ generate_issue_script_with_ai() {
     command -v jq >/dev/null 2>&1 || fail "jq is required for AI script generation."
 
     repo_name="$(basename "$ROOT_DIR")"
-    repo_root_dirs="$(find . -maxdepth 2 -mindepth 1 -type d 2>/dev/null | sed -E 's#^\./##' | sort | head -n 80)"
+    repo_root_dirs="$(find . -maxdepth 2 -mindepth 1 -type d 2>/dev/null | sed -E 's#^\./##' | sort | sed -n '1,80p')"
     prompt="$(cat <<EOF
 You are Codex generating a bash implementation script for one Linear issue.
 
@@ -78,6 +78,9 @@ Script requirements:
 - Start with '#!/usr/bin/env bash' and 'set -euo pipefail'
 - Assume execution from repository root
 - Make minimal, concrete code edits for the issue
+- Dependency additions are allowed when required to satisfy the issue scope
+- Prefer 'npx expo install <package>' for Expo/React Native ecosystem packages
+- Prefer 'npm install <package>' for general JS libraries and keep lockfile updated
 - Do NOT run git commit/push/pr commands
 - Do NOT use interactive commands
 - Keep changes deterministic
