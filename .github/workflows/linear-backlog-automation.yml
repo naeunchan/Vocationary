@@ -18,12 +18,12 @@ on:
             dry_run:
                 description: Run without writing to git/Linear/GitHub
                 required: true
-                default: false
+                default: true
                 type: boolean
             auto_merge:
-                description: Merge PR automatically after checks pass
+                description: Merge PR automatically after checks pass (false = stop after PR creation)
                 required: true
-                default: false
+                default: true
                 type: boolean
             implement_command:
                 description: Command that performs issue implementation

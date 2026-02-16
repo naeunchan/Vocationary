@@ -29,7 +29,7 @@ If workflow state IDs are not provided, the script tries to resolve them automat
 1. Open **Actions** -> **Linear Backlog Automation** -> **Run workflow**
 2. Set inputs:
     - `max_issues`: number of issues to process
-    - `dry_run`: `false` (default). Set `true` for simulation-only run
+    - `dry_run`: `true` (default). Set `false` for real write operations
     - `implement_command`: command that performs implementation for each issue
     - `issue_script_path`: optional explicit script path
     - `implement_fallback_command`: fallback command when no issue script exists
@@ -37,7 +37,7 @@ If workflow state IDs are not provided, the script tries to resolve them automat
     - `ai_generate_issue_script`: generate missing issue script via OpenAI API
     - `openai_model`: model name for AI script generation (default: `gpt-5`)
     - `verify_commands`: lint/test/build commands
-    - `auto_merge`: `true` only after dry-run validation
+    - `auto_merge`: `true` (default) for fully automated merge, `false` for manual merge flow
 
 Default `implement_command` is `scripts/automation/issue_worker.sh`.
 It dispatches to `scripts/automation/issues/<ISSUE_IDENTIFIER>.sh`.
@@ -53,7 +53,8 @@ It dispatches to `scripts/automation/issues/<ISSUE_IDENTIFIER>.sh`.
 - CI is watched (`gh pr checks --watch`), with retry support via `auto_fix_command`.
 - Merge conflicts trigger automatic rebase retry; if unresolved, automation stops with Linear diagnostics.
 - Strict one-by-one mode: next issue is not processed until PR merge + default branch sync + Linear Done update.
-- If `auto_merge=false`, the run stops after PR creation (it will not continue to the next issue).
+- If `auto_merge=false`, the run stops after PR creation and exits successfully (manual merge required).
+- If `auto_merge=false` and `max_issues > 1`, `max_issues` is forced to `1`.
 - If `implement_command` is missing, automation stops with a Linear comment.
 - `issue_worker.sh` can auto-generate issue scripts if `auto_generate_issue_script=true`.
 - Generated scripts call `IMPLEMENT_FALLBACK_COMMAND` when configured.

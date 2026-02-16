@@ -27,6 +27,7 @@ AUTOMATION_IN_PROGRESS_LABEL="${AUTOMATION_IN_PROGRESS_LABEL:-automation-in-prog
 NEEDS_FOLLOWUP_LABEL="${NEEDS_FOLLOWUP_LABEL:-needs-followup}"
 ISSUES_JSON_PATH=".codex/linear_issues.json"
 LOG_PREFIX="[linear-automation]"
+EXIT_MANUAL_MERGE_PENDING=20
 
 mkdir -p .codex/plans .codex/pr
 
@@ -659,7 +660,8 @@ EOF
         fi
     else
         issue_add_comment "$issue_id" "Automation completed implementation and PR creation: ${pr_url}\nMerge left for manual approval."
-        fail "AUTO_MERGE=false blocks one-by-one completion; merge required before next issue."
+        append_issue_log "${issue_identifier}: ${issue_title} | branch=${branch_name} | verify='${VERIFY_COMMANDS}' | pr=${pr_url} | ci=green | merged=no | linear=in-progress"
+        return "$EXIT_MANUAL_MERGE_PENDING"
     fi
 
     sync_default_branch
@@ -705,7 +707,8 @@ main() {
         fail "MAX_ISSUES must be an integer."
     fi
     if [ "$AUTO_MERGE" != "true" ] && [ "$MAX_ISSUES" -gt 1 ]; then
-        fail "AUTO_MERGE=false cannot process more than one issue in strict one-by-one mode."
+        log "AUTO_MERGE=false with MAX_ISSUES>1 detected. Forcing MAX_ISSUES=1 for manual merge mode."
+        MAX_ISSUES=1
     fi
 
     check_verify_runner
@@ -732,15 +735,30 @@ main() {
     fi
 
     local idx=0
+    local manual_merge_pending=false
     while [ "$idx" -lt "$MAX_ISSUES" ] && [ "$idx" -lt "$issues_count" ]; do
-        local issue_json
+        local issue_json issue_result
         ensure_clean_tree
         issue_json="$(jq -c ".[$idx]" <<<"$issues_filtered")"
-        process_issue "$issue_json" "$labels_json"
-        idx=$((idx + 1))
+        if process_issue "$issue_json" "$labels_json"; then
+            idx=$((idx + 1))
+            continue
+        else
+            issue_result=$?
+        fi
+        if [ "$issue_result" -eq "$EXIT_MANUAL_MERGE_PENDING" ]; then
+            idx=$((idx + 1))
+            manual_merge_pending=true
+            break
+        fi
+        return "$issue_result"
     done
 
-    log "Automation completed. Processed ${idx} issue(s)."
+    if [ "$manual_merge_pending" = "true" ]; then
+        log "Automation completed with manual merge pending. Processed ${idx} issue(s)."
+    else
+        log "Automation completed. Processed ${idx} issue(s)."
+    fi
 }
 
 main "$@"
