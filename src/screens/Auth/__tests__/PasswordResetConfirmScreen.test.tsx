@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { Alert } from "react-native";
 
+import { PASSWORD_RESET_SUCCESS_MESSAGE } from "@/screens/App/AppScreen.constants";
 import { PasswordResetConfirmScreen } from "@/screens/Auth/PasswordResetConfirmScreen";
 import { AppAppearanceProvider } from "@/theme/AppearanceContext";
 
@@ -43,10 +44,7 @@ describe("PasswordResetConfirmScreen", () => {
             goBack: jest.fn(),
             reset: jest.fn(),
         };
-        jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => {
-            const firstButton = Array.isArray(buttons) ? buttons[0] : undefined;
-            firstButton?.onPress?.();
-        });
+        const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
 
         const { getByPlaceholderText, getByLabelText } = render(
             <PasswordResetConfirmScreen
@@ -76,10 +74,24 @@ describe("PasswordResetConfirmScreen", () => {
                 newPassword: "Newpass123",
                 confirmPassword: "Newpass123",
             });
-            expect(navigation.reset).toHaveBeenCalledWith({
-                index: 0,
-                routes: [{ name: "Login" }],
-            });
+        });
+
+        await waitFor(() => {
+            expect(alertSpy).toHaveBeenCalledWith(
+                "비밀번호 재설정 완료",
+                PASSWORD_RESET_SUCCESS_MESSAGE,
+                expect.any(Array),
+            );
+        });
+
+        const alertButtons = alertSpy.mock.calls[0]?.[2];
+        const confirmButton = Array.isArray(alertButtons) ? alertButtons[0] : undefined;
+        expect(confirmButton?.onPress).toBeDefined();
+        confirmButton?.onPress?.();
+
+        expect(navigation.reset).toHaveBeenCalledWith({
+            index: 0,
+            routes: [{ name: "Login" }],
         });
     });
 
