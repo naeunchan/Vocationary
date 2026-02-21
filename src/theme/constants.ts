@@ -5,7 +5,6 @@ export const FONT_SCALE_PREFERENCE_KEY = "settings.font.scale";
 export const ONBOARDING_PREFERENCE_KEY = "experience.onboarding.seen";
 export const GUEST_USED_PREFERENCE_KEY = "experience.guest.used";
 export const GUEST_FAVORITES_PREFERENCE_KEY = "experience.guest.favorites";
-export const BIOMETRIC_LOGIN_PREFERENCE_KEY = "settings.auth.biometric";
 
 export const THEME_MODE_OPTIONS: { label: string; value: ThemeMode }[] = [
     { label: "라이트", value: "light" },

@@ -10,7 +10,7 @@
 - **단어장 관리**: 사용자별로 단어를 저장하거나 삭제하면 로컬 SQLite DB에 동기화되어 세션이 바뀌어도 목록이 유지돼요.
 - **홈 요약 대시보드**: 현재 사용자(게스트/회원), 사용 중인 사전 모드, 단어장 개수, 최근 검색어를 한눈에 보여줘요.
 - **탭 내비게이션**: 홈, 단어장, 검색, 설정 네 개의 탭으로 주요 기능을 빠르게 이동할 수 있어요.
-- **설정 화면**: 테마/폰트, 온보딩 재보기, 법적 문서, 백업/복원, 생체인증 옵션을 제공해요.
+- **설정 화면**: 테마/폰트, 온보딩 재보기, 법적 문서, 백업/복원 옵션을 제공해요.
 
 ## Key Features (English)
 
@@ -20,7 +20,7 @@
 - **Word List Management**: Save or remove words per user; everything is persisted locally with SQLite so the word list survives app restarts.
 - **Home Summary Dashboard**: Highlights current profile state (guest/member), active dictionary mode, saved word count, and recent query.
 - **Tabbed Navigation**: Home, Word List, Search, and Settings tabs keep every major workflow just one tap away.
-- **Settings Screen**: Includes theme/font controls, onboarding replay, legal docs, encrypted backup/restore, and biometric preference.
+- **Settings Screen**: Includes theme/font controls, onboarding replay, legal docs, and encrypted backup/restore.
 
 ## Versioning
 
@@ -48,10 +48,9 @@
     - `EXPO_PUBLIC_FEATURE_AUTH_UI`: enable login/signup mode UI
     - `EXPO_PUBLIC_FEATURE_GUEST_ACCOUNT_CTA`: enable guest account conversion card in Settings
     - `EXPO_PUBLIC_FEATURE_BACKUP_RESTORE`: enable backup/restore section in Settings
-    - `EXPO_PUBLIC_FEATURE_BIOMETRIC_AUTO_LOGIN`: enable biometric auto-login menu in Settings
         - If env vars are missing, `app.config.ts` applies profile defaults:
-            - `development`: both `true`
-            - `production`: both `false`
+            - `development`: guest account CTA `true`, backup/restore `false`
+            - `production`: guest account CTA `false`, backup/restore `false`
         - `EAS_BUILD_PROFILE` (or `APP_ENV`) decides the active profile.
 
 ## Compliance & Security
@@ -59,6 +58,5 @@
 - Privacy/Terms links live in `app.json` (Expo `extra`) and are validated in `src/config/legal.ts`.
   Invalid or non-HTTPS URLs will fallback to the in-app legal documents. Ensure hosted URLs are set before release.
 - Automatic login credentials are stored with SecureStore/Keychain on device; logout clears the secure entry.
-- Optional biometric-gated auto-login is available via device capabilities (toggle in Settings).
 - AI-powered examples/TTS require a backend proxy (`EXPO_PUBLIC_OPENAI_PROXY_URL` + `EXPO_PUBLIC_OPENAI_PROXY_KEY`). Without them, the UI keeps the feature disabled and surfaces an in-app notice.
 - Password reset is not provided; credentials are device-local. Recovery alternatives are guided in-app via `Settings > 계정 복구 안내` and the login recovery entry point.

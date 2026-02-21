@@ -45,6 +45,14 @@ jest.mock("@/screens/Auth/LoginScreen", () => ({
     LoginScreen: () => null,
 }));
 
+jest.mock("@/screens/Auth/PasswordResetRequestScreen", () => ({
+    PasswordResetRequestScreen: () => null,
+}));
+
+jest.mock("@/screens/Auth/PasswordResetConfirmScreen", () => ({
+    PasswordResetConfirmScreen: () => null,
+}));
+
 jest.mock("@/screens/Auth/signup/SignUpIntroScreen", () => ({
     SignUpIntroScreen: () => null,
 }));
@@ -90,6 +98,10 @@ describe("AuthNavigator", () => {
         const loginProps: LoginScreenProps = {
             onGuest: jest.fn(),
             onLogin: jest.fn().mockResolvedValue(undefined),
+            onRequestPasswordResetCode: jest
+                .fn()
+                .mockResolvedValue({ email: "user@example.com", expiresAt: "2026-02-21T00:00:00.000Z" }),
+            onConfirmPasswordReset: jest.fn().mockResolvedValue(undefined),
             onSignUp: jest.fn().mockResolvedValue(undefined),
             loading: false,
             errorMessage: "이메일 또는 비밀번호가 올바르지 않아요.",

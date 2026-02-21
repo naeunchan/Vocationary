@@ -12,22 +12,26 @@ const CONTACT_SUBJECT = "Vocationary 계정 복구 문의";
 type RecoveryGuideScreenProps = {
     onRequestSignUp?: () => void;
     onContinueAsGuest?: () => void;
+    onRequestPasswordReset?: () => void;
 };
 
-export function RecoveryGuideScreen({ onRequestSignUp, onContinueAsGuest }: RecoveryGuideScreenProps) {
+export function RecoveryGuideScreen({
+    onRequestSignUp,
+    onContinueAsGuest,
+    onRequestPasswordReset,
+}: RecoveryGuideScreenProps) {
     const styles = useThemedStyles(createRecoveryGuideStyles);
-    const showAuthActions = Boolean(onRequestSignUp || onContinueAsGuest);
+    const showAuthActions = Boolean(onRequestSignUp || onContinueAsGuest || onRequestPasswordReset);
     const recoveryAlternatives = React.useMemo(() => {
-        const steps = [
-            "새 계정으로 다시 가입하기",
-            "동일 기기에서 자동 로그인/생체 인증이 켜져 있다면 유지된 세션 확인",
-        ];
+        const steps = ["로그인 화면의 `비밀번호를 잊으셨나요?`에서 이메일 인증 코드(OTP)로 재설정하기"];
 
         if (FEATURE_FLAGS.backupRestore) {
             steps.push("복원 가능한 백업 파일이 있다면 설정 > 백업 및 복원 > 백업에서 복원하기 이용");
         }
 
-        steps.push("기존 계정 데이터가 필요한 경우 고객센터로 문의하기");
+        steps.push("인증 코드 만료/오류 시 코드를 재요청한 뒤 다시 진행하기");
+        steps.push("로그인이 유지된 기기라면 설정 > 마이 페이지 > 비밀번호 변경에서 바로 변경하기");
+        steps.push("문제가 계속되면 고객센터로 문의하기");
         return steps;
     }, []);
 
@@ -52,8 +56,8 @@ export function RecoveryGuideScreen({ onRequestSignUp, onContinueAsGuest }: Reco
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>계정 복구 안내</Text>
                 <Text style={styles.body}>
-                    현재 Vocationary는 보안을 위해 비밀번호를 서버에 저장하지 않으며, 기기 로컬에만 저장합니다. 그래서
-                    비밀번호를 분실하면 복구할 수 없어요.
+                    Vocationary는 로그인 화면에서 이메일 인증 코드(OTP) 기반 비밀번호 재설정을 지원합니다. 코드를 받은
+                    뒤 새 비밀번호를 설정하면 즉시 다시 로그인할 수 있어요.
                 </Text>
 
                 <View style={styles.section}>
@@ -68,13 +72,22 @@ export function RecoveryGuideScreen({ onRequestSignUp, onContinueAsGuest }: Reco
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>권장 안내</Text>
                     <Text style={styles.body}>
-                        비밀번호를 재설정할 수 없으므로, 자주 사용하는 비밀번호를 기록해두거나 생체 인증 로그인 기능을
-                        활성화하는 것을 권장합니다.
+                        인증 코드는 일정 시간 후 만료되며 1회만 사용할 수 있어요. 코드가 만료되었거나 이미 사용되었다면
+                        재요청 후 다시 시도해주세요.
                     </Text>
                 </View>
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>바로 이동</Text>
+                    {showAuthActions && onRequestPasswordReset ? (
+                        <TouchableOpacity
+                            style={styles.primaryButton}
+                            onPress={onRequestPasswordReset}
+                            activeOpacity={0.85}
+                        >
+                            <Text style={styles.primaryButtonText}>비밀번호 재설정</Text>
+                        </TouchableOpacity>
+                    ) : null}
                     {showAuthActions && onRequestSignUp ? (
                         <TouchableOpacity style={styles.primaryButton} onPress={onRequestSignUp} activeOpacity={0.85}>
                             <Text style={styles.primaryButtonText}>새 계정 만들기</Text>

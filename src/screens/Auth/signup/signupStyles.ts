@@ -51,6 +51,7 @@ export const createSignupStyles = (theme: AppThemeColors, fontScale: number) => 
         linkRow: {
             marginTop: spacing.sm,
             alignItems: "center",
+            margin: spacing.md,
         },
         linkText: {
             color: theme.accent,

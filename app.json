@@ -35,7 +35,6 @@
             "versionLabel": "1.0.0",
             "featureGuestAccountCta": false,
             "featureBackupRestore": false,
-            "featureBiometricAutoLogin": false,
             "privacyPolicyUrl": "https://vocationary.app/legal/privacy",
             "termsOfServiceUrl": "https://vocationary.app/legal/terms"
         }

@@ -1,5 +1,4 @@
 import Constants from "expo-constants";
-import * as LocalAuthentication from "expo-local-authentication";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
@@ -37,6 +36,11 @@ import {
     MISSING_USER_ERROR_MESSAGE,
     PASSWORD_MISMATCH_ERROR_MESSAGE,
     PASSWORD_REQUIRED_ERROR_MESSAGE,
+    PASSWORD_RESET_EMAIL_NOT_FOUND_MESSAGE,
+    PASSWORD_RESET_EXPIRED_CODE_MESSAGE,
+    PASSWORD_RESET_GENERIC_ERROR_MESSAGE,
+    PASSWORD_RESET_INVALID_CODE_MESSAGE,
+    PASSWORD_RESET_USED_CODE_MESSAGE,
     PASSWORD_UPDATE_ERROR_MESSAGE,
     PROFILE_UPDATE_ERROR_MESSAGE,
     REMOVE_FAVORITE_ERROR_MESSAGE,
@@ -66,7 +70,9 @@ import {
     markAppHelpSeen,
     type OAuthProfilePayload,
     removeFavoriteForUser,
+    resetPasswordWithEmailCode,
     saveSearchHistoryEntries,
+    sendEmailVerificationCode,
     setGuestSession,
     setPreferenceValue,
     setUserSession,
@@ -82,7 +88,6 @@ import { applyExampleUpdates, clearPendingFlags } from "@/services/dictionary/ut
 import { createFavoriteEntry, FavoriteWordEntry, MemorizationStatus } from "@/services/favorites/types";
 import { SEARCH_HISTORY_LIMIT, SearchHistoryEntry } from "@/services/searchHistory/types";
 import {
-    BIOMETRIC_LOGIN_PREFERENCE_KEY,
     DEFAULT_FONT_SCALE,
     FONT_SCALE_PREFERENCE_KEY,
     GUEST_FAVORITES_PREFERENCE_KEY,
@@ -99,6 +104,8 @@ import {
     getPhoneNumberValidationError,
     normalizePhoneNumber,
 } from "@/utils/authValidation";
+
+const SHOW_DEBUG_RESET_CODE = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
 
 export function useAppScreen(): AppScreenHookResult {
     const [searchTerm, setSearchTerm] = useState("");
@@ -256,28 +263,6 @@ export function useAppScreen(): AppScreenHookResult {
     useEffect(() => {
         let isMounted = true;
 
-        async function ensureBiometricAuth(): Promise<boolean> {
-            try {
-                const enabled = await getPreferenceValue(BIOMETRIC_LOGIN_PREFERENCE_KEY);
-                if (enabled !== "true") {
-                    return true;
-                }
-                const hasHardware = await LocalAuthentication.hasHardwareAsync();
-                const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-                if (!hasHardware || !isEnrolled) {
-                    return true;
-                }
-                const result = await LocalAuthentication.authenticateAsync({
-                    promptMessage: "생체인증으로 로그인",
-                    cancelLabel: "취소",
-                    fallbackLabel: "암호 입력",
-                });
-                return result.success;
-            } catch {
-                return false;
-            }
-        }
-
         async function bootstrap() {
             let shouldShowHelp = false;
             try {
@@ -315,19 +300,6 @@ export function useAppScreen(): AppScreenHookResult {
                 }
 
                 if (!session.user) {
-                    setIsGuest(false);
-                    setUser(null);
-                    setFavorites([]);
-                    return;
-                }
-
-                const biometricOk = await ensureBiometricAuth();
-                if (!biometricOk) {
-                    await clearSession();
-                    await clearAutoLoginCredentials();
-                    if (!isMounted) {
-                        return;
-                    }
                     setIsGuest(false);
                     setUser(null);
                     setFavorites([]);
@@ -1071,6 +1043,85 @@ export function useAppScreen(): AppScreenHookResult {
         [createUser, loadUserState],
     );
 
+    const handleRequestPasswordResetCode = useCallback(
+        async (email: string) => {
+            const emailError = getEmailValidationError(email);
+            if (emailError) {
+                throw new Error(emailError);
+            }
+
+            const normalizedEmail = email.trim().toLowerCase();
+            const userRecord = await findUserByUsername(normalizedEmail);
+            if (!userRecord || !userRecord.passwordHash) {
+                throw new Error(PASSWORD_RESET_EMAIL_NOT_FOUND_MESSAGE);
+            }
+
+            const verification = await sendEmailVerificationCode(normalizedEmail);
+            return {
+                email: normalizedEmail,
+                expiresAt: verification.expiresAt,
+                debugCode: SHOW_DEBUG_RESET_CODE ? verification.code : undefined,
+            };
+        },
+        [findUserByUsername],
+    );
+
+    const handleConfirmPasswordReset = useCallback(
+        async ({
+            email,
+            code,
+            newPassword,
+            confirmPassword,
+        }: {
+            email: string;
+            code: string;
+            newPassword: string;
+            confirmPassword: string;
+        }) => {
+            const emailError = getEmailValidationError(email);
+            if (emailError) {
+                throw new Error(emailError);
+            }
+
+            const trimmedCode = code.trim();
+            if (!trimmedCode) {
+                throw new Error(PASSWORD_RESET_INVALID_CODE_MESSAGE);
+            }
+
+            const trimmedPassword = newPassword.trim();
+            const trimmedConfirm = confirmPassword.trim();
+            const passwordValidationError = getGooglePasswordValidationError(trimmedPassword);
+            if (passwordValidationError) {
+                throw new Error(passwordValidationError);
+            }
+            if (trimmedPassword !== trimmedConfirm) {
+                throw new Error(PASSWORD_MISMATCH_ERROR_MESSAGE);
+            }
+
+            const resetStatus = await resetPasswordWithEmailCode(email, trimmedCode, trimmedPassword);
+            if (resetStatus === "email_not_found") {
+                throw new Error(PASSWORD_RESET_EMAIL_NOT_FOUND_MESSAGE);
+            }
+            if (resetStatus === "invalid_code") {
+                throw new Error(PASSWORD_RESET_INVALID_CODE_MESSAGE);
+            }
+            if (resetStatus === "expired") {
+                throw new Error(PASSWORD_RESET_EXPIRED_CODE_MESSAGE);
+            }
+            if (resetStatus === "already_used") {
+                throw new Error(PASSWORD_RESET_USED_CODE_MESSAGE);
+            }
+            if (resetStatus !== "success") {
+                throw new Error(PASSWORD_RESET_GENERIC_ERROR_MESSAGE);
+            }
+
+            await clearSession();
+            await clearAutoLoginCredentials();
+            resetAuthState();
+        },
+        [clearAutoLoginCredentials, clearSession, resetAuthState],
+    );
+
     const handleDismissHelp = useCallback(() => {
         setIsHelpVisible(false);
         markAppHelpSeen().catch((err) => {
@@ -1377,12 +1428,24 @@ export function useAppScreen(): AppScreenHookResult {
             onGuest: handleGuestAccess,
             onLogin: handleLogin,
             onGoogleLogin: handleGoogleLogin,
+            onRequestPasswordResetCode: handleRequestPasswordResetCode,
+            onConfirmPasswordReset: handleConfirmPasswordReset,
             onSignUp: handleSignUp,
             loading: authLoading,
             errorMessage: authError,
             signUpErrorMessage: signUpError,
         }),
-        [authError, authLoading, handleGoogleLogin, handleGuestAccess, handleLogin, handleSignUp, signUpError],
+        [
+            authError,
+            authLoading,
+            handleConfirmPasswordReset,
+            handleGoogleLogin,
+            handleGuestAccess,
+            handleLogin,
+            handleRequestPasswordResetCode,
+            handleSignUp,
+            signUpError,
+        ],
     );
 
     useEffect(() => {

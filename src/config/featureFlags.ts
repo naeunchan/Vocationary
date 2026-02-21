@@ -3,13 +3,11 @@ import Constants from "expo-constants";
 type AppExtra = {
     featureGuestAccountCta?: unknown;
     featureBackupRestore?: unknown;
-    featureBiometricAutoLogin?: unknown;
 };
 
 type FeatureFlags = {
     guestAccountCta: boolean;
     backupRestore: boolean;
-    biometricAutoLogin: boolean;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as AppExtra;
@@ -53,9 +51,4 @@ export const FEATURE_FLAGS: FeatureFlags = {
     ),
     // Hidden by default until UX/security policy is finalized.
     backupRestore: resolveFlag(process.env.EXPO_PUBLIC_FEATURE_BACKUP_RESTORE, extra.featureBackupRestore, false),
-    biometricAutoLogin: resolveFlag(
-        process.env.EXPO_PUBLIC_FEATURE_BIOMETRIC_AUTO_LOGIN,
-        extra.featureBiometricAutoLogin,
-        false,
-    ),
 };

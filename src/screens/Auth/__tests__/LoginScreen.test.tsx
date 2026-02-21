@@ -62,6 +62,10 @@ const baseProps = {
     onGuest: jest.fn(),
     onLogin: jest.fn().mockResolvedValue(undefined),
     onGoogleLogin: jest.fn().mockResolvedValue(undefined),
+    onRequestPasswordResetCode: jest
+        .fn()
+        .mockResolvedValue({ email: "user@example.com", expiresAt: "2026-02-21T00:00:00.000Z" }),
+    onConfirmPasswordReset: jest.fn().mockResolvedValue(undefined),
     onSignUp: jest.fn().mockResolvedValue(undefined),
     loading: false,
 };
@@ -92,16 +96,16 @@ describe("LoginScreen", () => {
         expect(await findByText("로그인에 실패했어요.")).toBeTruthy();
     });
 
-    it("opens recovery guide when recovery link is pressed", () => {
-        const onOpenRecoveryGuide = jest.fn();
+    it("opens password reset flow when recovery link is pressed", () => {
+        const onOpenPasswordResetFlow = jest.fn();
         const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
-        const { getByText } = render(<LoginScreen {...baseProps} onOpenRecoveryGuide={onOpenRecoveryGuide} />, {
+        const { getByText } = render(<LoginScreen {...baseProps} onOpenPasswordResetFlow={onOpenPasswordResetFlow} />, {
             wrapper,
         });
 
         fireEvent.press(getByText("비밀번호를 잊으셨나요?"));
 
-        expect(onOpenRecoveryGuide).toHaveBeenCalled();
+        expect(onOpenPasswordResetFlow).toHaveBeenCalled();
         expect(alertSpy).not.toHaveBeenCalled();
     });
 
