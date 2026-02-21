@@ -107,17 +107,6 @@ export const createLoginScreenStyles = (theme: AppThemeColors, fontScale: number
             fontSize: scaleFont(15, fontScale),
             fontWeight: "600",
         },
-        rememberRow: {
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: 12,
-        },
-        rememberLabel: {
-            fontSize: scaleFont(13, fontScale),
-            color: theme.textSecondary,
-            fontWeight: "600",
-        },
         modeSwitch: {
             flexDirection: "row",
             justifyContent: "center",

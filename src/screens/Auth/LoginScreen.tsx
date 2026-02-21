@@ -9,14 +9,11 @@ import { CredentialFields } from "@/screens/Auth/components/CredentialFields";
 import { GuestButton } from "@/screens/Auth/components/GuestButton";
 import { LoginHeader } from "@/screens/Auth/components/LoginHeader";
 import { PrimaryActionButton } from "@/screens/Auth/components/PrimaryActionButton";
-import { RememberMeToggle } from "@/screens/Auth/components/RememberMeToggle";
 import { getLoginCopy } from "@/screens/Auth/constants/loginCopy";
 import { createLoginScreenStyles } from "@/screens/Auth/LoginScreen.styles";
 import { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 import { resolveGoogleOAuthProfile } from "@/services/auth/googleSignIn";
-import { getPreferenceValue, setPreferenceValue } from "@/services/database";
 import { t } from "@/shared/i18n";
-import { BIOMETRIC_LOGIN_PREFERENCE_KEY } from "@/theme/constants";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 import { getEmailValidationError } from "@/utils/authValidation";
 
@@ -37,6 +34,7 @@ export function LoginScreen({
     onGoogleLogin,
     onSignUp: _onSignUp,
     onOpenSignUpFlow,
+    onOpenPasswordResetFlow,
     onOpenRecoveryGuide,
     errorMessage,
     loading = false,
@@ -45,7 +43,6 @@ export function LoginScreen({
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const copy = useMemo(() => getLoginCopy("login"), []);
-    const [biometricEnabled, setBiometricEnabled] = useState(false);
     const [emailError, setEmailError] = useState<string | null>(null);
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const [googleLoading, setGoogleLoading] = useState(false);
@@ -85,28 +82,6 @@ export function LoginScreen({
     const isGoogleLoginAvailable = Boolean(onGoogleLogin && GOOGLE_AUTH_ENABLED && isPlatformGoogleClientConfigured);
     const isBusy = loading || googleLoading;
 
-    useEffect(() => {
-        let mounted = true;
-        getPreferenceValue(BIOMETRIC_LOGIN_PREFERENCE_KEY)
-            .then((value) => {
-                if (!mounted) return;
-                setBiometricEnabled(value === "true");
-            })
-            .catch((error) => {
-                console.warn("자동 로그인 설정을 불러오는 중 문제가 발생했어요.", error);
-            });
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    const handleToggleBiometric = useCallback((value: boolean) => {
-        setBiometricEnabled(value);
-        void setPreferenceValue(BIOMETRIC_LOGIN_PREFERENCE_KEY, value ? "true" : "false").catch((error) => {
-            console.warn("자동 로그인 설정을 저장하는 중 문제가 발생했어요.", error);
-        });
-    }, []);
-
     const handleGuestPress = useCallback(() => {
         if (isBusy) {
             return;
@@ -121,15 +96,16 @@ export function LoginScreen({
         if (isBusy) {
             return;
         }
+        if (onOpenPasswordResetFlow) {
+            onOpenPasswordResetFlow();
+            return;
+        }
         if (onOpenRecoveryGuide) {
             onOpenRecoveryGuide();
             return;
         }
-        Alert.alert(
-            "비밀번호 복구 안내",
-            "현재 Vocationary는 비밀번호 복구를 지원하지 않습니다. 새 계정을 생성하거나 고객센터로 문의해주세요.",
-        );
-    }, [isBusy, onOpenRecoveryGuide]);
+        Alert.alert("비밀번호 재설정 안내", "로그인 화면에서 비밀번호 재설정 절차를 진행해주세요.");
+    }, [isBusy, onOpenPasswordResetFlow, onOpenRecoveryGuide]);
 
     const handleGooglePress = useCallback(async () => {
         if (!onGoogleLogin || isBusy || !isGoogleLoginAvailable) {
@@ -248,7 +224,6 @@ export function LoginScreen({
                         <TouchableOpacity style={styles.recoveryLink} onPress={handleRecoveryPress} disabled={isBusy}>
                             <Text style={styles.recoveryLinkText}>{t("auth.forgotPassword")}</Text>
                         </TouchableOpacity>
-                        <RememberMeToggle value={biometricEnabled} disabled={isBusy} onChange={handleToggleBiometric} />
                         <PrimaryActionButton
                             label={copy.primaryButton}
                             loading={isBusy}

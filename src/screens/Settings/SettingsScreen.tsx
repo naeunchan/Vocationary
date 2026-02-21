@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Alert, Linking, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -11,9 +11,8 @@ import { GuestActionCard } from "@/screens/Settings/components/GuestActionCard";
 import { LegalDocumentModal } from "@/screens/Settings/components/LegalDocumentModal";
 import { createStyles } from "@/screens/Settings/SettingsScreen.styles";
 import { SettingsScreenProps } from "@/screens/Settings/SettingsScreen.types";
-import { getPreferenceValue, setPreferenceValue } from "@/services/database";
 import { t } from "@/shared/i18n";
-import { BIOMETRIC_LOGIN_PREFERENCE_KEY, FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS } from "@/theme/constants";
+import { FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS } from "@/theme/constants";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
 const SUPPORT_EMAIL = "support@vocationary.app";
@@ -169,8 +168,6 @@ export function SettingsScreen({
         [fontScale],
     );
     const { status: aiStatus } = useAIStatus();
-    const [biometricEnabled, setBiometricEnabled] = useState(false);
-    const isBiometricSettingVisible = FEATURE_FLAGS.biometricAutoLogin;
 
     const aiStatusLabel = useMemo(() => {
         switch (aiStatus) {
@@ -182,29 +179,6 @@ export function SettingsScreen({
                 return t("settings.label.aiUnavailable");
         }
     }, [aiStatus]);
-
-    useEffect(() => {
-        let mounted = true;
-        getPreferenceValue(BIOMETRIC_LOGIN_PREFERENCE_KEY)
-            .then((value) => {
-                if (!mounted) return;
-                setBiometricEnabled(value === "true");
-            })
-            .catch((error) => {
-                console.warn("생체인증 설정을 불러오는 중 문제가 발생했어요.", error);
-            });
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    const handleToggleBiometric = useCallback(() => {
-        const nextValue = !biometricEnabled;
-        setBiometricEnabled(nextValue);
-        void setPreferenceValue(BIOMETRIC_LOGIN_PREFERENCE_KEY, nextValue ? "true" : "false").catch((error) => {
-            console.warn("생체인증 설정을 저장하는 중 문제가 발생했어요.", error);
-        });
-    }, [biometricEnabled]);
 
     const renderRow = (label: string, options: RowOptions = {}) => {
         const { onPress, value, isLast = false, disabled = false } = options;
@@ -254,16 +228,8 @@ export function SettingsScreen({
                         })}
                         {renderRow(t("settings.link.recovery"), {
                             onPress: onNavigateRecoveryGuide,
-                            value: t("settings.label.recoveryUnavailable"),
+                            value: t("settings.label.recoveryAvailable"),
                         })}
-                        {isBiometricSettingVisible
-                            ? renderRow(t("settings.link.biometric"), {
-                                  onPress: handleToggleBiometric,
-                                  value: biometricEnabled
-                                      ? t("settings.label.biometricOn")
-                                      : t("settings.label.biometricOff"),
-                              })
-                            : null}
                         {renderRow(t("settings.link.aiStatus"), { value: aiStatusLabel })}
                         {renderRow(t("settings.link.appVersion"), { value: appVersion, isLast: true })}
                     </View>

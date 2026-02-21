@@ -62,6 +62,9 @@ type EmailVerificationPayload = {
     expiresAt: string;
 };
 
+export type EmailVerificationConsumeStatus = "verified" | "not_found" | "invalid_code" | "expired" | "already_used";
+export type PasswordResetByEmailStatus = "success" | "email_not_found" | "invalid_code" | "expired" | "already_used";
+
 export type UserRecord = {
     id: number;
     username: string;
@@ -947,30 +950,60 @@ function getEmailVerificationWeb(email: string): WebEmailVerificationState | nul
     return state.emailVerifications[email] ?? null;
 }
 
-async function verifyEmailVerificationCodeNative(email: string, code: string): Promise<boolean> {
-    const record = await getEmailVerificationNative(email);
+type EmailVerificationRecord = {
+    code: string;
+    expires_at: string;
+    verified_at: string | null;
+};
+
+function resolveEmailVerificationConsumeStatus(
+    record: EmailVerificationRecord | null,
+    code: string,
+): EmailVerificationConsumeStatus {
     if (!record) {
-        return false;
+        return "not_found";
     }
-    if (record.code !== code || isVerificationExpired(record.expires_at)) {
-        return false;
+    if (record.verified_at) {
+        return "already_used";
+    }
+    if (isVerificationExpired(record.expires_at)) {
+        return "expired";
+    }
+    if (record.code !== code) {
+        return "invalid_code";
+    }
+    return "verified";
+}
+
+async function consumeEmailVerificationCodeNative(
+    email: string,
+    code: string,
+): Promise<EmailVerificationConsumeStatus> {
+    const record = await getEmailVerificationNative(email);
+    const status = resolveEmailVerificationConsumeStatus(record, code);
+    if (status !== "verified") {
+        if (status === "expired") {
+            await clearEmailVerificationNative(email);
+        }
+        return status;
     }
     const db = await getDatabase();
     await db.runAsync(
         "UPDATE email_verifications SET verified_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE email = ?",
         [email],
     );
-    return true;
+    return "verified";
 }
 
-async function verifyEmailVerificationCodeWeb(email: string, code: string): Promise<boolean> {
+async function consumeEmailVerificationCodeWeb(email: string, code: string): Promise<EmailVerificationConsumeStatus> {
     const state = readWebState();
     const record = state.emailVerifications[email];
-    if (!record) {
-        return false;
-    }
-    if (record.code !== code || isVerificationExpired(record.expires_at)) {
-        return false;
+    const status = resolveEmailVerificationConsumeStatus(record ?? null, code);
+    if (status !== "verified") {
+        if (status === "expired") {
+            clearEmailVerificationWeb(email);
+        }
+        return status;
     }
     const timestamp = new Date().toISOString();
     const nextState: WebDatabaseState = {
@@ -985,7 +1018,17 @@ async function verifyEmailVerificationCodeWeb(email: string, code: string): Prom
         },
     };
     writeWebState(nextState);
-    return true;
+    return "verified";
+}
+
+async function verifyEmailVerificationCodeNative(email: string, code: string): Promise<boolean> {
+    const status = await consumeEmailVerificationCodeNative(email, code);
+    return status === "verified";
+}
+
+async function verifyEmailVerificationCodeWeb(email: string, code: string): Promise<boolean> {
+    const status = await consumeEmailVerificationCodeWeb(email, code);
+    return status === "verified";
 }
 
 async function isEmailVerificationVerifiedNative(email: string): Promise<boolean> {
@@ -1615,6 +1658,24 @@ export async function verifyEmailVerificationCode(email: string, code: string): 
     return await verifyEmailVerificationCodeNative(normalizedEmail, normalizedCode);
 }
 
+export async function consumeEmailVerificationCode(
+    email: string,
+    code: string,
+): Promise<EmailVerificationConsumeStatus> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCode = code.trim();
+    if (!normalizedEmail) {
+        return "not_found";
+    }
+    if (!normalizedCode) {
+        return "invalid_code";
+    }
+    if (isWeb) {
+        return await consumeEmailVerificationCodeWeb(normalizedEmail, normalizedCode);
+    }
+    return await consumeEmailVerificationCodeNative(normalizedEmail, normalizedCode);
+}
+
 export async function isEmailVerificationVerified(email: string): Promise<boolean> {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
@@ -1659,6 +1720,40 @@ export async function updateUserPassword(userId: number, password: string) {
         return await updateUserPasswordWeb(userId, password);
     }
     return await updateUserPasswordNative(userId, password);
+}
+
+export async function resetPasswordWithEmailCode(
+    email: string,
+    code: string,
+    password: string,
+): Promise<PasswordResetByEmailStatus> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCode = code.trim();
+    if (!normalizedEmail) {
+        return "email_not_found";
+    }
+    if (!normalizedCode) {
+        return "invalid_code";
+    }
+
+    const targetUser = await findUserByUsername(normalizedEmail);
+    if (!targetUser || !targetUser.passwordHash) {
+        return "email_not_found";
+    }
+
+    const verificationStatus = await consumeEmailVerificationCode(normalizedEmail, normalizedCode);
+    if (verificationStatus === "expired") {
+        return "expired";
+    }
+    if (verificationStatus === "already_used") {
+        return "already_used";
+    }
+    if (verificationStatus !== "verified") {
+        return "invalid_code";
+    }
+
+    await updateUserPassword(targetUser.id, password);
+    return "success";
 }
 
 export async function isDisplayNameTaken(displayName: string, excludeUserId?: number) {

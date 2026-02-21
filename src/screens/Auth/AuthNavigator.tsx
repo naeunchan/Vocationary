@@ -8,6 +8,8 @@ import React, { useMemo } from "react";
 
 import { AuthNavigatorProps, AuthStackParamList } from "@/screens/Auth/AuthNavigator.types";
 import { LoginScreen } from "@/screens/Auth/LoginScreen";
+import { PasswordResetConfirmScreen } from "@/screens/Auth/PasswordResetConfirmScreen";
+import { PasswordResetRequestScreen } from "@/screens/Auth/PasswordResetRequestScreen";
 import { SignUpEmailScreen } from "@/screens/Auth/signup/SignUpEmailScreen";
 import { SignUpFormProvider } from "@/screens/Auth/signup/SignUpFormProvider";
 import { SignUpIntroScreen } from "@/screens/Auth/signup/SignUpIntroScreen";
@@ -57,7 +59,24 @@ export function AuthNavigator({ loginProps }: AuthNavigatorProps) {
                                 <LoginScreen
                                     {...loginProps}
                                     onOpenSignUpFlow={() => props.navigation.navigate("SignUpIntro")}
-                                    onOpenRecoveryGuide={() => props.navigation.navigate("RecoveryGuide")}
+                                    onOpenPasswordResetFlow={() => props.navigation.navigate("PasswordResetRequest")}
+                                />
+                            )}
+                        </Stack.Screen>
+                        <Stack.Screen name="PasswordResetRequest" options={{ headerShown: false }}>
+                            {(props) => (
+                                <PasswordResetRequestScreen
+                                    {...props}
+                                    onRequestCode={loginProps.onRequestPasswordResetCode}
+                                />
+                            )}
+                        </Stack.Screen>
+                        <Stack.Screen name="PasswordResetConfirm" options={{ headerShown: false }}>
+                            {(props) => (
+                                <PasswordResetConfirmScreen
+                                    {...props}
+                                    onConfirmPasswordReset={loginProps.onConfirmPasswordReset}
+                                    onRequestCode={loginProps.onRequestPasswordResetCode}
                                 />
                             )}
                         </Stack.Screen>
@@ -68,6 +87,9 @@ export function AuthNavigator({ loginProps }: AuthNavigatorProps) {
                                         navigation.navigate("SignUpIntro");
                                     }}
                                     onContinueAsGuest={loginProps.onGuest}
+                                    onRequestPasswordReset={() => {
+                                        navigation.navigate("PasswordResetRequest");
+                                    }}
                                 />
                             )}
                         </Stack.Screen>

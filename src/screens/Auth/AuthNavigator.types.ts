@@ -4,6 +4,14 @@ import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 
 export type AuthStackParamList = {
     Login: undefined;
+    PasswordResetRequest:
+        | {
+              prefillEmail?: string;
+          }
+        | undefined;
+    PasswordResetConfirm: {
+        email: string;
+    };
     RecoveryGuide: undefined;
     SignUpIntro: undefined;
     SignUpEmail: undefined;

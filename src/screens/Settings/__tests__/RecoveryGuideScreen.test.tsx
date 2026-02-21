@@ -9,7 +9,6 @@ jest.mock("@/config/featureFlags", () => ({
     FEATURE_FLAGS: {
         guestAccountCta: false,
         backupRestore: false,
-        biometricAutoLogin: false,
     },
 }));
 
@@ -40,13 +39,20 @@ describe("RecoveryGuideScreen", () => {
     it("renders shortcut actions and triggers callbacks in auth context", () => {
         const onRequestSignUp = jest.fn();
         const onContinueAsGuest = jest.fn();
+        const onRequestPasswordReset = jest.fn();
         const { getByText } = render(
-            <RecoveryGuideScreen onRequestSignUp={onRequestSignUp} onContinueAsGuest={onContinueAsGuest} />,
+            <RecoveryGuideScreen
+                onRequestSignUp={onRequestSignUp}
+                onContinueAsGuest={onContinueAsGuest}
+                onRequestPasswordReset={onRequestPasswordReset}
+            />,
         );
 
+        fireEvent.press(getByText("비밀번호 재설정"));
         fireEvent.press(getByText("새 계정 만들기"));
         fireEvent.press(getByText("게스트로 계속하기"));
 
+        expect(onRequestPasswordReset).toHaveBeenCalled();
         expect(onRequestSignUp).toHaveBeenCalled();
         expect(onContinueAsGuest).toHaveBeenCalled();
     });
@@ -55,7 +61,7 @@ describe("RecoveryGuideScreen", () => {
         const { queryByText, getByText } = render(<RecoveryGuideScreen />);
 
         expect(queryByText(/백업 및 복원/)).toBeNull();
-        expect(getByText("3. 기존 계정 데이터가 필요한 경우 고객센터로 문의하기")).toBeTruthy();
+        expect(getByText("4. 문제가 계속되면 고객센터로 문의하기")).toBeTruthy();
     });
 
     it("shows backup restore path copy when backupRestore flag is enabled", () => {
@@ -63,6 +69,6 @@ describe("RecoveryGuideScreen", () => {
         const { getByText } = render(<RecoveryGuideScreen />);
 
         expect(getByText(/설정 > 백업 및 복원 > 백업에서 복원하기/)).toBeTruthy();
-        expect(getByText("4. 기존 계정 데이터가 필요한 경우 고객센터로 문의하기")).toBeTruthy();
+        expect(getByText("5. 문제가 계속되면 고객센터로 문의하기")).toBeTruthy();
     });
 });
