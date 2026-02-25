@@ -40,24 +40,34 @@ import {
     PASSWORD_RESET_EXPIRED_CODE_MESSAGE,
     PASSWORD_RESET_GENERIC_ERROR_MESSAGE,
     PASSWORD_RESET_INVALID_CODE_MESSAGE,
-    PASSWORD_RESET_USED_CODE_MESSAGE,
     PASSWORD_UPDATE_ERROR_MESSAGE,
     PROFILE_UPDATE_ERROR_MESSAGE,
     REMOVE_FAVORITE_ERROR_MESSAGE,
     SIGNUP_DUPLICATE_ERROR_MESSAGE,
     SIGNUP_GENERIC_ERROR_MESSAGE,
-    SOCIAL_LOGIN_GENERIC_ERROR_MESSAGE,
     TOGGLE_FAVORITE_ERROR_MESSAGE,
     UPDATE_STATUS_ERROR_MESSAGE,
 } from "@/screens/App/AppScreen.constants";
 import type { AppScreenHookResult } from "@/screens/App/AppScreen.types";
 import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
+import {
+    confirmPasswordResetByCode,
+    deleteFirebaseUserAccount,
+    type FirebaseSessionUser,
+    getFirebaseAuthErrorCode,
+    isFirebaseAuthError,
+    logoutFirebaseUser,
+    requestPasswordReset,
+    signInWithEmail,
+    signUpWithEmail,
+    subscribeFirebaseAuthState,
+    updateFirebaseUserPassword,
+} from "@/services/auth/firebaseAuth";
 import { exportBackupToFile, importBackupFromDocument } from "@/services/backup/manualBackup";
 import {
     clearAutoLoginCredentials,
     clearSearchHistoryEntries,
     clearSession,
-    createUser,
     deleteUserAccount,
     findUserByUsername,
     getActiveSession,
@@ -68,16 +78,11 @@ import {
     initializeDatabase,
     isDisplayNameTaken,
     markAppHelpSeen,
-    type OAuthProfilePayload,
     removeFavoriteForUser,
-    resetPasswordWithEmailCode,
     saveSearchHistoryEntries,
-    sendEmailVerificationCode,
     setGuestSession,
     setPreferenceValue,
-    setUserSession,
     updateUserDisplayName,
-    updateUserPassword,
     upsertFavoriteForUser,
     upsertOAuthUser,
     type UserRecord,
@@ -105,8 +110,6 @@ import {
     normalizePhoneNumber,
 } from "@/utils/authValidation";
 
-const SHOW_DEBUG_RESET_CODE = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
-
 export function useAppScreen(): AppScreenHookResult {
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(false);
@@ -133,6 +136,12 @@ export function useAppScreen(): AppScreenHookResult {
     });
     const activeLookupRef = useRef(0);
     const hasShownPronunciationInfoRef = useRef(false);
+    const pendingAuthProfileRef = useRef<{
+        email: string;
+        displayName?: string | null;
+        phoneNumber?: string | null;
+    } | null>(null);
+    const loadUserStateRef = useRef<(userRecord: UserRecord) => Promise<void>>(async () => {});
     const isPronunciationAvailable = OPENAI_FEATURE_ENABLED;
 
     const setErrorMessage = useCallback(
@@ -141,6 +150,46 @@ export function useAppScreen(): AppScreenHookResult {
         },
         [],
     );
+
+    const resolveFirebaseAuthMessage = useCallback((error: unknown, fallbackMessage: string): string => {
+        const code = getFirebaseAuthErrorCode(error);
+        if (!code) {
+            return error instanceof Error ? error.message : fallbackMessage;
+        }
+
+        if (code === "auth/network-request-failed") {
+            return "네트워크 연결을 확인한 뒤 다시 시도해주세요.";
+        }
+        if (code === "auth/too-many-requests") {
+            return "요청이 많아 잠시 제한되었어요. 잠시 후 다시 시도해주세요.";
+        }
+        if (code === "auth/invalid-email" || code === "auth/missing-email") {
+            return "유효한 이메일 주소를 입력해주세요.";
+        }
+        if (code === "auth/email-already-in-use") {
+            return SIGNUP_DUPLICATE_ERROR_MESSAGE;
+        }
+        if (code === "auth/user-not-found" || code === "auth/wrong-password" || code === "auth/invalid-credential") {
+            return LOGIN_FAILED_ERROR_MESSAGE;
+        }
+        if (code === "auth/requires-recent-login") {
+            return "보안을 위해 다시 로그인한 뒤 시도해주세요.";
+        }
+        if (code === "auth/invalid-action-code") {
+            return PASSWORD_RESET_INVALID_CODE_MESSAGE;
+        }
+        if (code === "auth/expired-action-code") {
+            return PASSWORD_RESET_EXPIRED_CODE_MESSAGE;
+        }
+        if (code === "auth/user-disabled") {
+            return "비활성화된 계정이에요. 고객센터에 문의해주세요.";
+        }
+        if (code === "auth/weak-password") {
+            return "비밀번호 보안 수준이 낮아요. 영문과 숫자를 포함해 다시 입력해주세요.";
+        }
+
+        return error instanceof Error ? error.message : fallbackMessage;
+    }, []);
 
     const parseGuestFavorites = useCallback((raw: string | null): FavoriteWordEntry[] => {
         if (!raw) {
@@ -160,8 +209,8 @@ export function useAppScreen(): AppScreenHookResult {
     const mergeFavorites = useCallback((base: FavoriteWordEntry[], incoming: FavoriteWordEntry[]) => {
         const byWord = new Map<string, FavoriteWordEntry>();
         const pickLatest = (current: FavoriteWordEntry, next: FavoriteWordEntry) => {
-            const currentTime = new Date(current.updatedAt ?? current.createdAt ?? 0).getTime();
-            const nextTime = new Date(next.updatedAt ?? next.createdAt ?? 0).getTime();
+            const currentTime = new Date(current.updatedAt).getTime();
+            const nextTime = new Date(next.updatedAt).getTime();
             return nextTime >= currentTime ? next : current;
         };
 
@@ -178,8 +227,8 @@ export function useAppScreen(): AppScreenHookResult {
         });
 
         return Array.from(byWord.values()).sort((a, b) => {
-            const aTime = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
-            const bTime = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
+            const aTime = new Date(a.updatedAt).getTime();
+            const bTime = new Date(b.updatedAt).getTime();
             return bTime - aTime;
         });
     }, []);
@@ -262,6 +311,78 @@ export function useAppScreen(): AppScreenHookResult {
 
     useEffect(() => {
         let isMounted = true;
+        let authUnsubscribe: (() => void) | null = null;
+        let didResolveInitialAuthState = false;
+
+        const finalizeInitialization = () => {
+            if (!isMounted || didResolveInitialAuthState) {
+                return;
+            }
+            didResolveInitialAuthState = true;
+            setInitializing(false);
+        };
+
+        const applySignedOutState = async () => {
+            const session = await getActiveSession();
+            if (session?.isGuest) {
+                const rawGuestFavorites = await getPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY);
+                const guestFavorites = await hydrateFavorites(parseGuestFavorites(rawGuestFavorites));
+                if (!isMounted) {
+                    return;
+                }
+                setIsGuest(true);
+                setUser(null);
+                setFavorites(guestFavorites);
+                setSearchTerm("");
+                setResult(null);
+                setExamplesVisible(false);
+                setError(null);
+                setAiAssistError(null);
+                setAuthError(null);
+                setSignUpError(null);
+                return;
+            }
+
+            if (session && !session.isGuest) {
+                await clearSession();
+            }
+
+            if (!isMounted) {
+                return;
+            }
+
+            setIsGuest(false);
+            setUser(null);
+            setFavorites([]);
+            setSearchTerm("");
+            setResult(null);
+            setExamplesVisible(false);
+            setError(null);
+            setAiAssistError(null);
+            setAuthError(null);
+            setSignUpError(null);
+        };
+
+        const syncFirebaseMemberState = async (firebaseUser: FirebaseSessionUser) => {
+            const normalizedEmail = firebaseUser.email?.trim().toLowerCase();
+            if (!normalizedEmail) {
+                throw new Error("이메일 계정 정보를 확인하지 못했어요.");
+            }
+
+            const pendingProfile = pendingAuthProfileRef.current;
+            const profileFromPending =
+                pendingProfile && pendingProfile.email === normalizedEmail ? pendingProfile : null;
+
+            const userRecord = await upsertOAuthUser({
+                provider: "firebase",
+                subject: firebaseUser.uid,
+                email: normalizedEmail,
+                displayName: profileFromPending?.displayName ?? firebaseUser.displayName,
+                phoneNumber: profileFromPending?.phoneNumber ?? null,
+            });
+            pendingAuthProfileRef.current = null;
+            await loadUserStateRef.current(userRecord);
+        };
 
         async function bootstrap() {
             let shouldShowHelp = false;
@@ -275,56 +396,38 @@ export function useAppScreen(): AppScreenHookResult {
                     shouldShowHelp = true;
                 }
 
-                const session = await getActiveSession();
-                if (!isMounted) {
-                    return;
-                }
-
-                if (!session) {
-                    await clearAutoLoginCredentials();
-                    setIsGuest(false);
-                    setUser(null);
-                    setFavorites([]);
-                    return;
-                }
-
-                if (session.isGuest) {
-                    await clearSession();
-                    if (!isMounted) {
-                        return;
-                    }
-                    setIsGuest(false);
-                    setUser(null);
-                    setFavorites([]);
-                    return;
-                }
-
-                if (!session.user) {
-                    setIsGuest(false);
-                    setUser(null);
-                    setFavorites([]);
-                    return;
-                }
-
-                const storedFavorites = await getFavoritesByUser(session.user.id);
-                const hydratedFavorites = await hydrateFavorites(storedFavorites, session.user.id);
-                if (!isMounted) {
-                    return;
-                }
-
-                setUser(session.user);
-                setIsGuest(false);
-                setFavorites(hydratedFavorites);
+                authUnsubscribe = subscribeFirebaseAuthState((firebaseUser) => {
+                    void (async () => {
+                        try {
+                            if (firebaseUser) {
+                                await syncFirebaseMemberState(firebaseUser);
+                            } else {
+                                await applySignedOutState();
+                            }
+                        } catch (error) {
+                            if (!isMounted) {
+                                return;
+                            }
+                            const message = resolveFirebaseAuthMessage(error, DATABASE_INIT_ERROR_MESSAGE);
+                            setAuthError(message);
+                        } finally {
+                            if (isMounted) {
+                                setAuthLoading(false);
+                            }
+                            finalizeInitialization();
+                        }
+                    })();
+                });
             } catch (err) {
                 if (!isMounted) {
                     return;
                 }
                 const message = err instanceof Error ? err.message : DATABASE_INIT_ERROR_MESSAGE;
                 setErrorMessage(message);
+                finalizeInitialization();
             } finally {
                 if (isMounted) {
                     setIsHelpVisible(shouldShowHelp);
-                    setInitializing(false);
                 }
             }
         }
@@ -333,8 +436,19 @@ export function useAppScreen(): AppScreenHookResult {
 
         return () => {
             isMounted = false;
+            authUnsubscribe?.();
         };
-    }, []);
+    }, [
+        clearSession,
+        getActiveSession,
+        getPreferenceValue,
+        hydrateFavorites,
+        initializeDatabase,
+        parseGuestFavorites,
+        resolveFirebaseAuthMessage,
+        setErrorMessage,
+        upsertOAuthUser,
+    ]);
 
     useEffect(() => {
         let isMounted = true;
@@ -876,7 +990,7 @@ export function useAppScreen(): AppScreenHookResult {
 
     const loadUserState = useCallback(
         async (userRecord: UserRecord) => {
-            await setUserSession(userRecord.id);
+            await clearSession();
             const storedFavorites = await getFavoritesByUser(userRecord.id);
             const hydratedFavorites = await hydrateFavorites(storedFavorites, userRecord.id);
 
@@ -926,7 +1040,53 @@ export function useAppScreen(): AppScreenHookResult {
                 setIsOnboardingVisible(true);
             }
         },
-        [hydrateFavorites, mergeFavorites, parseGuestFavorites, setPreferenceValue, upsertFavoriteForUser],
+        [
+            clearSession,
+            hydrateFavorites,
+            mergeFavorites,
+            parseGuestFavorites,
+            setPreferenceValue,
+            upsertFavoriteForUser,
+        ],
+    );
+    loadUserStateRef.current = loadUserState;
+
+    const tryMigrateLegacyUserIfNeeded = useCallback(
+        async (email: string, password: string) => {
+            const legacyRecord = await findUserByUsername(email);
+            if (!legacyRecord?.passwordHash) {
+                return false;
+            }
+
+            const isLegacyAccount = legacyRecord.oauthProvider !== "firebase";
+            if (!isLegacyAccount) {
+                return false;
+            }
+
+            const isValidLegacyPassword = await verifyPasswordHash(password, legacyRecord.passwordHash);
+            if (!isValidLegacyPassword) {
+                return false;
+            }
+
+            pendingAuthProfileRef.current = {
+                email,
+                displayName: legacyRecord.displayName ?? null,
+                phoneNumber: legacyRecord.phoneNumber ?? null,
+            };
+            try {
+                await signUpWithEmail(email, password, {
+                    displayName: legacyRecord.displayName ?? undefined,
+                });
+                return true;
+            } catch (error) {
+                pendingAuthProfileRef.current = null;
+                if (isFirebaseAuthError(error, "auth/email-already-in-use")) {
+                    return false;
+                }
+                throw error;
+            }
+        },
+        [findUserByUsername, verifyPasswordHash],
     );
 
     const handleLogin = useCallback(
@@ -945,43 +1105,34 @@ export function useAppScreen(): AppScreenHookResult {
                 }
 
                 const normalizedEmail = email.trim().toLowerCase();
-                const record = await findUserByUsername(normalizedEmail);
-                if (!record || !record.passwordHash) {
-                    throw new Error(LOGIN_FAILED_ERROR_MESSAGE);
-                }
-                const ok = await verifyPasswordHash(trimmedPassword, record.passwordHash);
-                if (!ok) {
-                    throw new Error(LOGIN_FAILED_ERROR_MESSAGE);
-                }
-                const { passwordHash: _passwordHash, ...userRecord } = record;
-                await loadUserState(userRecord);
-            } catch (err) {
-                const message = err instanceof Error ? err.message : LOGIN_GENERIC_ERROR_MESSAGE;
-                setAuthError(message);
-            } finally {
-                setAuthLoading(false);
-            }
-        },
-        [findUserByUsername, loadUserState, verifyPasswordHash],
-    );
+                pendingAuthProfileRef.current = null;
 
-    const handleGoogleLogin = useCallback(
-        async (profile: OAuthProfilePayload) => {
-            setAuthLoading(true);
-            setAuthError(null);
-            setSignUpError(null);
-            try {
-                const userRecord = await upsertOAuthUser(profile);
-                await loadUserState(userRecord);
+                try {
+                    await signInWithEmail(normalizedEmail, trimmedPassword);
+                } catch (error) {
+                    if (
+                        isFirebaseAuthError(
+                            error,
+                            "auth/user-not-found",
+                            "auth/wrong-password",
+                            "auth/invalid-credential",
+                        )
+                    ) {
+                        const migrated = await tryMigrateLegacyUserIfNeeded(normalizedEmail, trimmedPassword);
+                        if (migrated) {
+                            return;
+                        }
+                    }
+                    throw error;
+                }
             } catch (err) {
-                const message = err instanceof Error ? err.message : SOCIAL_LOGIN_GENERIC_ERROR_MESSAGE;
+                pendingAuthProfileRef.current = null;
+                const message = resolveFirebaseAuthMessage(err, LOGIN_GENERIC_ERROR_MESSAGE);
                 setAuthError(message);
-                throw new Error(message);
-            } finally {
                 setAuthLoading(false);
             }
         },
-        [loadUserState],
+        [resolveFirebaseAuthMessage, tryMigrateLegacyUserIfNeeded],
     );
 
     const handleSignUp = useCallback(
@@ -999,6 +1150,7 @@ export function useAppScreen(): AppScreenHookResult {
             phoneNumber: string;
         }) => {
             setAuthLoading(true);
+            setAuthError(null);
             setSignUpError(null);
             try {
                 const emailError = getEmailValidationError(email);
@@ -1027,20 +1179,26 @@ export function useAppScreen(): AppScreenHookResult {
                 const normalizedEmail = email.trim().toLowerCase();
                 const normalizedName = fullName.trim();
                 const normalizedPhone = normalizePhoneNumber(phoneNumber);
-                const userRecord = await createUser(normalizedEmail, trimmedPassword, normalizedName, normalizedPhone);
-                await loadUserState(userRecord);
+                pendingAuthProfileRef.current = {
+                    email: normalizedEmail,
+                    displayName: normalizedName,
+                    phoneNumber: normalizedPhone,
+                };
+                await signUpWithEmail(normalizedEmail, trimmedPassword, {
+                    displayName: normalizedName,
+                });
             } catch (err) {
-                const message = err instanceof Error ? err.message : SIGNUP_GENERIC_ERROR_MESSAGE;
-                if (message.includes("UNIQUE") || message.includes("unique")) {
+                pendingAuthProfileRef.current = null;
+                const message = resolveFirebaseAuthMessage(err, SIGNUP_GENERIC_ERROR_MESSAGE);
+                if (isFirebaseAuthError(err, "auth/email-already-in-use")) {
                     setSignUpError(SIGNUP_DUPLICATE_ERROR_MESSAGE);
                 } else {
                     setSignUpError(message);
                 }
-            } finally {
                 setAuthLoading(false);
             }
         },
-        [createUser, loadUserState],
+        [resolveFirebaseAuthMessage],
     );
 
     const handleRequestPasswordResetCode = useCallback(
@@ -1052,18 +1210,26 @@ export function useAppScreen(): AppScreenHookResult {
 
             const normalizedEmail = email.trim().toLowerCase();
             const userRecord = await findUserByUsername(normalizedEmail);
-            if (!userRecord || !userRecord.passwordHash) {
+            if (!userRecord) {
                 throw new Error(PASSWORD_RESET_EMAIL_NOT_FOUND_MESSAGE);
             }
+            if (userRecord.oauthProvider !== "firebase" && userRecord.passwordHash) {
+                throw new Error("기존 로컬 계정이에요. 먼저 로그인해 Firebase 계정으로 전환한 뒤 다시 시도해주세요.");
+            }
 
-            const verification = await sendEmailVerificationCode(normalizedEmail);
-            return {
-                email: normalizedEmail,
-                expiresAt: verification.expiresAt,
-                debugCode: SHOW_DEBUG_RESET_CODE ? verification.code : undefined,
-            };
+            try {
+                const verification = await requestPasswordReset(normalizedEmail);
+                return {
+                    email: verification.email,
+                    expiresAt: verification.expiresAt,
+                    debugCode: undefined,
+                };
+            } catch (error) {
+                const message = resolveFirebaseAuthMessage(error, PASSWORD_RESET_GENERIC_ERROR_MESSAGE);
+                throw new Error(message);
+            }
         },
-        [findUserByUsername],
+        [findUserByUsername, requestPasswordReset, resolveFirebaseAuthMessage],
     );
 
     const handleConfirmPasswordReset = useCallback(
@@ -1098,28 +1264,28 @@ export function useAppScreen(): AppScreenHookResult {
                 throw new Error(PASSWORD_MISMATCH_ERROR_MESSAGE);
             }
 
-            const resetStatus = await resetPasswordWithEmailCode(email, trimmedCode, trimmedPassword);
-            if (resetStatus === "email_not_found") {
-                throw new Error(PASSWORD_RESET_EMAIL_NOT_FOUND_MESSAGE);
-            }
-            if (resetStatus === "invalid_code") {
-                throw new Error(PASSWORD_RESET_INVALID_CODE_MESSAGE);
-            }
-            if (resetStatus === "expired") {
-                throw new Error(PASSWORD_RESET_EXPIRED_CODE_MESSAGE);
-            }
-            if (resetStatus === "already_used") {
-                throw new Error(PASSWORD_RESET_USED_CODE_MESSAGE);
-            }
-            if (resetStatus !== "success") {
-                throw new Error(PASSWORD_RESET_GENERIC_ERROR_MESSAGE);
+            try {
+                await confirmPasswordResetByCode({
+                    email,
+                    code: trimmedCode,
+                    newPassword: trimmedPassword,
+                });
+            } catch (error) {
+                const message = resolveFirebaseAuthMessage(error, PASSWORD_RESET_GENERIC_ERROR_MESSAGE);
+                throw new Error(message);
             }
 
             await clearSession();
             await clearAutoLoginCredentials();
             resetAuthState();
         },
-        [clearAutoLoginCredentials, clearSession, resetAuthState],
+        [
+            clearAutoLoginCredentials,
+            clearSession,
+            confirmPasswordResetByCode,
+            resetAuthState,
+            resolveFirebaseAuthMessage,
+        ],
     );
 
     const handleDismissHelp = useCallback(() => {
@@ -1148,22 +1314,26 @@ export function useAppScreen(): AppScreenHookResult {
         setAuthError(null);
         setSignUpError(null);
         try {
+            pendingAuthProfileRef.current = null;
+            await logoutFirebaseUser();
             await clearSession();
             await clearAutoLoginCredentials();
+            resetAuthState();
         } catch (err) {
-            const message = err instanceof Error ? err.message : LOGOUT_ERROR_MESSAGE;
+            const message = resolveFirebaseAuthMessage(err, LOGOUT_ERROR_MESSAGE);
             setAuthError(message);
         } finally {
             setAuthLoading(false);
-            resetAuthState();
         }
-    }, [resetAuthState]);
+    }, [clearAutoLoginCredentials, clearSession, resetAuthState, resolveFirebaseAuthMessage]);
 
     const handleDeleteAccount = useCallback(async () => {
         if (!user) {
             throw new Error(MISSING_USER_ERROR_MESSAGE);
         }
         try {
+            pendingAuthProfileRef.current = null;
+            await deleteFirebaseUserAccount();
             await deleteUserAccount(user.id, user.username);
             await clearSession();
             await clearAutoLoginCredentials();
@@ -1171,7 +1341,7 @@ export function useAppScreen(): AppScreenHookResult {
             setInitialAuthState();
             setRecentSearches([]);
         } catch (error) {
-            const message = error instanceof Error ? error.message : ACCOUNT_DELETION_ERROR_MESSAGE;
+            const message = resolveFirebaseAuthMessage(error, ACCOUNT_DELETION_ERROR_MESSAGE);
             throw new Error(message);
         }
     }, [
@@ -1179,6 +1349,8 @@ export function useAppScreen(): AppScreenHookResult {
         clearSearchHistoryEntries,
         clearSession,
         deleteUserAccount,
+        deleteFirebaseUserAccount,
+        resolveFirebaseAuthMessage,
         setInitialAuthState,
         setRecentSearches,
         user,
@@ -1226,14 +1398,13 @@ export function useAppScreen(): AppScreenHookResult {
             }
 
             try {
-                const { user: updatedUser, passwordHash } = await updateUserPassword(user.id, trimmedPassword);
-                setUser(updatedUser);
+                await updateFirebaseUserPassword(trimmedPassword);
             } catch (err) {
-                const message = err instanceof Error ? err.message : PASSWORD_UPDATE_ERROR_MESSAGE;
+                const message = resolveFirebaseAuthMessage(err, PASSWORD_UPDATE_ERROR_MESSAGE);
                 throw new Error(message);
             }
         },
-        [user],
+        [resolveFirebaseAuthMessage, user],
     );
 
     const handleProfileUpdate = useCallback(
@@ -1315,6 +1486,9 @@ export function useAppScreen(): AppScreenHookResult {
                             id: refreshed.id,
                             username: refreshed.username,
                             displayName: refreshed.displayName,
+                            phoneNumber: refreshed.phoneNumber,
+                            oauthProvider: refreshed.oauthProvider,
+                            oauthSubject: refreshed.oauthSubject,
                         });
                     } else {
                         setInitialAuthState();
@@ -1427,7 +1601,6 @@ export function useAppScreen(): AppScreenHookResult {
         () => ({
             onGuest: handleGuestAccess,
             onLogin: handleLogin,
-            onGoogleLogin: handleGoogleLogin,
             onRequestPasswordResetCode: handleRequestPasswordResetCode,
             onConfirmPasswordReset: handleConfirmPasswordReset,
             onSignUp: handleSignUp,
@@ -1439,7 +1612,6 @@ export function useAppScreen(): AppScreenHookResult {
             authError,
             authLoading,
             handleConfirmPasswordReset,
-            handleGoogleLogin,
             handleGuestAccess,
             handleLogin,
             handleRequestPasswordResetCode,

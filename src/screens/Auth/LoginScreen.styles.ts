@@ -107,6 +107,16 @@ export const createLoginScreenStyles = (theme: AppThemeColors, fontScale: number
             fontSize: scaleFont(15, fontScale),
             fontWeight: "600",
         },
+        googleButtonContainer: {
+            marginBottom: 16,
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 48,
+        },
+        googleButton: {
+            width: "100%",
+            height: 48,
+        },
         modeSwitch: {
             flexDirection: "row",
             justifyContent: "center",

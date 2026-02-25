@@ -34,10 +34,13 @@ export default (): ExpoConfig => {
     const openAIProxyUrlFromEnv = parseString(process.env.EXPO_PUBLIC_OPENAI_PROXY_URL);
     const openAIProxyKeyFromEnv = parseString(process.env.EXPO_PUBLIC_OPENAI_PROXY_KEY);
     const aiHealthUrlFromEnv = parseString(process.env.EXPO_PUBLIC_AI_HEALTH_URL);
-    const googleExpoClientIdFromEnv = parseString(process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID);
-    const googleIosClientIdFromEnv = parseString(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID);
-    const googleAndroidClientIdFromEnv = parseString(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID);
-    const googleWebClientIdFromEnv = parseString(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID);
+    const firebaseApiKeyFromEnv = parseString(process.env.EXPO_PUBLIC_FIREBASE_API_KEY);
+    const firebaseAuthDomainFromEnv = parseString(process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN);
+    const firebaseProjectIdFromEnv = parseString(process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
+    const firebaseAppIdFromEnv = parseString(process.env.EXPO_PUBLIC_FIREBASE_APP_ID);
+    const firebaseMessagingSenderIdFromEnv = parseString(process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID);
+    const firebaseStorageBucketFromEnv = parseString(process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET);
+    const firebaseMeasurementIdFromEnv = parseString(process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID);
 
     const expoConfig: ExpoConfig = {
         ...staticConfig.expo,
@@ -49,10 +52,13 @@ export default (): ExpoConfig => {
             openAIProxyUrl: openAIProxyUrlFromEnv,
             openAIProxyKey: openAIProxyKeyFromEnv,
             aiHealthUrl: aiHealthUrlFromEnv,
-            googleExpoClientId: googleExpoClientIdFromEnv,
-            googleIosClientId: googleIosClientIdFromEnv,
-            googleAndroidClientId: googleAndroidClientIdFromEnv,
-            googleWebClientId: googleWebClientIdFromEnv,
+            firebaseApiKey: firebaseApiKeyFromEnv,
+            firebaseAuthDomain: firebaseAuthDomainFromEnv,
+            firebaseProjectId: firebaseProjectIdFromEnv,
+            firebaseAppId: firebaseAppIdFromEnv,
+            firebaseMessagingSenderId: firebaseMessagingSenderIdFromEnv,
+            firebaseStorageBucket: firebaseStorageBucketFromEnv,
+            firebaseMeasurementId: firebaseMeasurementIdFromEnv,
         },
     };
 

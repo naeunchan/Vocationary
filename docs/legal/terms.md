@@ -1,38 +1,41 @@
 # Terms of Service (Vocationary)
 
-_Last updated: 2025-02-19_
+_Last updated: 2026-02-21_
 
 By using Vocationary, you agree to these terms.
 
 ## Service Description
 
-- English-English dictionary search (English-Korean mode is in development).
-- Favorites, local accounts, and optional AI-powered examples/pronunciation when a backend proxy is configured.
+- English dictionary search and learning workflows
+- Favorites and search-history management
+- Optional AI examples/pronunciation (when backend proxy is configured)
 
 ## Accounts
 
-- Accounts are created via Google/Apple sign-in and stored locally on your device. There is no password recovery.
-- You may delete your account in Settings; this clears local data.
+- Authentication is provided via Firebase Auth (email/password)
+- Password reset is provided through Firebase password-reset email flow
+- Learning data is stored locally on your device and is not automatically synced across devices
 
 ## Acceptable Use
 
-- Do not reverse-engineer or misuse the service.
-- Do not use the app for unlawful purposes.
+- Do not misuse, reverse-engineer, or disrupt the service
+- Do not use the app for unlawful activity
 
 ## Data & Privacy
 
-- See the Privacy Policy for details on data handling.
+- See the Privacy Policy for details on data handling and third-party services
 
-## AI Features
+## Account Deletion
 
-- AI examples and pronunciation rely on a backend proxy you control; if it is not configured, the features stay disabled in-app.
+- Deleting your account from Settings removes local Vocationary data
 
 ## Liability
 
-- The app is provided “as is” without warranties. We are not liable for losses arising from use of the app.
+- The service is provided “as is” without warranties
+- We are not liable for losses resulting from app usage, outages, or third-party API failures, except where required by law
 
 ## Contact
 
 - Email: support@vocationary.app
 
-If you host this file elsewhere, update `TERMS_OF_SERVICE_URL` in `src/config/legal.ts` to your hosted URL before store submission.
+If you host this file elsewhere, update `TERMS_OF_SERVICE_URL` in `src/config/legal.ts` before release.

@@ -81,14 +81,7 @@ export function PasswordResetConfirmScreen({
         try {
             const result = await onRequestCode(email);
             setCode("");
-            if (result.debugCode) {
-                Alert.alert(
-                    "인증 코드 재전송됨",
-                    `개발용 인증 코드: ${result.debugCode}\n실서비스에서는 이메일로 전송됩니다.`,
-                );
-            } else {
-                Alert.alert("인증 코드 재전송됨", "입력한 이메일로 인증 코드를 다시 보냈어요.");
-            }
+            Alert.alert("재설정 메일 재전송됨", "입력한 이메일로 비밀번호 재설정 링크를 다시 보냈어요.");
         } catch (error) {
             const message = error instanceof Error ? error.message : "인증 코드를 다시 요청하지 못했어요.";
             setErrorMessage(message);
@@ -106,7 +99,7 @@ export function PasswordResetConfirmScreen({
 
     return (
         <View style={styles.safeArea}>
-            <AppHeader title="인증 코드 확인" onBack={() => navigation.goBack()} />
+            <AppHeader title="재설정 코드 확인" onBack={() => navigation.goBack()} />
             <KeyboardAvoidingView
                 style={styles.container}
                 behavior={Platform.select({ ios: "padding", android: undefined })}
@@ -114,18 +107,16 @@ export function PasswordResetConfirmScreen({
                 <View style={styles.content}>
                     <Text style={styles.stepText}>Step 2 / 2</Text>
                     <TextField
-                        placeholder="인증 코드 6자리"
-                        keyboardType="number-pad"
+                        placeholder="재설정 코드(oobCode) 또는 링크"
                         textContentType="oneTimeCode"
                         autoComplete="one-time-code"
                         returnKeyType="done"
-                        maxLength={6}
                         value={code}
                         onChangeText={(value) => {
-                            setCode(value.replace(/[^\d]/g, ""));
+                            setCode(value);
                             setErrorMessage(null);
                         }}
-                        helperText={`${email}로 받은 인증 코드를 입력해주세요.`}
+                        helperText={`${email}로 받은 메일의 링크 전체 또는 oobCode 값을 입력해주세요.`}
                     />
                     <TextField
                         placeholder="새 비밀번호"
@@ -169,7 +160,7 @@ export function PasswordResetConfirmScreen({
                         activeOpacity={0.7}
                         disabled={submitting || resendingCode}
                     >
-                        <Text style={styles.linkText}>코드 다시 요청</Text>
+                        <Text style={styles.linkText}>메일 다시 요청</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.linkRow}

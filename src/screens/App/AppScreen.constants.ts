@@ -17,7 +17,6 @@ export const LOGOUT_ERROR_MESSAGE = "로그아웃 중 문제가 발생했어요.
 export const LOGIN_INPUT_ERROR_MESSAGE = "이메일과 비밀번호를 모두 입력해주세요.";
 export const LOGIN_FAILED_ERROR_MESSAGE = "이메일 또는 비밀번호가 올바르지 않아요.";
 export const LOGIN_GENERIC_ERROR_MESSAGE = "로그인 중 문제가 발생했어요.";
-export const SOCIAL_LOGIN_GENERIC_ERROR_MESSAGE = "Google 로그인 중 문제가 발생했어요.";
 export const SIGNUP_DUPLICATE_ERROR_MESSAGE = "이미 사용 중인 이메일이에요. 다른 이메일을 사용해주세요.";
 export const SIGNUP_GENERIC_ERROR_MESSAGE = "회원가입 중 문제가 발생했어요.";
 export const ACCOUNT_DELETION_SUCCESS_MESSAGE = "회원탈퇴가 완료되었어요. 저장된 데이터가 모두 삭제됐어요.";

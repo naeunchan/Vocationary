@@ -1,33 +1,41 @@
 # Privacy Policy (Vocationary)
 
-_Last updated: 2025-02-19_
+_Last updated: 2026-02-21_
 
-We collect only the data required to operate the app: local account credentials (stored on your device), search history, and favorites. Data remains on-device unless you choose to export a backup. We do not sell or share personal data with third parties.
+Vocationary uses Firebase Authentication for account sign-in and keeps learning data on your device. We do not sell personal data.
 
 ## Data We Process
 
-- Account identifiers (email from social login when available): stored locally on your device.
-- Usage data: search history and favorites stored locally.
-- Diagnostics: optional crash/error reports via Sentry if enabled with a DSN.
+- Account data: email address, authentication provider ID, Firebase UID
+- App data: favorites, search history, settings (stored locally on device)
+- Diagnostics: optional crash/error data via Sentry (if configured)
 
 ## How We Use Data
 
-- Authenticate you locally on the device.
-- Show your search history and favorites.
-- Improve app stability through crash/error reports (if enabled).
+- Authenticate users (email/password)
+- Send password-reset emails through Firebase Auth
+- Persist and show your local learning history
+- Improve reliability through error monitoring (optional)
 
 ## Storage & Security
 
-- Session/auto-login data is stored in SecureStore/Keychain where available; other data is stored in SQLite on-device.
-- Backups you export remain your responsibility; we do not sync to a server.
+- Authentication state is managed by Firebase Auth persistence on device
+- App content data is stored in local SQLite on device
+- Exported backup files are user-managed; we do not collect them
+
+## Third-Party Services
+
+- Firebase Authentication (Google LLC)
+- Optional Sentry crash monitoring
 
 ## Your Choices
 
-- Delete data by removing the app or using “Delete Account” to clear local records.
-- Disable crash reporting by omitting the Sentry DSN.
+- You can delete your account and local data in Settings
+- You can uninstall the app to remove local data
+- You can disable crash reporting by not configuring Sentry DSN
 
 ## Contact
 
 - Email: support@vocationary.app
 
-If you host this file elsewhere, update `PRIVACY_POLICY_URL` in `src/config/legal.ts` to your hosted URL before store submission.
+If you host this file elsewhere, update `PRIVACY_POLICY_URL` in `src/config/legal.ts` before release.

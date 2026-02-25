@@ -30,7 +30,7 @@
         "web": {
             "favicon": "./assets/favicon.png"
         },
-        "plugins": ["expo-sqlite", "expo-audio", "expo-secure-store", "sentry-expo", "expo-asset", "expo-web-browser"],
+        "plugins": ["expo-sqlite", "expo-audio", "expo-secure-store", "sentry-expo", "expo-asset"],
         "extra": {
             "versionLabel": "1.0.0",
             "featureGuestAccountCta": false,

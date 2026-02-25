@@ -34,14 +34,7 @@ export function PasswordResetRequestScreen({ navigation, route, onRequestCode }:
         setErrorMessage(null);
         try {
             const result = await onRequestCode(normalizedEmail);
-            if (result.debugCode) {
-                Alert.alert(
-                    "인증 코드 전송됨",
-                    `개발용 인증 코드: ${result.debugCode}\n실서비스에서는 이메일로 전송됩니다.`,
-                );
-            } else {
-                Alert.alert("인증 코드 전송됨", "입력한 이메일로 인증 코드를 보냈어요.");
-            }
+            Alert.alert("재설정 메일 전송됨", "입력한 이메일로 비밀번호 재설정 링크를 보냈어요.");
             navigation.navigate("PasswordResetConfirm", { email: result.email });
         } catch (error) {
             const message = error instanceof Error ? error.message : "인증 코드를 요청하지 못했어요.";
@@ -78,7 +71,7 @@ export function PasswordResetRequestScreen({ navigation, route, onRequestCode }:
                             setErrorMessage(null);
                         }}
                         errorText={errorMessage}
-                        helperText="가입한 이메일로 인증 코드를 발송해요."
+                        helperText="가입 이메일로 비밀번호 재설정 링크를 발송해요."
                         clearable
                         onClear={() => {
                             setEmail("");
@@ -87,7 +80,7 @@ export function PasswordResetRequestScreen({ navigation, route, onRequestCode }:
                     />
                 </View>
                 <PrimaryButton
-                    label="인증 코드 받기"
+                    label="재설정 메일 보내기"
                     onPress={handleRequestCode}
                     disabled={isDisabled}
                     loading={submitting}

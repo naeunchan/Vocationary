@@ -1,9 +1,6 @@
-import type { OAuthProfilePayload } from "@/services/database";
-
 export type LoginScreenProps = {
     onGuest: () => void;
     onLogin: (payload: { email: string; password: string }) => Promise<void>;
-    onGoogleLogin?: (payload: OAuthProfilePayload) => Promise<void>;
     onRequestPasswordResetCode: (email: string) => Promise<{ email: string; expiresAt: string; debugCode?: string }>;
     onConfirmPasswordReset: (payload: {
         email: string;

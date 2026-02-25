@@ -11,6 +11,7 @@
 - **홈 요약 대시보드**: 현재 사용자(게스트/회원), 사용 중인 사전 모드, 단어장 개수, 최근 검색어를 한눈에 보여줘요.
 - **탭 내비게이션**: 홈, 단어장, 검색, 설정 네 개의 탭으로 주요 기능을 빠르게 이동할 수 있어요.
 - **설정 화면**: 테마/폰트, 온보딩 재보기, 법적 문서, 백업/복원 옵션을 제공해요.
+- **Firebase 인증**: 이메일/비밀번호와 비밀번호 재설정을 Firebase Auth 기준으로 처리해요.
 
 ## Key Features (English)
 
@@ -44,6 +45,14 @@
 - Set server vars separately:
     - `AI_PROXY_KEY` (server-side request auth)
     - `OPENAI_API_KEY` (server-side OpenAI access)
+- Firebase Auth vars (client):
+    - `EXPO_PUBLIC_FIREBASE_API_KEY`
+    - `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
+    - `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
+    - `EXPO_PUBLIC_FIREBASE_APP_ID`
+    - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+    - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
+    - `EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID` (optional)
 - Feature flags (client):
     - `EXPO_PUBLIC_FEATURE_AUTH_UI`: enable login/signup mode UI
     - `EXPO_PUBLIC_FEATURE_GUEST_ACCOUNT_CTA`: enable guest account conversion card in Settings
@@ -59,4 +68,8 @@
   Invalid or non-HTTPS URLs will fallback to the in-app legal documents. Ensure hosted URLs are set before release.
 - Automatic login credentials are stored with SecureStore/Keychain on device; logout clears the secure entry.
 - AI-powered examples/TTS require a backend proxy (`EXPO_PUBLIC_OPENAI_PROXY_URL` + `EXPO_PUBLIC_OPENAI_PROXY_KEY`). Without them, the UI keeps the feature disabled and surfaces an in-app notice.
-- Password reset is not provided; credentials are device-local. Recovery alternatives are guided in-app via `Settings > 계정 복구 안내` and the login recovery entry point.
+- 인증 책임은 Firebase Auth가 담당하며(로그인/회원가입/비밀번호 재설정), 단어장/검색 기록/설정은 로컬 SQLite에 유지됩니다.
+- Quick start: `cp .env.example .env` 후 값 채우기
+- 인증 운영 체크 문서:
+    - `docs/auth/firebase-console-checklist.md`
+    - `docs/auth/auth-qa-checklist.md`
