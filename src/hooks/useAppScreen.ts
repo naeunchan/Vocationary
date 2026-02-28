@@ -27,8 +27,6 @@ import {
     FAVORITE_LIMIT_MESSAGE,
     GENERIC_ERROR_MESSAGE,
     GUEST_ACCESS_ERROR_MESSAGE,
-    HELP_MODAL_ERROR_MESSAGE,
-    HELP_MODAL_SAVE_ERROR_MESSAGE,
     LOGIN_FAILED_ERROR_MESSAGE,
     LOGIN_GENERIC_ERROR_MESSAGE,
     LOGIN_INPUT_ERROR_MESSAGE,
@@ -63,10 +61,8 @@ import {
     getFavoritesByUser,
     getPreferenceValue,
     getSearchHistoryEntries,
-    hasSeenAppHelp,
     initializeDatabase,
     isDisplayNameTaken,
-    markAppHelpSeen,
     removeFavoriteForUser,
     resetPasswordWithEmailCode,
     saveAutoLoginCredentials,
@@ -121,7 +117,6 @@ export function useAppScreen(): AppScreenHookResult {
     const [authError, setAuthError] = useState<string | null>(null);
     const [signUpError, setSignUpError] = useState<string | null>(null);
     const [authLoading, setAuthLoading] = useState(false);
-    const [isHelpVisible, setIsHelpVisible] = useState(false);
     const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
     const [versionLabel] = useState(() => {
         const extra = Constants.expoConfig?.extra;
@@ -306,16 +301,8 @@ export function useAppScreen(): AppScreenHookResult {
         };
 
         async function bootstrap() {
-            let shouldShowHelp = false;
             try {
                 await initializeDatabase();
-                try {
-                    const alreadySeenHelp = await hasSeenAppHelp();
-                    shouldShowHelp = !alreadySeenHelp;
-                } catch (prefError) {
-                    console.warn(HELP_MODAL_ERROR_MESSAGE, prefError);
-                    shouldShowHelp = true;
-                }
                 const session = await getActiveSession();
                 if (!isMounted) {
                     return;
@@ -334,7 +321,6 @@ export function useAppScreen(): AppScreenHookResult {
             } finally {
                 if (isMounted) {
                     setInitializing(false);
-                    setIsHelpVisible(shouldShowHelp);
                 }
             }
         }
@@ -1172,13 +1158,6 @@ export function useAppScreen(): AppScreenHookResult {
         [clearAutoLoginCredentials, clearSession, resetPasswordWithEmailCode, resetAuthState, resolveAuthMessage],
     );
 
-    const handleDismissHelp = useCallback(() => {
-        setIsHelpVisible(false);
-        markAppHelpSeen().catch((err) => {
-            console.warn(HELP_MODAL_SAVE_ERROR_MESSAGE, err);
-        });
-    }, []);
-
     const handleShowOnboarding = useCallback(() => {
         setIsOnboardingVisible(true);
         void setPreferenceValue(ONBOARDING_PREFERENCE_KEY, "false").catch((error) => {
@@ -1506,12 +1485,10 @@ export function useAppScreen(): AppScreenHookResult {
         versionLabel,
         initializing,
         appearanceReady,
-        isHelpVisible,
         isOnboardingVisible,
         isAuthenticated,
         loginBindings,
         navigatorProps,
-        handleDismissHelp,
         onShowOnboarding: handleShowOnboarding,
         onCompleteOnboarding: handleCompleteOnboarding,
         themeMode,

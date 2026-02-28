@@ -52,7 +52,7 @@ describe("PasswordResetRequestScreen", () => {
             { wrapper },
         );
 
-        fireEvent.changeText(getByPlaceholderText("가입 이메일 (example@vocationary.com)"), "TESTER@EXAMPLE.COM ");
+        fireEvent.changeText(getByPlaceholderText("가입 이메일 (example@vocachip.com)"), "TESTER@EXAMPLE.COM ");
         fireEvent.press(getByLabelText("인증 코드 받기"));
 
         await waitFor(() => {
@@ -79,7 +79,7 @@ describe("PasswordResetRequestScreen", () => {
             { wrapper },
         );
 
-        fireEvent.changeText(getByPlaceholderText("가입 이메일 (example@vocationary.com)"), "nobody@example.com");
+        fireEvent.changeText(getByPlaceholderText("가입 이메일 (example@vocachip.com)"), "nobody@example.com");
         fireEvent.press(getByLabelText("인증 코드 받기"));
 
         await waitFor(() => {

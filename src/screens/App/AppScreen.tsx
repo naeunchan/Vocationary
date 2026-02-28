@@ -3,7 +3,6 @@ import React, { useMemo } from "react";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { AppHelpModal } from "@/components/AppHelpModal";
 import { AppNavigator } from "@/components/AppNavigator";
 import { LoadingState } from "@/components/LoadingState";
 import { useAppScreen } from "@/hooks/useAppScreen";
@@ -18,12 +17,10 @@ export function AppScreen() {
     const {
         initializing,
         appearanceReady,
-        isHelpVisible,
         isOnboardingVisible,
         isAuthenticated,
         loginBindings,
         navigatorProps,
-        handleDismissHelp,
         onCompleteOnboarding,
         themeMode,
         fontScale,
@@ -52,10 +49,6 @@ export function AppScreen() {
                         )}
                     </View>
                 </View>
-                <AppHelpModal
-                    visible={isAuthenticated && isHelpVisible && !isOnboardingVisible}
-                    onDismiss={handleDismissHelp}
-                />
                 <OnboardingModal visible={isOnboardingVisible} onComplete={onCompleteOnboarding} />
             </SafeAreaProvider>
         </AppAppearanceProvider>

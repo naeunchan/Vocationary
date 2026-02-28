@@ -1,6 +1,4 @@
 export const DEFAULT_VERSION_LABEL = "1.0.0";
-export const HELP_MODAL_ERROR_MESSAGE = "도움말 정보를 불러오지 못했어요.";
-export const HELP_MODAL_SAVE_ERROR_MESSAGE = "도움말 표시 상태를 저장하지 못했어요.";
 export const DATABASE_INIT_ERROR_MESSAGE = "데이터베이스를 초기화하지 못했어요.";
 export const EMPTY_SEARCH_ERROR_MESSAGE = "검색어를 입력해주세요.";
 export const GENERIC_ERROR_MESSAGE = "오류가 발생했어요.";

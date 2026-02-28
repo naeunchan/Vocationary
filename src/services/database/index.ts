@@ -12,7 +12,6 @@ import { SEARCH_HISTORY_LIMIT } from "@/services/searchHistory/types";
 const PASSWORD_HASH_PREFIX = "sha256.v1";
 const LEGACY_PASSWORD_SALT = "vocachip::salt";
 const EMAIL_VERIFICATION_EXPIRY_MS = 10 * 60 * 1000;
-const APP_HELP_KEY = "app.help.seen";
 const SEARCH_HISTORY_KEY = "search.history";
 
 type UserRow = {
@@ -628,14 +627,6 @@ export async function clearAutoLoginCredentials() {
 
 export async function getAutoLoginCredentials() {
     return memoryState.autoLogin ? { ...memoryState.autoLogin } : null;
-}
-
-export async function hasSeenAppHelp() {
-    return memoryState.preferences[APP_HELP_KEY] === "true";
-}
-
-export async function markAppHelpSeen() {
-    memoryState.preferences[APP_HELP_KEY] = "true";
 }
 
 export async function getPreferenceValue(key: string) {
