@@ -66,7 +66,7 @@ describe("PasswordResetConfirmScreen", () => {
                 { wrapper },
             );
 
-            fireEvent.changeText(getByPlaceholderText("재설정 코드(oobCode) 또는 링크"), "ABC123RESETCODE");
+            fireEvent.changeText(getByPlaceholderText("6자리 인증 코드"), "ABC123RESETCODE");
             fireEvent.changeText(getByPlaceholderText("새 비밀번호"), "Newpass123");
             fireEvent.changeText(getByPlaceholderText("새 비밀번호 확인"), "Newpass123");
             fireEvent.press(getByLabelText("비밀번호 재설정"));
@@ -163,7 +163,7 @@ describe("PasswordResetConfirmScreen", () => {
             { wrapper },
         );
 
-        fireEvent.changeText(getByPlaceholderText("재설정 코드(oobCode) 또는 링크"), "ABC123RESETCODE");
+        fireEvent.changeText(getByPlaceholderText("6자리 인증 코드"), "ABC123RESETCODE");
         fireEvent.changeText(getByPlaceholderText("새 비밀번호"), "Newpass123");
         fireEvent.changeText(getByPlaceholderText("새 비밀번호 확인"), "Newpass123");
         fireEvent.press(getByLabelText("비밀번호 재설정"));

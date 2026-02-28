@@ -81,7 +81,10 @@ export function PasswordResetConfirmScreen({
         try {
             const result = await onRequestCode(email);
             setCode("");
-            Alert.alert("재설정 메일 재전송됨", "입력한 이메일로 비밀번호 재설정 링크를 다시 보냈어요.");
+            const message = result.debugCode
+                ? `인증 코드를 다시 발급했어요.\n코드: ${result.debugCode}`
+                : "입력한 이메일로 비밀번호 재설정 코드를 다시 보냈어요.";
+            Alert.alert("인증 코드 재발급", message);
         } catch (error) {
             const message = error instanceof Error ? error.message : "인증 코드를 다시 요청하지 못했어요.";
             setErrorMessage(message);
@@ -107,7 +110,7 @@ export function PasswordResetConfirmScreen({
                 <View style={styles.content}>
                     <Text style={styles.stepText}>Step 2 / 2</Text>
                     <TextField
-                        placeholder="재설정 코드(oobCode) 또는 링크"
+                        placeholder="6자리 인증 코드"
                         textContentType="oneTimeCode"
                         autoComplete="one-time-code"
                         returnKeyType="done"
@@ -116,7 +119,7 @@ export function PasswordResetConfirmScreen({
                             setCode(value);
                             setErrorMessage(null);
                         }}
-                        helperText={`${email}로 받은 메일의 링크 전체 또는 oobCode 값을 입력해주세요.`}
+                        helperText={`${email}로 받은 6자리 인증 코드를 입력해주세요.`}
                     />
                     <TextField
                         placeholder="새 비밀번호"

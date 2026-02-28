@@ -20,11 +20,6 @@ const API_KEY = process.env.AI_PROXY_KEY || "";
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 60;
 const AI_HEALTH_DEGRADED_WINDOW_MS = Number(process.env.AI_HEALTH_DEGRADED_WINDOW_MS) || 10 * 60 * 1000;
-const REQUIRE_FIREBASE_ID_TOKEN = process.env.REQUIRE_FIREBASE_ID_TOKEN === "1";
-const FIREBASE_CLIENT_IDS = (process.env.FIREBASE_CLIENT_IDS || "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
 
 const app = express();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -83,36 +78,6 @@ function requireApiKey(req, res, next) {
     if (headerKey !== API_KEY) {
         console.warn("[AUTH] invalid x-api-key");
         return res.status(401).json({ message: "Unauthorized" });
-    }
-    next();
-}
-
-async function verifyFirebaseIdToken(idToken) {
-    if (!REQUIRE_FIREBASE_ID_TOKEN) return true;
-    if (!idToken) return false;
-    try {
-        const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`;
-        const response = await fetch(url, { method: "GET" });
-        if (!response.ok) return false;
-        const data = await response.json();
-        if (!data?.aud) return false;
-        if (FIREBASE_CLIENT_IDS.length === 0) return true;
-        return FIREBASE_CLIENT_IDS.includes(String(data.aud));
-    } catch {
-        return false;
-    }
-}
-
-async function requireFirebaseIdToken(req, res, next) {
-    if (!REQUIRE_FIREBASE_ID_TOKEN) {
-        return next();
-    }
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7).trim() : req.headers["x-firebase-id-token"];
-    const ok = await verifyFirebaseIdToken(token);
-    if (!ok) {
-        console.warn("[AUTH] Firebase token verification failed");
-        return res.status(401).json({ message: "Unauthorized (Firebase token required)." });
     }
     next();
 }
@@ -221,7 +186,7 @@ app.get("/health", (_req, res) => {
     return res.json(getAiRuntimeHealthStatus());
 });
 
-app.post("/dictionary/examples", rateLimit, requireApiKey, requireFirebaseIdToken, async (req, res) => {
+app.post("/dictionary/examples", rateLimit, requireApiKey, async (req, res) => {
     if (!ensureApiKey(res)) return;
 
     const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
@@ -261,7 +226,7 @@ app.post("/dictionary/examples", rateLimit, requireApiKey, requireFirebaseIdToke
     }
 });
 
-app.post("/dictionary/tts", rateLimit, requireApiKey, requireFirebaseIdToken, async (req, res) => {
+app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
     if (!ensureApiKey(res)) return;
 
     const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";

@@ -2,30 +2,29 @@
 
 _Last updated: 2026-02-21_
 
-Vocationary uses Firebase Authentication for account sign-in and keeps learning data on your device. We do not sell personal data.
+Vocationary uses local account authentication and keeps learning data on your device. We do not sell personal data.
 
 ## Data We Process
 
-- Account data: email address, authentication provider ID, Firebase UID
+- Account data: email address, password hash (stored locally)
 - App data: favorites, search history, settings (stored locally on device)
 - Diagnostics: optional crash/error data via Sentry (if configured)
 
 ## How We Use Data
 
 - Authenticate users (email/password)
-- Send password-reset emails through Firebase Auth
+- Process account login/sign-up/password reset requests
 - Persist and show your local learning history
 - Improve reliability through error monitoring (optional)
 
 ## Storage & Security
 
-- Authentication state is managed by Firebase Auth persistence on device
+- Authentication state is managed locally on device
 - App content data is stored in local SQLite on device
 - Exported backup files are user-managed; we do not collect them
 
 ## Third-Party Services
 
-- Firebase Authentication (Google LLC)
 - Optional Sentry crash monitoring
 
 ## Your Choices

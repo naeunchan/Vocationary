@@ -47,8 +47,7 @@ export function DeleteAccountScreen({ onDeleteAccount, onComplete }: DeleteAccou
                         단어장 백업이 필요한 경우 탈퇴 전에 별도로 저장해주세요.
                     </Text>
                     <Text style={[styles.description, styles.highlight]}>
-                        • 서버와 기기(DB)에 저장된 Vocationary 데이터가 모두 삭제돼요. {"\n"}• 소셜 계정(Google/Apple)
-                        자체는 삭제되지 않아요.
+                        • 기기(DB)에 저장된 Vocationary 데이터가 모두 삭제돼요.
                     </Text>
                     <View style={styles.checkRow}>
                         <Switch value={confirmed} onValueChange={setConfirmed} />

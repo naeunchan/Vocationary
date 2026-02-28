@@ -12,8 +12,8 @@ By using Vocationary, you agree to these terms.
 
 ## Accounts
 
-- Authentication is provided via Firebase Auth (email/password)
-- Password reset is provided through Firebase password-reset email flow
+- Authentication is provided by local email/password account flow
+- Password reset is processed in-app using local verification code flow
 - Learning data is stored locally on your device and is not automatically synced across devices
 
 ## Acceptable Use

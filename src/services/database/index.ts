@@ -70,22 +70,10 @@ export type UserRecord = {
     username: string;
     displayName: string | null;
     phoneNumber: string | null;
-    oauthProvider?: string | null;
-    oauthSubject?: string | null;
 };
 
 type UserWithPasswordRecord = UserRecord & {
     passwordHash: string | null;
-};
-
-export type OAuthProvider = "firebase";
-
-export type OAuthProfilePayload = {
-    provider: OAuthProvider;
-    subject: string;
-    email: string;
-    displayName?: string | null;
-    phoneNumber?: string | null;
 };
 
 let databasePromise: Promise<SQLiteDatabase> | null = null;
@@ -110,8 +98,6 @@ function mapUserRow(row: UserRow, fallbackDisplayName?: string): UserRecord {
         username: row.username,
         displayName: row.display_name ?? fallbackDisplayName ?? null,
         phoneNumber: row.phone_number ?? null,
-        oauthProvider: row.oauth_provider ?? null,
-        oauthSubject: row.oauth_sub ?? null,
     };
 }
 
@@ -727,169 +713,6 @@ async function createUserWeb(username: string, password: string, displayName?: s
     };
     writeWebState(nextState);
     return mapUserRow(newUser, normalizedDisplayName);
-}
-
-function resolveOAuthDisplayName(email: string, displayName?: string | null) {
-    const normalized = displayName?.trim();
-    if (normalized) {
-        return normalized;
-    }
-    const [local] = email.split("@");
-    return local || email;
-}
-
-function resolveOAuthPhoneNumber(phoneNumber?: string | null) {
-    const normalized = phoneNumber?.trim();
-    return normalized ? normalized : null;
-}
-
-async function upsertOAuthUserNative(profile: OAuthProfilePayload): Promise<UserRecord> {
-    const normalizedEmail = profile.email.trim().toLowerCase();
-    const normalizedSubject = profile.subject.trim();
-    if (!normalizedEmail || !normalizedSubject) {
-        throw new Error("소셜 계정 정보를 확인하지 못했어요.");
-    }
-
-    const normalizedDisplayName = resolveOAuthDisplayName(normalizedEmail, profile.displayName);
-    const normalizedPhoneNumber = resolveOAuthPhoneNumber(profile.phoneNumber);
-    const db = await getDatabase();
-    let result: UserRecord | null = null;
-    await db.withTransactionAsync(async () => {
-        const existingBySub = await db.getFirstAsync<UserRow>(
-            "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE oauth_provider = ? AND oauth_sub = ? LIMIT 1",
-            profile.provider,
-            normalizedSubject,
-        );
-        if (existingBySub) {
-            await db.runAsync(
-                `UPDATE users
-				SET username = ?, display_name = COALESCE(display_name, ?), phone_number = COALESCE(phone_number, ?), updated_at = CURRENT_TIMESTAMP
-				WHERE id = ?`,
-                normalizedEmail,
-                normalizedDisplayName,
-                normalizedPhoneNumber,
-                existingBySub.id,
-            );
-            const refreshed = await db.getFirstAsync<UserRow>(
-                "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
-                existingBySub.id,
-            );
-            if (!refreshed) {
-                throw new Error("소셜 계정을 갱신하지 못했어요.");
-            }
-            result = mapUserRow(refreshed, normalizedDisplayName);
-            return;
-        }
-
-        const existingByEmail = await db.getFirstAsync<UserRow>(
-            "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
-            normalizedEmail,
-        );
-        if (existingByEmail) {
-            const isSameIdentity =
-                existingByEmail.oauth_provider === profile.provider && existingByEmail.oauth_sub === normalizedSubject;
-            if (existingByEmail.oauth_provider && existingByEmail.oauth_sub && !isSameIdentity) {
-                throw new Error("이미 다른 소셜 계정과 연결된 이메일이에요.");
-            }
-            await db.runAsync(
-                `UPDATE users
-				SET oauth_provider = ?, oauth_sub = ?, display_name = COALESCE(display_name, ?), phone_number = COALESCE(phone_number, ?), updated_at = CURRENT_TIMESTAMP
-				WHERE id = ?`,
-                profile.provider,
-                normalizedSubject,
-                normalizedDisplayName,
-                normalizedPhoneNumber,
-                existingByEmail.id,
-            );
-            const refreshed = await db.getFirstAsync<UserRow>(
-                "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE id = ? LIMIT 1",
-                existingByEmail.id,
-            );
-            if (!refreshed) {
-                throw new Error("소셜 계정 정보를 불러오지 못했어요.");
-            }
-            result = mapUserRow(refreshed, normalizedDisplayName);
-            return;
-        }
-
-        await db.runAsync(
-            `INSERT INTO users (username, display_name, phone_number, password_hash, oauth_provider, oauth_sub)
-			VALUES (?, ?, ?, NULL, ?, ?)`,
-            normalizedEmail,
-            normalizedDisplayName,
-            normalizedPhoneNumber,
-            profile.provider,
-            normalizedSubject,
-        );
-        const created = await db.getFirstAsync<UserRow>(
-            "SELECT id, username, display_name, phone_number, password_hash, oauth_provider, oauth_sub FROM users WHERE username = ? LIMIT 1",
-            normalizedEmail,
-        );
-        if (!created) {
-            throw new Error("소셜 계정을 생성하지 못했어요.");
-        }
-        result = mapUserRow(created, normalizedDisplayName);
-    });
-    if (!result) {
-        throw new Error("소셜 계정 정보를 불러오지 못했어요.");
-    }
-    return result;
-}
-
-async function upsertOAuthUserWeb(profile: OAuthProfilePayload): Promise<UserRecord> {
-    const normalizedEmail = profile.email.trim().toLowerCase();
-    const normalizedSubject = profile.subject.trim();
-    if (!normalizedEmail || !normalizedSubject) {
-        throw new Error("소셜 계정 정보를 확인하지 못했어요.");
-    }
-
-    const normalizedDisplayName = resolveOAuthDisplayName(normalizedEmail, profile.displayName);
-    const normalizedPhoneNumber = resolveOAuthPhoneNumber(profile.phoneNumber);
-    const state = readWebState();
-    const existingBySub = state.users.find(
-        (user) => user.oauth_provider === profile.provider && user.oauth_sub === normalizedSubject,
-    );
-    const existingByEmail = state.users.find((user) => user.username === normalizedEmail);
-    let nextUsers = state.users;
-    let target: UserRow | null = null;
-
-    if (existingBySub) {
-        target = {
-            ...existingBySub,
-            username: normalizedEmail,
-            display_name: existingBySub.display_name ?? normalizedDisplayName,
-            phone_number: existingBySub.phone_number ?? normalizedPhoneNumber,
-        };
-        nextUsers = state.users.map((user) => (user.id === existingBySub.id ? target! : user));
-    } else if (existingByEmail) {
-        const isSameIdentity =
-            existingByEmail.oauth_provider === profile.provider && existingByEmail.oauth_sub === normalizedSubject;
-        if (existingByEmail.oauth_provider && existingByEmail.oauth_sub && !isSameIdentity) {
-            throw new Error("이미 다른 소셜 계정과 연결된 이메일이에요.");
-        }
-        target = {
-            ...existingByEmail,
-            oauth_provider: profile.provider,
-            oauth_sub: normalizedSubject,
-            display_name: existingByEmail.display_name ?? normalizedDisplayName,
-            phone_number: existingByEmail.phone_number ?? normalizedPhoneNumber,
-        };
-        nextUsers = state.users.map((user) => (user.id === existingByEmail.id ? target! : user));
-    } else {
-        target = {
-            id: generateWebUserId(state.users),
-            username: normalizedEmail,
-            display_name: normalizedDisplayName,
-            phone_number: normalizedPhoneNumber,
-            password_hash: null,
-            oauth_provider: profile.provider,
-            oauth_sub: normalizedSubject,
-        };
-        nextUsers = [...state.users, target];
-    }
-
-    writeWebState({ ...state, users: nextUsers });
-    return mapUserRow(target, normalizedDisplayName);
 }
 
 async function sendEmailVerificationCodeNative(email: string): Promise<EmailVerificationPayload> {
@@ -1642,13 +1465,6 @@ export async function createUser(
         return await createUserWeb(normalizedUsername, password, normalizedDisplayName, normalizedPhoneNumber);
     }
     return await createUserNative(normalizedUsername, password, normalizedDisplayName, normalizedPhoneNumber);
-}
-
-export async function upsertOAuthUser(profile: OAuthProfilePayload) {
-    if (isWeb) {
-        return await upsertOAuthUserWeb(profile);
-    }
-    return await upsertOAuthUserNative(profile);
 }
 
 export async function sendEmailVerificationCode(email: string): Promise<EmailVerificationPayload> {

@@ -41,7 +41,6 @@
         "expo-sqlite": "~16.0.10",
         "expo-status-bar": "~3.0.9",
         "express": "^5.2.1",
-        "firebase": "^9.23.0",
         "npm-check-updates": "^19.2.0",
         "openai": "^6.10.0",
         "quick-lru": "^7.3.0",
