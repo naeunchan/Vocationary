@@ -49,6 +49,7 @@ const baseProps = {
     onSelectRecentSearch: jest.fn(),
     onClearRecentSearches: jest.fn(),
     onRetry: jest.fn(),
+    onRegenerateExamples: jest.fn(),
 };
 
 describe("SearchScreen", () => {
@@ -80,6 +81,7 @@ describe("SearchScreen", () => {
                 onToggleFavorite: props.onToggleFavorite,
                 onPlayPronunciation: props.onPlayPronunciation,
                 pronunciationAvailable: props.pronunciationAvailable,
+                onRegenerateExamples: props.onRegenerateExamples,
             }),
         );
     });

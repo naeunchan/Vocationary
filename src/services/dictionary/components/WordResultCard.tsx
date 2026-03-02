@@ -15,6 +15,7 @@ export function WordResultCard({
     examplesVisible,
     onToggleExamples,
     pronunciationAvailable,
+    onRegenerateExamples,
 }: WordResultCardProps) {
     const styles = useThemedStyles(createWordResultCardStyles);
     const { theme } = useAppAppearance();
@@ -28,6 +29,8 @@ export function WordResultCard({
     );
     const noExamplesAvailable = !hasPendingExamples && !hasExamples;
     const toggleButtonLabel = loadingExamples ? "예문을 불러오는 중..." : examplesVisible ? "예문 숨기기" : "예문 보기";
+    const canRegenerateExamples = examplesVisible && typeof onRegenerateExamples === "function";
+    const regenerateButtonLabel = loadingExamples ? "새 예문 생성 중..." : "다른 예문 생성";
     return (
         <View style={styles.resultCard}>
             <View style={styles.resultHeader}>
@@ -102,26 +105,50 @@ export function WordResultCard({
                     <Text style={styles.noExampleText}>예문을 찾지 못했어요.</Text>
                 ) : null}
             </ScrollView>
-            <TouchableOpacity
-                style={[styles.exampleToggleButton, loadingExamples ? styles.exampleToggleButtonDisabled : null]}
-                onPress={onToggleExamples}
-                disabled={loadingExamples}
-                activeOpacity={loadingExamples ? 1 : 0.9}
-            >
-                <Ionicons
-                    name={examplesVisible ? "chevron-up-outline" : "book-outline"}
-                    size={18}
-                    color={loadingExamples ? theme.textMuted : theme.accentContrast}
-                />
-                <Text
-                    style={[
-                        styles.exampleToggleButtonText,
-                        loadingExamples ? styles.exampleToggleButtonTextDisabled : null,
-                    ]}
+            <View style={styles.actionButtons}>
+                <TouchableOpacity
+                    style={[styles.exampleToggleButton, loadingExamples ? styles.exampleToggleButtonDisabled : null]}
+                    onPress={onToggleExamples}
+                    disabled={loadingExamples}
+                    activeOpacity={loadingExamples ? 1 : 0.9}
                 >
-                    {toggleButtonLabel}
-                </Text>
-            </TouchableOpacity>
+                    <Ionicons
+                        name={examplesVisible ? "chevron-up-outline" : "book-outline"}
+                        size={18}
+                        color={loadingExamples ? theme.textMuted : theme.accentContrast}
+                    />
+                    <Text
+                        style={[
+                            styles.exampleToggleButtonText,
+                            loadingExamples ? styles.exampleToggleButtonTextDisabled : null,
+                        ]}
+                    >
+                        {toggleButtonLabel}
+                    </Text>
+                </TouchableOpacity>
+                {canRegenerateExamples ? (
+                    <TouchableOpacity
+                        style={[styles.regenerateButton, loadingExamples ? styles.regenerateButtonDisabled : null]}
+                        onPress={onRegenerateExamples}
+                        disabled={loadingExamples}
+                        activeOpacity={loadingExamples ? 1 : 0.9}
+                    >
+                        <Ionicons
+                            name="refresh-outline"
+                            size={18}
+                            color={loadingExamples ? theme.textMuted : theme.textPrimary}
+                        />
+                        <Text
+                            style={[
+                                styles.regenerateButtonText,
+                                loadingExamples ? styles.regenerateButtonTextDisabled : null,
+                            ]}
+                        >
+                            {regenerateButtonLabel}
+                        </Text>
+                    </TouchableOpacity>
+                ) : null}
+            </View>
         </View>
     );
 }

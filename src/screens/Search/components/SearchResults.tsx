@@ -21,6 +21,7 @@ type SearchResultsProps = {
     pronunciationAvailable: boolean;
     onRetry?: () => void;
     onRetryAiAssist?: () => void;
+    onRegenerateExamples?: () => void;
 };
 
 export function SearchResults({
@@ -36,9 +37,10 @@ export function SearchResults({
     pronunciationAvailable,
     onRetry,
     onRetryAiAssist,
+    onRegenerateExamples,
 }: SearchResultsProps) {
     const styles = useThemedStyles(createSearchScreenStyles);
-    const isAiExamplesError = aiAssistError?.code === "AI_EXAMPLES";
+    const isAiExamplesError = aiAssistError?.code?.startsWith("AI_EXAMPLES") ?? false;
 
     if (loading) {
         return (
@@ -72,7 +74,10 @@ export function SearchResults({
         return null;
     }
 
-    const canRetryAiAssist = isAiExamplesError && shouldRetry(aiAssistError) && typeof onRetryAiAssist === "function";
+    const canRetryAiAssist =
+        isAiExamplesError && aiAssistError
+            ? shouldRetry(aiAssistError) && typeof onRetryAiAssist === "function"
+            : false;
 
     return (
         <View style={styles.resultsStack}>
@@ -83,6 +88,7 @@ export function SearchResults({
                 pronunciationAvailable={pronunciationAvailable}
                 examplesVisible={examplesVisible}
                 onToggleExamples={onToggleExamples}
+                onRegenerateExamples={onRegenerateExamples}
                 isFavorite={isFavorite}
             />
             {isAiExamplesError ? (

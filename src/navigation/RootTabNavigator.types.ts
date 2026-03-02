@@ -30,6 +30,7 @@ export type RootTabNavigatorProps = {
     onClearRecentSearches: () => void;
     onRetrySearch: () => void;
     onRetryAiAssist?: () => void;
+    onRegenerateExamples?: () => void;
     userName: string;
     onLogout: () => void;
     canLogout: boolean;

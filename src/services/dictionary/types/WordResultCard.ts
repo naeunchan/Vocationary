@@ -8,4 +8,5 @@ export type WordResultCardProps = {
     isFavorite: boolean;
     examplesVisible: boolean;
     onToggleExamples: () => void;
+    onRegenerateExamples?: () => void;
 };
