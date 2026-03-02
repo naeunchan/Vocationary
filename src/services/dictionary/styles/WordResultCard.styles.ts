@@ -136,8 +136,11 @@ export const createWordResultCardStyles = (theme: AppThemeColors, fontScale: num
             color: theme.textMuted,
             marginTop: 12,
         },
-        exampleToggleButton: {
+        actionButtons: {
             marginTop: 12,
+            gap: 8,
+        },
+        exampleToggleButton: {
             backgroundColor: theme.textPrimary,
             paddingVertical: 12,
             borderRadius: 16,
@@ -154,6 +157,28 @@ export const createWordResultCardStyles = (theme: AppThemeColors, fontScale: num
             fontWeight: "700",
         },
         exampleToggleButtonTextDisabled: {
+            color: theme.textMuted,
+        },
+        regenerateButton: {
+            backgroundColor: theme.cardMuted,
+            borderWidth: 1,
+            borderColor: theme.border,
+            paddingVertical: 12,
+            borderRadius: 16,
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "row",
+            gap: 8,
+        },
+        regenerateButtonDisabled: {
+            backgroundColor: theme.border,
+            borderColor: theme.border,
+        },
+        regenerateButtonText: {
+            color: theme.textPrimary,
+            fontWeight: "700",
+        },
+        regenerateButtonTextDisabled: {
             color: theme.textMuted,
         },
     });

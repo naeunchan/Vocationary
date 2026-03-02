@@ -138,4 +138,33 @@ describe("WordResultCard", () => {
         fireEvent.press(getByText("star-outline"));
         expect(onToggleFavorite).toHaveBeenCalledWith(baseResult);
     });
+
+    it("calls onRegenerateExamples when pressing regenerate button", () => {
+        const onRegenerateExamples = jest.fn();
+        const result: WordResult = {
+            ...baseResult,
+            meanings: [
+                {
+                    partOfSpeech: "noun",
+                    definitions: [{ definition: "Fruit", example: "I ate an apple." }],
+                },
+            ],
+        };
+        const { getByText } = render(
+            <WordResultCard
+                result={result}
+                onToggleFavorite={jest.fn()}
+                onPlayPronunciation={jest.fn()}
+                pronunciationAvailable
+                isFavorite={false}
+                examplesVisible
+                onToggleExamples={jest.fn()}
+                onRegenerateExamples={onRegenerateExamples}
+            />,
+            { wrapper },
+        );
+
+        fireEvent.press(getByText("다른 예문 생성"));
+        expect(onRegenerateExamples).toHaveBeenCalled();
+    });
 });

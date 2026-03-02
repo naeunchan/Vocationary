@@ -12,6 +12,10 @@ export type ExampleUpdate = {
     translatedDefinition?: string;
 };
 
+type GenerateExampleOptions = {
+    forceFresh?: boolean;
+};
+
 type CacheEntry = {
     expiresAt: number;
     value: ExampleUpdate[];
@@ -183,7 +187,11 @@ async function requestOpenAI(word: string, descriptors: DefinitionDescriptor[]):
     }
 }
 
-export async function generateDefinitionExamples(word: string, meanings: MeaningEntry[]): Promise<ExampleUpdate[]> {
+export async function generateDefinitionExamples(
+    word: string,
+    meanings: MeaningEntry[],
+    options: GenerateExampleOptions = {},
+): Promise<ExampleUpdate[]> {
     const shouldTranslate = false;
     const descriptors = collectDescriptors(meanings, shouldTranslate);
     if (descriptors.length === 0) return [];
@@ -191,8 +199,9 @@ export async function generateDefinitionExamples(word: string, meanings: Meaning
     const cacheKey = buildCacheKey(word, descriptors);
     const now = Date.now();
     const cached = exampleCache.get(cacheKey);
+    const forceFresh = options.forceFresh === true;
 
-    if (cached && cached.expiresAt > now) {
+    if (!forceFresh && cached && cached.expiresAt > now) {
         (async () => {
             try {
                 const fresh = await requestOpenAI(word, descriptors);

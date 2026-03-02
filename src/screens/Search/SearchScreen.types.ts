@@ -21,4 +21,5 @@ export type SearchScreenProps = {
     onClearRecentSearches: () => void;
     onRetry?: () => void;
     onRetryAiAssist?: () => void;
+    onRegenerateExamples?: () => void;
 };

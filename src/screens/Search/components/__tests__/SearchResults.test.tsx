@@ -41,6 +41,7 @@ describe("SearchResults", () => {
         onToggleFavorite: jest.fn(),
         onPlayPronunciation: jest.fn(),
         pronunciationAvailable: false,
+        onRegenerateExamples: jest.fn(),
     };
 
     beforeEach(() => {
@@ -83,6 +84,7 @@ describe("SearchResults", () => {
                 isFavorite: true,
                 examplesVisible: true,
                 pronunciationAvailable: false,
+                onRegenerateExamples: props.onRegenerateExamples,
             }),
         );
     });
@@ -91,7 +93,7 @@ describe("SearchResults", () => {
         const onRetryAiAssist = jest.fn();
         const aiAssistError: AppError = {
             kind: "NetworkError",
-            code: "AI_EXAMPLES",
+            code: "AI_EXAMPLES_NETWORK",
             message: "AI 연결이 원활하지 않아요. 잠시 후 다시 시도해주세요.",
             retryable: true,
         };

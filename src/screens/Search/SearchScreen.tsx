@@ -30,6 +30,7 @@ export function SearchScreen({
     onClearRecentSearches,
     onRetry,
     onRetryAiAssist,
+    onRegenerateExamples,
 }: SearchScreenProps) {
     const styles = useThemedStyles(createSearchScreenStyles);
     const { theme } = useAppAppearance();
@@ -71,6 +72,7 @@ export function SearchScreen({
                             pronunciationAvailable={pronunciationAvailable}
                             onRetry={onRetry ?? onSubmit}
                             onRetryAiAssist={onRetryAiAssist}
+                            onRegenerateExamples={onRegenerateExamples}
                         />
                     )}
                 </View>

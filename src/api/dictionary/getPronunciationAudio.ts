@@ -13,6 +13,7 @@ const TTS_MODEL = "gpt-4o-mini-tts";
 const TTS_VOICE = "alloy";
 const TTS_FORMAT = "mp3";
 const AUDIO_CACHE: Map<string, string> = new Map();
+const AUDIO_REQUESTS: Map<string, Promise<string>> = new Map();
 
 function normalizeWord(input: string) {
     return input.trim().toLowerCase();
@@ -52,36 +53,29 @@ async function writeAudioToFile(base64Data: string, key: string) {
     return fileUri;
 }
 
-export async function getPronunciationAudio(word: string) {
-    const normalized = normalizeWord(word);
-    if (!normalized) {
-        throw createAppError("ValidationError", "발음으로 변환할 단어가 없어요.", {
-            code: "AI_TTS_EMPTY_WORD",
-            retryable: false,
-        });
-    }
-
-    if (!OPENAI_FEATURE_ENABLED || !OPENAI_PROXY_URL) {
-        throw createAIUnavailableError("tts");
-    }
-
+async function resolveCachedAudioUri(normalized: string): Promise<string | null> {
     const cachedUri = AUDIO_CACHE.get(normalized);
-    if (cachedUri) {
-        if (cachedUri.startsWith("file://")) {
-            try {
-                const info = await FileSystem.getInfoAsync(cachedUri);
-                if (info.exists) {
-                    return cachedUri;
-                }
-            } catch {
-                // Ignore and refresh cache below.
-            }
-            AUDIO_CACHE.delete(normalized);
-        } else {
-            return cachedUri;
-        }
+    if (!cachedUri) {
+        return null;
     }
 
+    if (cachedUri.startsWith("file://")) {
+        try {
+            const info = await FileSystem.getInfoAsync(cachedUri);
+            if (info.exists) {
+                return cachedUri;
+            }
+        } catch {
+            // Ignore and refresh cache below.
+        }
+        AUDIO_CACHE.delete(normalized);
+        return null;
+    }
+
+    return cachedUri;
+}
+
+async function requestPronunciationAudio(normalized: string): Promise<string> {
     const endpointBase = OPENAI_PROXY_URL.replace(/\/+$/, "");
     const requestUrl = `${endpointBase}/dictionary/tts`;
     const controller = new AbortController();
@@ -135,4 +129,42 @@ export async function getPronunciationAudio(word: string) {
 
     AUDIO_CACHE.set(normalized, finalUri);
     return finalUri;
+}
+
+async function resolveAudioUri(normalized: string): Promise<string> {
+    const cachedUri = await resolveCachedAudioUri(normalized);
+    if (cachedUri) {
+        return cachedUri;
+    }
+
+    const inFlight = AUDIO_REQUESTS.get(normalized);
+    if (inFlight) {
+        return await inFlight;
+    }
+
+    const requestPromise = requestPronunciationAudio(normalized).finally(() => {
+        AUDIO_REQUESTS.delete(normalized);
+    });
+    AUDIO_REQUESTS.set(normalized, requestPromise);
+    return await requestPromise;
+}
+
+export async function getPronunciationAudio(word: string) {
+    const normalized = normalizeWord(word);
+    if (!normalized) {
+        throw createAppError("ValidationError", "발음으로 변환할 단어가 없어요.", {
+            code: "AI_TTS_EMPTY_WORD",
+            retryable: false,
+        });
+    }
+
+    if (!OPENAI_FEATURE_ENABLED || !OPENAI_PROXY_URL) {
+        throw createAIUnavailableError("tts");
+    }
+
+    return await resolveAudioUri(normalized);
+}
+
+export async function prefetchPronunciationAudio(word: string): Promise<string> {
+    return await getPronunciationAudio(word);
 }

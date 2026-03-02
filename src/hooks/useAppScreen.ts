@@ -5,7 +5,7 @@ import { Alert } from "react-native";
 import { normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
 import { generateDefinitionExamples } from "@/api/dictionary/exampleGenerator";
 import { fetchDictionaryEntry } from "@/api/dictionary/freeDictionaryClient";
-import { getPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
+import { getPronunciationAudio, prefetchPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
 import { getWordData } from "@/api/dictionary/getWordData";
 import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
 import type { AppError } from "@/errors/AppError";
@@ -90,7 +90,7 @@ import {
     THEME_MODE_PREFERENCE_KEY,
 } from "@/theme/constants";
 import type { ThemeMode } from "@/theme/types";
-import { playRemoteAudio } from "@/utils/audio";
+import { playRemoteAudio, prefetchRemoteAudio } from "@/utils/audio";
 import {
     getEmailValidationError,
     getGooglePasswordValidationError,
@@ -445,13 +445,13 @@ export function useAppScreen(): AppScreenHookResult {
         });
     }, []);
 
-    const toRetryableExampleState = useCallback((base: WordResult): WordResult => {
+    const toPendingExampleState = useCallback((base: WordResult, includeExistingExamples: boolean): WordResult => {
         return {
             ...base,
             meanings: base.meanings.map((meaning) => ({
                 ...meaning,
                 definitions: meaning.definitions.map((definition) => {
-                    if (definition.example) {
+                    if (!includeExistingExamples && definition.example) {
                         return definition;
                     }
                     return {
@@ -470,6 +470,25 @@ export function useAppScreen(): AppScreenHookResult {
         }
         return appError;
     }, []);
+
+    const warmUpPronunciationAsync = useCallback(
+        async (word: string, lookupId: number) => {
+            if (!isPronunciationAvailable) {
+                return;
+            }
+
+            try {
+                const uri = await prefetchPronunciationAudio(word);
+                if (lookupId !== activeLookupRef.current) {
+                    return;
+                }
+                await prefetchRemoteAudio(uri);
+            } catch (error) {
+                console.warn("발음 오디오를 미리 준비하는 중 문제가 발생했어요.", error);
+            }
+        },
+        [isPronunciationAvailable],
+    );
 
     const executeSearch = useCallback(
         async (term: string) => {
@@ -500,6 +519,7 @@ export function useAppScreen(): AppScreenHookResult {
 
                 setResult(base);
                 setLoading(false);
+                void warmUpPronunciationAsync(base.word, lookupId);
 
                 void examplesPromise
                     .then((updates) => {
@@ -540,7 +560,7 @@ export function useAppScreen(): AppScreenHookResult {
                 }
             }
         },
-        [reportAiAssistError, setErrorMessage],
+        [reportAiAssistError, setErrorMessage, warmUpPronunciationAsync],
     );
 
     const handleSearchTermChange = useCallback((text: string) => {
@@ -561,45 +581,64 @@ export function useAppScreen(): AppScreenHookResult {
         setLoading(false);
     }, []);
 
-    const retryExamplesAsync = useCallback(async () => {
-        if (!result) {
-            return;
-        }
-
-        const lookupId = activeLookupRef.current;
-        const retryBase = toRetryableExampleState(result);
-        setAiAssistError(null);
-        setResult((previous) => {
-            if (!previous || previous.word !== retryBase.word) {
-                return previous;
-            }
-            return retryBase;
-        });
-
-        try {
-            const updates = await generateDefinitionExamples(retryBase.word, retryBase.meanings);
-            if (lookupId !== activeLookupRef.current) {
+    const refreshExamplesAsync = useCallback(
+        async ({ forceFresh, includeExistingExamples }: { forceFresh: boolean; includeExistingExamples: boolean }) => {
+            if (!result) {
                 return;
             }
+
+            const lookupId = activeLookupRef.current;
+            const retryBase = toPendingExampleState(result, includeExistingExamples);
             setAiAssistError(null);
             setResult((previous) => {
                 if (!previous || previous.word !== retryBase.word) {
                     return previous;
                 }
-                if (updates.length === 0) {
-                    return clearPendingFlags(previous);
-                }
-                return applyExampleUpdates(previous, updates);
+                return retryBase;
             });
-        } catch (error) {
-            if (lookupId !== activeLookupRef.current) {
-                return;
+
+            try {
+                const updates = await generateDefinitionExamples(retryBase.word, retryBase.meanings, {
+                    forceFresh,
+                });
+                if (lookupId !== activeLookupRef.current) {
+                    return;
+                }
+                setAiAssistError(null);
+                setResult((previous) => {
+                    if (!previous || previous.word !== retryBase.word) {
+                        return previous;
+                    }
+                    if (updates.length === 0) {
+                        return clearPendingFlags(previous);
+                    }
+                    return applyExampleUpdates(previous, updates);
+                });
+            } catch (error) {
+                if (lookupId !== activeLookupRef.current) {
+                    return;
+                }
+                const appError = reportAiAssistError(error, "examples");
+                setAiAssistError(appError);
+                setResult((previous) => (previous ? clearPendingFlags(previous) : previous));
             }
-            const appError = reportAiAssistError(error, "examples");
-            setAiAssistError(appError);
-            setResult((previous) => (previous ? clearPendingFlags(previous) : previous));
-        }
-    }, [reportAiAssistError, result, toRetryableExampleState]);
+        },
+        [reportAiAssistError, result, toPendingExampleState],
+    );
+
+    const retryExamplesAsync = useCallback(async () => {
+        await refreshExamplesAsync({
+            forceFresh: false,
+            includeExistingExamples: false,
+        });
+    }, [refreshExamplesAsync]);
+
+    const regenerateExamplesAsync = useCallback(async () => {
+        await refreshExamplesAsync({
+            forceFresh: true,
+            includeExistingExamples: true,
+        });
+    }, [refreshExamplesAsync]);
 
     const handleSearch = useCallback(() => {
         const trimmed = searchTerm.trim();
@@ -1392,6 +1431,7 @@ export function useAppScreen(): AppScreenHookResult {
             onClearRecentSearches: handleClearRecentSearches,
             onRetrySearch: handleSearch,
             onRetryAiAssist: retryExamplesAsync,
+            onRegenerateExamples: regenerateExamplesAsync,
             userName,
             onLogout: handleLogout,
             canLogout,
@@ -1433,6 +1473,7 @@ export function useAppScreen(): AppScreenHookResult {
             handleSearch,
             handleSearchTermChange,
             retryExamplesAsync,
+            regenerateExamplesAsync,
             handleBackupExport,
             handleBackupImport,
             isCurrentFavorite,
