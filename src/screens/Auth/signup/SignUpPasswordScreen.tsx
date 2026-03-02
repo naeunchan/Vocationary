@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
-import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { KeyboardAvoidingView, Text, View } from "react-native";
 
 import { AppHeader } from "@/components/AppHeader";
 import { PasswordRules } from "@/components/PasswordRules";
@@ -81,10 +81,7 @@ export function SignUpPasswordScreen({ navigation, onSignUp, loading, errorMessa
     return (
         <View style={styles.safeArea}>
             <AppHeader title="비밀번호" onBack={() => navigation.goBack()} />
-            <KeyboardAvoidingView
-                style={styles.container}
-                behavior={Platform.select({ ios: "padding", android: undefined })}
-            >
+            <KeyboardAvoidingView style={styles.container}>
                 <View style={styles.content}>
                     <Text style={styles.stepText}>Step 4 / 4</Text>
                     <TextField

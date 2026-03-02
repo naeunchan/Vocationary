@@ -1,6 +1,5 @@
-import { StatusBar } from "expo-status-bar";
 import React, { useMemo } from "react";
-import { View } from "react-native";
+import { StatusBar, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AppNavigator } from "@/components/AppNavigator";
@@ -37,7 +36,7 @@ export function AppScreen() {
             onChangeFontScale={onFontScaleChange}
         >
             <SafeAreaProvider>
-                <StatusBar style={themeMode === "dark" ? "light" : "dark"} />
+                <StatusBar barStyle={themeMode === "dark" ? "light-content" : "dark-content"} />
                 <View style={styles.container}>
                     <View style={styles.content}>
                         {initializing || !appearanceReady ? (

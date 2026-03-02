@@ -1,6 +1,7 @@
 {
     "expo": {
         "name": "vocachip",
+        "owner": "naeunchans-organization",
         "slug": "vocachip",
         "version": "1.0.0",
         "orientation": "portrait",
@@ -12,25 +13,10 @@
             "resizeMode": "contain",
             "backgroundColor": "#1d4ed8"
         },
-        "ios": {
-            "supportsTablet": true,
-            "bundleIdentifier": "com.vocachip.app",
-            "buildNumber": "1.0.0"
-        },
-        "android": {
-            "adaptiveIcon": {
-                "foregroundImage": "./assets/adaptive-icon.png",
-                "backgroundColor": "#ffffff"
-            },
-            "edgeToEdgeEnabled": true,
-            "predictiveBackGestureEnabled": false,
-            "package": "com.vocachip.app",
-            "versionCode": 1
-        },
         "web": {
             "favicon": "./assets/favicon.png"
         },
-        "plugins": ["expo-audio", "expo-secure-store", "sentry-expo", "expo-asset"],
+        "plugins": ["expo-audio", "sentry-expo", "expo-asset"],
         "extra": {
             "versionLabel": "1.0.0",
             "featureGuestAccountCta": true,

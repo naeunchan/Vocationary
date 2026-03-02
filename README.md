@@ -25,9 +25,7 @@
 
 ## Versioning
 
-- `expo.version` and `ios.buildNumber` move together (e.g., `1.0.1` for the next release).
-- `android.versionCode` starts at `1` and must be incremented for every Play Store upload.
-- Update all three fields before cutting a new store build.
+- `expo.version` is the release version and should be incremented for each production release.
 
 ## Environment & Security
 
@@ -44,13 +42,13 @@
         - If env vars are missing, `app.config.ts` applies profile defaults:
             - `development`: guest account CTA `true`, backup/restore `false`
             - `production`: guest account CTA `false`, backup/restore `false`
-        - `EAS_BUILD_PROFILE` (or `APP_ENV`) decides the active profile.
+        - `APP_ENV` decides the active profile.
 
 ## Compliance & Security
 
 - Privacy/Terms links live in `app.json` (Expo `extra`) and are validated in `src/config/legal.ts`.
   Invalid or non-HTTPS URLs will fallback to the in-app legal documents. Ensure hosted URLs are set before release.
-- Automatic login credentials are stored with SecureStore/Keychain on device; logout clears the secure entry.
+- Automatic login credentials are stored in app-managed storage and removed on logout.
 - AI-powered examples/TTS require a backend proxy (`EXPO_PUBLIC_OPENAI_PROXY_URL` + `EXPO_PUBLIC_OPENAI_PROXY_KEY`). Without them, the UI keeps the feature disabled and surfaces an in-app notice.
 - 인증 책임은 Firebase Auth가 담당하며(로그인/회원가입/비밀번호 재설정), 단어장/검색 기록/설정은 앱 내부 저장소로 관리됩니다.
 - Quick start: `cp .env.example .env` 후 값 채우기

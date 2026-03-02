@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useMemo } from "react";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
-import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { KeyboardAvoidingView, Text, View } from "react-native";
 
 import { AppHeader } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -35,10 +35,7 @@ export function SignUpPhoneScreen({ navigation }: SignUpPhoneScreenProps) {
     return (
         <View style={styles.safeArea}>
             <AppHeader title="휴대폰" onBack={() => navigation.goBack()} />
-            <KeyboardAvoidingView
-                style={styles.container}
-                behavior={Platform.select({ ios: "padding", android: undefined })}
-            >
+            <KeyboardAvoidingView style={styles.container}>
                 <View style={styles.content}>
                     <Text style={styles.stepText}>Step 3 / 4</Text>
                     <TextField

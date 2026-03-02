@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useMemo, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Text, View } from "react-native";
 
 import { AppHeader } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -54,10 +54,7 @@ export function PasswordResetRequestScreen({ navigation, route, onRequestCode }:
     return (
         <View style={styles.safeArea}>
             <AppHeader title="비밀번호 재설정" onBack={() => navigation.goBack()} />
-            <KeyboardAvoidingView
-                style={styles.container}
-                behavior={Platform.select({ ios: "padding", android: undefined })}
-            >
+            <KeyboardAvoidingView style={styles.container}>
                 <View style={styles.content}>
                     <Text style={styles.stepText}>Step 1 / 2</Text>
                     <TextField

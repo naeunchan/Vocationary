@@ -1,8 +1,6 @@
-import type { ExpoConfig } from "@expo/config-types";
+const staticConfig = require("./app.json");
 
-const staticConfig = require("./app.json") as { expo: ExpoConfig };
-
-function parseBoolean(value: string | undefined): boolean | null {
+function parseBoolean(value) {
     if (!value) return null;
     const normalized = value.trim().toLowerCase();
     if (["1", "true", "on", "yes"].includes(normalized)) return true;
@@ -10,18 +8,18 @@ function parseBoolean(value: string | undefined): boolean | null {
     return null;
 }
 
-function parseString(value: string | undefined): string {
+function parseString(value) {
     if (!value) return "";
     return value.trim();
 }
 
 function resolveProfile() {
-    const profile = (process.env.EAS_BUILD_PROFILE ?? process.env.APP_ENV ?? "").trim().toLowerCase();
+    const profile = (process.env.APP_ENV ?? "").trim().toLowerCase();
     if (profile) return profile;
     return process.env.NODE_ENV === "production" ? "production" : "development";
 }
 
-export default (): ExpoConfig => {
+module.exports = () => {
     const profile = resolveProfile();
     const isProduction = profile === "production";
     const profileDefaults = {
@@ -35,7 +33,7 @@ export default (): ExpoConfig => {
     const openAIProxyKeyFromEnv = parseString(process.env.EXPO_PUBLIC_OPENAI_PROXY_KEY);
     const aiHealthUrlFromEnv = parseString(process.env.EXPO_PUBLIC_AI_HEALTH_URL);
 
-    const expoConfig: ExpoConfig = {
+    const expoConfig = {
         ...staticConfig.expo,
         extra: {
             ...(staticConfig.expo.extra ?? {}),

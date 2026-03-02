@@ -10,7 +10,6 @@ async function ensureAudioModeConfigured() {
             shouldPlayInBackground: false,
             allowsRecording: false,
             interruptionMode: "mixWithOthers",
-            interruptionModeAndroid: "duckOthers",
             shouldRouteThroughEarpiece: false,
         }).catch((error) => {
             console.warn("오디오 모드를 설정하는 중 문제가 발생했어요.", error);

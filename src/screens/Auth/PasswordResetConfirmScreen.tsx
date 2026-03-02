@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useMemo, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Text, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Text, TouchableOpacity, View } from "react-native";
 
 import { AppHeader } from "@/components/AppHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -103,10 +103,7 @@ export function PasswordResetConfirmScreen({
     return (
         <View style={styles.safeArea}>
             <AppHeader title="재설정 코드 확인" onBack={() => navigation.goBack()} />
-            <KeyboardAvoidingView
-                style={styles.container}
-                behavior={Platform.select({ ios: "padding", android: undefined })}
-            >
+            <KeyboardAvoidingView style={styles.container}>
                 <View style={styles.content}>
                     <Text style={styles.stepText}>Step 2 / 2</Text>
                     <TextField
