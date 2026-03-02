@@ -86,7 +86,7 @@ export function LoginScreen({
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                <LoginHeader title="Vocationary" subtitle={copy.subtitle} />
+                <LoginHeader title="Vocachip" subtitle={copy.subtitle} />
                 <View style={styles.content}>
                     <View style={styles.card}>
                         <CredentialFields

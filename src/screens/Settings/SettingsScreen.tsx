@@ -15,8 +15,8 @@ import { t } from "@/shared/i18n";
 import { FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS } from "@/theme/constants";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
-const SUPPORT_EMAIL = "support@vocationary.app";
-const CONTACT_SUBJECT = "Vocationary 1:1 문의";
+const SUPPORT_EMAIL = "support@vocachip.app";
+const CONTACT_SUBJECT = "Vocachip 1:1 문의";
 
 type RowOptions = {
     onPress?: () => void;
@@ -150,7 +150,7 @@ export function SettingsScreen({
         if (profileDisplayName && profileDisplayName.trim()) {
             return profileDisplayName;
         }
-        return profileUsername ?? (isGuest ? "게스트 사용자" : "Vocationary 회원");
+        return profileUsername ?? (isGuest ? "게스트 사용자" : "Vocachip 회원");
     }, [profileDisplayName, profileUsername, isGuest]);
     const profileSubtitle = useMemo(() => {
         if (isGuest) {

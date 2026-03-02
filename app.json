@@ -1,7 +1,7 @@
 {
     "expo": {
-        "name": "vocationary",
-        "slug": "vocationary",
+        "name": "vocachip",
+        "slug": "vocachip",
         "version": "1.0.0",
         "orientation": "portrait",
         "icon": "./assets/icon.png",
@@ -14,7 +14,7 @@
         },
         "ios": {
             "supportsTablet": true,
-            "bundleIdentifier": "com.vocationary.app",
+            "bundleIdentifier": "com.vocachip.app",
             "buildNumber": "1.0.0"
         },
         "android": {
@@ -24,19 +24,33 @@
             },
             "edgeToEdgeEnabled": true,
             "predictiveBackGestureEnabled": false,
-            "package": "com.vocationary.app",
+            "package": "com.vocachip.app",
             "versionCode": 1
         },
         "web": {
             "favicon": "./assets/favicon.png"
         },
-        "plugins": ["expo-sqlite", "expo-audio", "expo-secure-store", "sentry-expo", "expo-asset"],
+        "plugins": ["expo-audio", "expo-secure-store", "sentry-expo", "expo-asset"],
         "extra": {
             "versionLabel": "1.0.0",
-            "featureGuestAccountCta": false,
+            "featureGuestAccountCta": true,
             "featureBackupRestore": false,
-            "privacyPolicyUrl": "https://vocationary.app/legal/privacy",
-            "termsOfServiceUrl": "https://vocationary.app/legal/terms"
+            "privacyPolicyUrl": "https://vocachip.app/legal/privacy",
+            "termsOfServiceUrl": "https://vocachip.app/legal/terms",
+            "featureProfile": "development",
+            "openAIProxyUrl": "",
+            "openAIProxyKey": "",
+            "aiHealthUrl": "",
+            "firebaseApiKey": "",
+            "firebaseAuthDomain": "",
+            "firebaseProjectId": "",
+            "firebaseAppId": "",
+            "firebaseMessagingSenderId": "",
+            "firebaseStorageBucket": "",
+            "firebaseMeasurementId": "",
+            "eas": {
+                "projectId": "863c5cc0-daf6-4396-a1d0-4ace91755f0a"
+            }
         }
     }
 }

@@ -43,7 +43,7 @@ describe("PasswordResetRequestScreen", () => {
         };
         const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
 
-        const { getByPlaceholderText, getByLabelText } = render(
+        const { getByTestId } = render(
             <PasswordResetRequestScreen
                 navigation={navigation as never}
                 route={{ key: "PasswordResetRequest-key", name: "PasswordResetRequest", params: undefined } as never}
@@ -52,8 +52,8 @@ describe("PasswordResetRequestScreen", () => {
             { wrapper },
         );
 
-        fireEvent.changeText(getByPlaceholderText("가입 이메일 (example@vocationary.com)"), "TESTER@EXAMPLE.COM ");
-        fireEvent.press(getByLabelText("인증 코드 받기"));
+        fireEvent.changeText(getByTestId("password-reset-request-email-input"), "TESTER@EXAMPLE.COM ");
+        fireEvent.press(getByTestId("password-reset-request-submit-button"));
 
         await waitFor(() => {
             expect(onRequestCode).toHaveBeenCalledWith("tester@example.com");
@@ -70,7 +70,7 @@ describe("PasswordResetRequestScreen", () => {
         };
         const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
 
-        const { getByPlaceholderText, getByLabelText, queryByText } = render(
+        const { getByTestId, queryByText } = render(
             <PasswordResetRequestScreen
                 navigation={navigation as never}
                 route={{ key: "PasswordResetRequest-key", name: "PasswordResetRequest", params: undefined } as never}
@@ -79,8 +79,8 @@ describe("PasswordResetRequestScreen", () => {
             { wrapper },
         );
 
-        fireEvent.changeText(getByPlaceholderText("가입 이메일 (example@vocationary.com)"), "nobody@example.com");
-        fireEvent.press(getByLabelText("인증 코드 받기"));
+        fireEvent.changeText(getByTestId("password-reset-request-email-input"), "nobody@example.com");
+        fireEvent.press(getByTestId("password-reset-request-submit-button"));
 
         await waitFor(() => {
             expect(alertSpy).toHaveBeenCalledWith("비밀번호 재설정", "가입된 이메일 계정을 찾을 수 없어요.");

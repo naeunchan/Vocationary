@@ -11,9 +11,10 @@ type PrimaryButtonProps = {
     onPress: () => void;
     disabled?: boolean;
     loading?: boolean;
+    testID?: string;
 };
 
-export function PrimaryButton({ label, onPress, disabled = false, loading = false }: PrimaryButtonProps) {
+export function PrimaryButton({ label, onPress, disabled = false, loading = false, testID }: PrimaryButtonProps) {
     const { theme } = useAppAppearance();
     const styles = useThemedStyles(createPrimaryButtonStyles);
     const isDisabled = disabled || loading;
@@ -22,6 +23,7 @@ export function PrimaryButton({ label, onPress, disabled = false, loading = fals
         <SafeAreaView edges={["bottom"]} style={styles.safeArea}>
             <View style={styles.container}>
                 <TouchableOpacity
+                    testID={testID}
                     accessibilityRole="button"
                     accessibilityLabel={label}
                     accessibilityState={{ disabled: isDisabled }}

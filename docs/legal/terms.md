@@ -1,8 +1,8 @@
-# Terms of Service (Vocationary)
+# Terms of Service (Vocachip)
 
 _Last updated: 2026-02-21_
 
-By using Vocationary, you agree to these terms.
+By using Vocachip, you agree to these terms.
 
 ## Service Description
 
@@ -27,7 +27,7 @@ By using Vocationary, you agree to these terms.
 
 ## Account Deletion
 
-- Deleting your account from Settings removes local Vocationary data
+- Deleting your account from Settings removes local Vocachip data
 
 ## Liability
 
@@ -36,6 +36,6 @@ By using Vocationary, you agree to these terms.
 
 ## Contact
 
-- Email: support@vocationary.app
+- Email: support@vocachip.app
 
 If you host this file elsewhere, update `TERMS_OF_SERVICE_URL` in `src/config/legal.ts` before release.

@@ -34,7 +34,7 @@ export function SignUpSuccessScreen({ navigation }: SignUpSuccessScreenProps) {
                         </View>
                     </Animated.View>
                     <Text style={styles.successTitle}>가입이 완료됐어요</Text>
-                    <Text style={styles.successSubtitle}>이제 Vocationary에서 단어 학습을 시작해볼까요?</Text>
+                    <Text style={styles.successSubtitle}>이제 Vocachip에서 단어 학습을 시작해볼까요?</Text>
                 </View>
                 <PrimaryButton label="시작하기" onPress={() => navigation.navigate("Login")} />
             </View>

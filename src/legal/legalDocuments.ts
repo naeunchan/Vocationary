@@ -6,10 +6,10 @@ type LegalDocument = {
 };
 
 const COMPANY_NAME = "Vocalabs";
-const CONTACT_EMAIL = "vocationary2025@gmail.com";
+const CONTACT_EMAIL = "vocachip2025@gmail.com";
 
 const PRIVACY_POLICY = `
-본 개인정보 처리방침은 ${COMPANY_NAME}(이하 “회사”)가 제공하는 모바일 애플리케이션 “Vocationary”(이하 “서비스”) 이용과 관련하여 사용자의 개인정보를 어떻게 수집·이용·보관·삭제하는지를 설명합니다.
+본 개인정보 처리방침은 ${COMPANY_NAME}(이하 “회사”)가 제공하는 모바일 애플리케이션 “Vocachip”(이하 “서비스”) 이용과 관련하여 사용자의 개인정보를 어떻게 수집·이용·보관·삭제하는지를 설명합니다.
 
 1. 수집하는 개인정보
 - 필수: 이메일 주소, 계정 인증 정보(해시), 앱 내 설정 값
@@ -36,7 +36,7 @@ const PRIVACY_POLICY = `
 
 6. 안전성 확보 조치
 - 네트워크 통신은 HTTPS를 사용합니다.
-- 앱 데이터는 기기 내 SQLite에 보관되며, 사용자가 직접 백업·복원할 수 있습니다.
+- 앱 데이터는 기기 내 앱 저장소에 보관되며, 사용자가 직접 백업·복원할 수 있습니다.
 
 7. 개인정보 보호책임자
 - 담당자: ${COMPANY_NAME} 개인정보 보호 담당자
@@ -81,7 +81,7 @@ const TERMS_OF_SERVICE = `
 
 const LEGAL_NOTICE = `
 1. 사업자 정보
-- 서비스명: Vocationary
+- 서비스명: Vocachip
 - 제공자: ${COMPANY_NAME} (개인/소규모 사업자)
 - 이메일: ${CONTACT_EMAIL}
 

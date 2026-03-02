@@ -64,10 +64,10 @@ describe("manualBackup", () => {
         expect(mockFileSystem.makeDirectoryAsync).toHaveBeenCalled();
         expect(mockFileSystem.writeAsStringAsync).toHaveBeenCalled();
         expect(mockSharing.shareAsync).toHaveBeenCalledWith(
-            expect.stringContaining("vocationary-backup-"),
+            expect.stringContaining("vocachip-backup-"),
             expect.objectContaining({ mimeType: "application/json" }),
         );
-        expect(filePath).toContain("vocationary-backup-");
+        expect(filePath).toContain("vocachip-backup-");
     });
 
     it("imports a backup when a document is selected", async () => {

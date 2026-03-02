@@ -61,7 +61,8 @@ export function PasswordResetRequestScreen({ navigation, route, onRequestCode }:
                 <View style={styles.content}>
                     <Text style={styles.stepText}>Step 1 / 2</Text>
                     <TextField
-                        placeholder="가입 이메일 (example@vocationary.com)"
+                        testID="password-reset-request-email-input"
+                        placeholder="가입 이메일 (example@vocachip.com)"
                         autoCapitalize="none"
                         autoCorrect={false}
                         keyboardType="email-address"
@@ -83,6 +84,7 @@ export function PasswordResetRequestScreen({ navigation, route, onRequestCode }:
                     />
                 </View>
                 <PrimaryButton
+                    testID="password-reset-request-submit-button"
                     label="인증 코드 받기"
                     onPress={handleRequestCode}
                     disabled={isDisabled}

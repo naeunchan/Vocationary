@@ -6,8 +6,8 @@ import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { createRecoveryGuideStyles } from "@/screens/Settings/RecoveryGuideScreen.styles";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
-const SUPPORT_EMAIL = "support@vocationary.app";
-const CONTACT_SUBJECT = "Vocationary 계정 복구 문의";
+const SUPPORT_EMAIL = "support@vocachip.app";
+const CONTACT_SUBJECT = "Vocachip 계정 복구 문의";
 
 type RecoveryGuideScreenProps = {
     onRequestSignUp?: () => void;
@@ -56,8 +56,8 @@ export function RecoveryGuideScreen({
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>계정 복구 안내</Text>
                 <Text style={styles.body}>
-                    Vocationary는 로그인 화면에서 이메일 인증 코드(OTP) 기반 비밀번호 재설정을 지원합니다. 코드를 받은
-                    뒤 새 비밀번호를 설정하면 즉시 다시 로그인할 수 있어요.
+                    Vocachip는 로그인 화면에서 이메일 인증 코드(OTP) 기반 비밀번호 재설정을 지원합니다. 코드를 받은 뒤
+                    새 비밀번호를 설정하면 즉시 다시 로그인할 수 있어요.
                 </Text>
 
                 <View style={styles.section}>

@@ -217,7 +217,7 @@ async function unsealPayload(serialized: string, passphrase: string): Promise<Ba
 export async function exportBackupToFile(passphrase: string) {
     const sealed = await sealPayload(await exportBackup(), passphrase);
     await ensureBackupDirectory();
-    const fileName = `vocationary-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    const fileName = `vocachip-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
     const fileUri = `${BACKUP_DIRECTORY}/${fileName}`;
     await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(sealed, null, 2), {
         encoding: FileSystem.EncodingType.UTF8,
@@ -226,7 +226,7 @@ export async function exportBackupToFile(passphrase: string) {
     if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
             mimeType: "application/json",
-            dialogTitle: "Vocationary 백업 내보내기",
+            dialogTitle: "Vocachip 백업 내보내기",
             UTI: "public.json",
         });
     }

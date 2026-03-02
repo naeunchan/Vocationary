@@ -33,7 +33,7 @@ describe("RecoveryGuideScreen", () => {
         });
 
         expect(Linking.canOpenURL).toHaveBeenCalled();
-        expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining("mailto:support@vocationary.app"));
+        expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining("mailto:support@vocachip.app"));
     });
 
     it("renders shortcut actions and triggers callbacks in auth context", () => {
