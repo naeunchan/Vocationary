@@ -8,6 +8,12 @@
         "icon": "./assets/icon.png",
         "userInterfaceStyle": "light",
         "newArchEnabled": true,
+        "ios": {
+            "bundleIdentifier": "app.vocachip"
+        },
+        "android": {
+            "package": "app.vocachip"
+        },
         "splash": {
             "image": "./assets/splash-icon.png",
             "resizeMode": "contain",
