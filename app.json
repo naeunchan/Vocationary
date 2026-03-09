@@ -9,7 +9,10 @@
         "userInterfaceStyle": "light",
         "newArchEnabled": true,
         "ios": {
-            "bundleIdentifier": "app.vocachip"
+            "bundleIdentifier": "app.vocachip",
+            "infoPlist": {
+                "ITSAppUsesNonExemptEncryption": false
+            }
         },
         "android": {
             "package": "app.vocachip"

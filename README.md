@@ -26,6 +26,20 @@
 ## Versioning
 
 - `expo.version` is the release version and should be incremented for each production release.
+- `eas.json` sets `APP_ENV=production` for the `production` build profile so `app.config.ts` resolves production defaults during store builds.
+
+## Android Release Builds
+
+- The first Android `production` EAS build needs a signing keystore configured before any `--non-interactive` build can pass.
+- Bootstrap it once with `npx eas-cli@latest credentials:configure-build -p android -e production` or by running a single interactive `eas build -p android --profile production`.
+- After the keystore is stored on Expo servers, CI/non-interactive production builds can reuse the remote Android credentials.
+
+## iOS Release Builds
+
+- `app.json` sets `ios.infoPlist.ITSAppUsesNonExemptEncryption=false` so App Store Connect receives an explicit export-compliance answer for the current app binary.
+- The first iOS `production` EAS build still needs signing credentials configured and validated interactively.
+- Bootstrap it once with `npx eas-cli@latest credentials:configure-build -p ios -e production` or by running a single interactive `eas build -p ios --profile production`.
+- After the certificate/provisioning profile is stored on Expo servers, CI/non-interactive production builds can reuse the remote iOS credentials.
 
 ## Environment & Security
 

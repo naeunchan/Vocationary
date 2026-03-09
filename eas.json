@@ -12,6 +12,9 @@
             "distribution": "internal"
         },
         "production": {
+            "env": {
+                "APP_ENV": "production"
+            },
             "autoIncrement": true
         }
     },
