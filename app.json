@@ -15,7 +15,8 @@
             }
         },
         "android": {
-            "package": "app.vocachip"
+            "package": "app.vocachip",
+            "permissions": ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"]
         },
         "splash": {
             "image": "./assets/splash-icon.png",
@@ -46,6 +47,12 @@
             "eas": {
                 "projectId": "863c5cc0-daf6-4396-a1d0-4ace91755f0a"
             }
+        },
+        "runtimeVersion": {
+            "policy": "appVersion"
+        },
+        "updates": {
+            "url": "https://u.expo.dev/863c5cc0-daf6-4396-a1d0-4ace91755f0a"
         }
     }
 }

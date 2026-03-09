@@ -33,6 +33,7 @@
         "expo-file-system": "~19.0.20",
         "expo-font": "^14.0.11",
         "expo-sharing": "~14.0.8",
+        "expo-updates": "~29.0.16",
         "express": "^5.2.1",
         "npm-check-updates": "^19.2.0",
         "openai": "^6.10.0",
