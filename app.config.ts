@@ -1,6 +1,6 @@
 const staticConfig = require("./app.json");
 
-function parseBoolean(value) {
+function parseBoolean(value: string | null | undefined) {
     if (!value) return null;
     const normalized = value.trim().toLowerCase();
     if (["1", "true", "on", "yes"].includes(normalized)) return true;
@@ -8,7 +8,7 @@ function parseBoolean(value) {
     return null;
 }
 
-function parseString(value) {
+function parseString(value: string | null | undefined) {
     if (!value) return "";
     return value.trim();
 }
@@ -32,6 +32,7 @@ module.exports = () => {
     const openAIProxyUrlFromEnv = parseString(process.env.EXPO_PUBLIC_OPENAI_PROXY_URL);
     const openAIProxyKeyFromEnv = parseString(process.env.EXPO_PUBLIC_OPENAI_PROXY_KEY);
     const aiHealthUrlFromEnv = parseString(process.env.EXPO_PUBLIC_AI_HEALTH_URL);
+    const sentryDsnFromEnv = parseString(process.env.EXPO_PUBLIC_SENTRY_DSN);
 
     const expoConfig = {
         ...staticConfig.expo,
@@ -43,6 +44,7 @@ module.exports = () => {
             openAIProxyUrl: openAIProxyUrlFromEnv,
             openAIProxyKey: openAIProxyKeyFromEnv,
             aiHealthUrl: aiHealthUrlFromEnv,
+            sentryDsn: sentryDsnFromEnv,
         },
     };
 
