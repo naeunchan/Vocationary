@@ -20,7 +20,6 @@
         "@react-navigation/bottom-tabs": "^7.8.12",
         "@react-navigation/native": "^7.1.25",
         "@react-navigation/native-stack": "^7.8.6",
-        "@sentry/react-native": "~7.2.0",
         "cors": "^2.8.5",
         "crypto-js": "^4.2.0",
         "dotenv": "^17.2.3",
@@ -47,6 +46,7 @@
         "react-native-safe-area-context": "~5.6.2",
         "react-native-screens": "~4.16.0",
         "react-native-web": "^0.21.2",
+        "sentry-expo": "~7.0.0",
         "tslib": "^2.8.1",
         "zod": "^4.3.6"
     },
@@ -84,7 +84,7 @@
             "<rootDir>/jest.setup.ts"
         ],
         "transformIgnorePatterns": [
-            "node_modules/(?!(@react-native|react-native|@react-navigation|@sentry|expo|@expo|@testing-library|@react-native-community)/)"
+            "node_modules/(?!(@react-native|react-native|@react-navigation|expo|@expo|@testing-library|@react-native-community)/)"
         ],
         "testMatch": [
             "**/__tests__/**/*.test.ts?(x)"

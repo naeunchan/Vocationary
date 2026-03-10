@@ -1,5 +1,5 @@
-import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
+import * as Sentry from "sentry-expo";
 
 import type { AppError } from "@/errors/AppError";
 
@@ -18,13 +18,13 @@ export function initializeLogging() {
     }
     Sentry.init({
         dsn,
-        enabled: !__DEV__,
+        enableInExpoDevelopment: false,
         debug: __DEV__,
         tracesSampleRate: 0.1,
     });
     const appVersion = Constants.expoConfig?.version ?? Constants.expoConfig?.extra?.versionLabel;
     if (appVersion) {
-        Sentry.setTag("app_version", String(appVersion));
+        Sentry.Native.setTag("app_version", String(appVersion));
     }
     hasSentryDsn = true;
 }
@@ -32,14 +32,14 @@ export function initializeLogging() {
 export function captureException(error: unknown, context?: Record<string, unknown>) {
     if (hasSentryDsn) {
         if (context) {
-            Sentry.addBreadcrumb({
+            Sentry.Native.addBreadcrumb({
                 category: "error",
                 level: "error",
                 message: "app_exception",
                 data: context,
             });
         }
-        Sentry.captureException(error, { extra: context });
+        Sentry.Native.captureException(error, { extra: context });
     } else {
         console.error("[logger] exception", error, context);
     }
@@ -58,9 +58,9 @@ export function captureAppError(error: AppError, context?: Record<string, unknow
 export function setUserContext(userId: number | string | null | undefined) {
     if (hasSentryDsn) {
         if (userId) {
-            Sentry.setUser({ id: String(userId) });
+            Sentry.Native.setUser({ id: String(userId) });
         } else {
-            Sentry.setUser(null);
+            Sentry.Native.setUser(null);
         }
     }
 }
