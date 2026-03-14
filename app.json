@@ -26,7 +26,7 @@
         "web": {
             "favicon": "./assets/favicon.png"
         },
-        "plugins": ["expo-audio", "sentry-expo", "expo-asset"],
+        "plugins": ["expo-audio", "@sentry/react-native/expo", "expo-asset"],
         "extra": {
             "versionLabel": "1.0.0",
             "featureGuestAccountCta": true,

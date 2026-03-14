@@ -1,10 +1,23 @@
+import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
-import * as Sentry from "sentry-expo";
 
 import type { AppError } from "@/errors/AppError";
 
 let initialized = false;
 let hasSentryDsn = false;
+
+function getSentryExtras(context?: Record<string, unknown>) {
+    if (!context) {
+        return null;
+    }
+
+    const entries = Object.entries(context).filter(([, value]) => value !== undefined);
+    if (entries.length === 0) {
+        return null;
+    }
+
+    return Object.fromEntries(entries);
+}
 
 export function initializeLogging() {
     if (initialized) {
@@ -18,28 +31,33 @@ export function initializeLogging() {
     }
     Sentry.init({
         dsn,
-        enableInExpoDevelopment: false,
         debug: __DEV__,
         tracesSampleRate: 0.1,
     });
     const appVersion = Constants.expoConfig?.version ?? Constants.expoConfig?.extra?.versionLabel;
     if (appVersion) {
-        Sentry.Native.setTag("app_version", String(appVersion));
+        Sentry.setTag("app_version", String(appVersion));
     }
     hasSentryDsn = true;
 }
 
 export function captureException(error: unknown, context?: Record<string, unknown>) {
     if (hasSentryDsn) {
-        if (context) {
-            Sentry.Native.addBreadcrumb({
+        const extras = getSentryExtras(context);
+        if (extras) {
+            Sentry.addBreadcrumb({
                 category: "error",
                 level: "error",
                 message: "app_exception",
-                data: context,
+                data: extras,
             });
+            Sentry.withScope((scope) => {
+                scope.setExtras(extras);
+                Sentry.captureException(error);
+            });
+            return;
         }
-        Sentry.Native.captureException(error, { extra: context });
+        Sentry.captureException(error);
     } else {
         console.error("[logger] exception", error, context);
     }
@@ -58,9 +76,9 @@ export function captureAppError(error: AppError, context?: Record<string, unknow
 export function setUserContext(userId: number | string | null | undefined) {
     if (hasSentryDsn) {
         if (userId) {
-            Sentry.Native.setUser({ id: String(userId) });
+            Sentry.setUser({ id: String(userId) });
         } else {
-            Sentry.Native.setUser(null);
+            Sentry.setUser(null);
         }
     }
 }
