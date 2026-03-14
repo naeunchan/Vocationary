@@ -1,9 +1,9 @@
 // @ts-check
 const path = require("path");
 
-const { getDefaultConfig } = require("expo/metro-config");
+const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 
-const baseConfig = getDefaultConfig(path.resolve());
+const baseConfig = getSentryExpoConfig(path.resolve());
 
 const resolver = baseConfig.resolver ?? { assetExts: [], sourceExts: [] };
 const assetExts = resolver.assetExts ? [...resolver.assetExts] : [];

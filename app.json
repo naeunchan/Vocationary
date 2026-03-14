@@ -7,9 +7,10 @@
         "orientation": "portrait",
         "icon": "./assets/icon.png",
         "userInterfaceStyle": "light",
-        "newArchEnabled": true,
+        "newArchEnabled": false,
         "ios": {
             "bundleIdentifier": "app.vocachip",
+            "jsEngine": "jsc",
             "infoPlist": {
                 "ITSAppUsesNonExemptEncryption": false
             }
@@ -26,7 +27,7 @@
         "web": {
             "favicon": "./assets/favicon.png"
         },
-        "plugins": ["expo-audio", "sentry-expo", "expo-asset"],
+        "plugins": ["expo-audio", "@sentry/react-native/expo", "expo-asset"],
         "extra": {
             "versionLabel": "1.0.0",
             "featureGuestAccountCta": true,
