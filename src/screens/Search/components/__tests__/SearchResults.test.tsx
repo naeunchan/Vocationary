@@ -68,6 +68,21 @@ describe("SearchResults", () => {
         expect(mockRetry).toHaveBeenCalled();
     });
 
+    it("renders a not-found title without retry for missing dictionary entries", () => {
+        const error: AppError = {
+            kind: "ValidationError",
+            code: "DICTIONARY_NOT_FOUND",
+            message: "사전 정보를 찾을 수 없어요.",
+            retryable: false,
+        };
+
+        const { getByText, queryByText } = render(<SearchResults {...defaultProps} error={error} result={null} />);
+
+        expect(getByText("검색 결과가 없어요")).toBeTruthy();
+        expect(getByText("사전 정보를 찾을 수 없어요.")).toBeTruthy();
+        expect(queryByText("다시 시도하기")).toBeNull();
+    });
+
     it("renders null when no result", () => {
         const { toJSON } = render(<SearchResults {...defaultProps} loading={false} error={null} result={null} />);
         expect(toJSON()).toBeNull();

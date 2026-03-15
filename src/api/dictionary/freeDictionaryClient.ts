@@ -5,6 +5,7 @@ import { DefinitionEntry, MeaningEntry, WordResult } from "@/services/dictionary
 const MAX_MEANINGS = 2;
 const MAX_DEFINITIONS = 2;
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+const DICTIONARY_NOT_FOUND_MESSAGE = "사전 정보를 찾을 수 없어요.";
 
 type CacheEntry = {
     expiresAt: number;
@@ -154,6 +155,13 @@ async function fetchFromSource(word: string): Promise<FreeDictionaryResponse> {
     }
 
     if (!response.ok) {
+        if (response.status === 404) {
+            throw createAppError("ValidationError", DICTIONARY_NOT_FOUND_MESSAGE, {
+                code: "DICTIONARY_NOT_FOUND",
+                retryable: false,
+            });
+        }
+
         const appError = createAppError("ServerError", "사전 데이터를 불러올 수 없어요.", {
             code: `HTTP_${response.status}`,
             retryable: response.status >= 500,
@@ -177,7 +185,7 @@ export async function fetchDictionaryEntry(word: string): Promise<WordResult> {
 
     const rawResponse = await fetchFromSource(normalized);
     if (!Array.isArray(rawResponse) || rawResponse.length === 0) {
-        throw createAppError("ValidationError", "사전 정보를 찾을 수 없어요.", {
+        throw createAppError("ValidationError", DICTIONARY_NOT_FOUND_MESSAGE, {
             code: "DICTIONARY_EMPTY",
         });
     }
@@ -190,7 +198,7 @@ export async function fetchDictionaryEntry(word: string): Promise<WordResult> {
         }
     }
 
-    throw createAppError("ValidationError", "사전 정보를 찾을 수 없어요.", {
+    throw createAppError("ValidationError", DICTIONARY_NOT_FOUND_MESSAGE, {
         code: "DICTIONARY_EMPTY",
     });
 }
