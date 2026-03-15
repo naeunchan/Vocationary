@@ -41,6 +41,7 @@ export function SearchResults({
 }: SearchResultsProps) {
     const styles = useThemedStyles(createSearchScreenStyles);
     const isAiExamplesError = aiAssistError?.code?.startsWith("AI_EXAMPLES") ?? false;
+    const isDictionaryNotFoundError = error?.code === "DICTIONARY_NOT_FOUND" || error?.code === "DICTIONARY_EMPTY";
 
     if (loading) {
         return (
@@ -54,7 +55,9 @@ export function SearchResults({
         const canRetry = shouldRetry(error) && typeof onRetry === "function";
         return (
             <View style={styles.errorCard} testID="search-results-error">
-                <Text style={styles.errorTitle}>잠깐 문제가 생겼어요</Text>
+                <Text style={styles.errorTitle}>
+                    {isDictionaryNotFoundError ? "검색 결과가 없어요" : "잠깐 문제가 생겼어요"}
+                </Text>
                 <Text style={styles.errorDescription}>{error.message}</Text>
                 {canRetry ? (
                     <TouchableOpacity

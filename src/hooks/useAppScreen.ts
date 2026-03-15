@@ -517,6 +517,7 @@ export function useAppScreen(): AppScreenHookResult {
                     return;
                 }
 
+                updateSearchHistory(normalizedTerm);
                 setResult(base);
                 setLoading(false);
                 void warmUpPronunciationAsync(base.word, lookupId);
@@ -560,7 +561,7 @@ export function useAppScreen(): AppScreenHookResult {
                 }
             }
         },
-        [reportAiAssistError, setErrorMessage, warmUpPronunciationAsync],
+        [reportAiAssistError, setErrorMessage, updateSearchHistory, warmUpPronunciationAsync],
     );
 
     const handleSearchTermChange = useCallback((text: string) => {
@@ -641,12 +642,8 @@ export function useAppScreen(): AppScreenHookResult {
     }, [refreshExamplesAsync]);
 
     const handleSearch = useCallback(() => {
-        const trimmed = searchTerm.trim();
-        if (trimmed) {
-            updateSearchHistory(trimmed);
-        }
         void executeSearch(searchTerm);
-    }, [executeSearch, searchTerm, updateSearchHistory]);
+    }, [executeSearch, searchTerm]);
 
     const handleSelectRecentSearch = useCallback(
         (entry: SearchHistoryEntry) => {
@@ -655,10 +652,9 @@ export function useAppScreen(): AppScreenHookResult {
                 return;
             }
             setSearchTerm(normalizedTerm);
-            updateSearchHistory(normalizedTerm);
             void executeSearch(normalizedTerm);
         },
-        [executeSearch, updateSearchHistory],
+        [executeSearch],
     );
 
     const handleToggleExamples = useCallback(() => {
