@@ -51,3 +51,6 @@ scripts/automation/issues/*
 !scripts/automation/issues/README.md
 audit/
 .vscode
+.codex
+
+AGENTS.md
