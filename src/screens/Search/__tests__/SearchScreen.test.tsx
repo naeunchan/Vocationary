@@ -34,6 +34,7 @@ const wrapper: React.ComponentType<React.PropsWithChildren> = ({ children }) => 
 
 const baseProps = {
     searchTerm: "apple",
+    hasSearched: false,
     onChangeSearchTerm: jest.fn(),
     onSubmit: jest.fn(),
     loading: false,
@@ -63,6 +64,14 @@ describe("SearchScreen", () => {
         expect(getByText("검색 결과가 여기에 표시됩니다")).toBeTruthy();
         expect(mockSearchResults).not.toHaveBeenCalled();
         expect(getByText("AI 발음/예문 준비 중")).toBeTruthy();
+    });
+
+    it("renders empty-state copy after a search with no result", () => {
+        const { getByText } = render(<SearchScreen {...baseProps} hasSearched />, { wrapper });
+
+        expect(getByText("검색한 단어를 찾을 수 없어요.")).toBeTruthy();
+        expect(getByText("철자를 다시 확인하거나 다른 단어로 검색해 보세요.")).toBeTruthy();
+        expect(mockSearchResults).not.toHaveBeenCalled();
     });
 
     it("renders SearchResults when result available", () => {
