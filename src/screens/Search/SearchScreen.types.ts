@@ -17,6 +17,9 @@ export type SearchScreenProps = {
     isCurrentFavorite: boolean;
     onPlayPronunciation: () => void;
     pronunciationAvailable: boolean;
+    autocompleteSuggestions: string[];
+    autocompleteLoading: boolean;
+    onSelectAutocomplete: (term: string) => void;
     recentSearches: SearchHistoryEntry[];
     onSelectRecentSearch: (entry: SearchHistoryEntry) => void;
     onClearRecentSearches: () => void;

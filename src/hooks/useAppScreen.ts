@@ -7,6 +7,7 @@ import { generateDefinitionExamples } from "@/api/dictionary/exampleGenerator";
 import { fetchDictionaryEntry } from "@/api/dictionary/freeDictionaryClient";
 import { getPronunciationAudio, prefetchPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
 import { getWordData } from "@/api/dictionary/getWordData";
+import { fetchWordSuggestions } from "@/api/dictionary/wordSuggestionClient";
 import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
 import type { AppError } from "@/errors/AppError";
 import { createAppError, normalizeError, shouldRetry } from "@/errors/AppError";
@@ -99,6 +100,62 @@ import {
     normalizePhoneNumber,
 } from "@/utils/authValidation";
 
+const AUTOCOMPLETE_LIMIT = 6;
+const AUTOCOMPLETE_MIN_QUERY_LENGTH = 2;
+const AUTOCOMPLETE_DEBOUNCE_MS = 180;
+
+function getLevenshteinDistance(source: string, target: string) {
+    const rows = source.length + 1;
+    const cols = target.length + 1;
+    const distances = Array.from({ length: rows }, () => Array<number>(cols).fill(0));
+
+    for (let row = 0; row < rows; row += 1) {
+        distances[row][0] = row;
+    }
+    for (let col = 0; col < cols; col += 1) {
+        distances[0][col] = col;
+    }
+
+    for (let row = 1; row < rows; row += 1) {
+        for (let col = 1; col < cols; col += 1) {
+            const substitutionCost = source[row - 1] === target[col - 1] ? 0 : 1;
+            distances[row][col] = Math.min(
+                distances[row - 1][col] + 1,
+                distances[row][col - 1] + 1,
+                distances[row - 1][col - 1] + substitutionCost,
+            );
+        }
+    }
+
+    return distances[source.length][target.length];
+}
+
+function compareAutocompleteCandidates(query: string, left: string, right: string) {
+    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedLeft = left.trim().toLowerCase();
+    const normalizedRight = right.trim().toLowerCase();
+
+    const leftStartsWithQuery = normalizedLeft.startsWith(normalizedQuery);
+    const rightStartsWithQuery = normalizedRight.startsWith(normalizedQuery);
+
+    if (leftStartsWithQuery !== rightStartsWithQuery) {
+        return leftStartsWithQuery ? -1 : 1;
+    }
+
+    const leftDistance = getLevenshteinDistance(normalizedQuery, normalizedLeft);
+    const rightDistance = getLevenshteinDistance(normalizedQuery, normalizedRight);
+
+    if (leftDistance !== rightDistance) {
+        return leftDistance - rightDistance;
+    }
+
+    if (normalizedLeft.length !== normalizedRight.length) {
+        return normalizedLeft.length - normalizedRight.length;
+    }
+
+    return normalizedLeft.localeCompare(normalizedRight);
+}
+
 export function useAppScreen(): AppScreenHookResult {
     const [searchTerm, setSearchTerm] = useState("");
     const [hasSearched, setHasSearched] = useState(false);
@@ -109,6 +166,10 @@ export function useAppScreen(): AppScreenHookResult {
     const [examplesVisible, setExamplesVisible] = useState(false);
     const [favorites, setFavorites] = useState<FavoriteWordEntry[]>([]);
     const [recentSearches, setRecentSearches] = useState<SearchHistoryEntry[]>([]);
+    const [autocompleteRemoteQuery, setAutocompleteRemoteQuery] = useState("");
+    const [autocompleteRemoteSuggestions, setAutocompleteRemoteSuggestions] = useState<string[]>([]);
+    const [autocompleteLoading, setAutocompleteLoading] = useState(false);
+    const [autocompleteEnabled, setAutocompleteEnabled] = useState(true);
     const [themeMode, setThemeMode] = useState<ThemeMode>("light");
     const [fontScale, setFontScale] = useState(DEFAULT_FONT_SCALE);
     const [appearanceReady, setAppearanceReady] = useState(false);
@@ -124,6 +185,9 @@ export function useAppScreen(): AppScreenHookResult {
         return extra?.versionLabel ?? DEFAULT_VERSION_LABEL;
     });
     const activeLookupRef = useRef(0);
+    const autocompleteRemoteQueryRef = useRef("");
+    const autocompleteRemoteSuggestionsRef = useRef<string[]>([]);
+    const autocompleteLoadingRef = useRef(false);
     const hasShownPronunciationInfoRef = useRef(false);
     const loadUserStateRef = useRef<(userRecord: UserRecord) => Promise<void>>(async () => {});
     const isPronunciationAvailable = OPENAI_FEATURE_ENABLED;
@@ -197,6 +261,72 @@ export function useAppScreen(): AppScreenHookResult {
             });
         },
         [setPreferenceValue],
+    );
+
+    useEffect(() => {
+        autocompleteRemoteQueryRef.current = autocompleteRemoteQuery;
+        autocompleteRemoteSuggestionsRef.current = autocompleteRemoteSuggestions;
+        autocompleteLoadingRef.current = autocompleteLoading;
+    }, [autocompleteLoading, autocompleteRemoteQuery, autocompleteRemoteSuggestions]);
+
+    const clearAutocomplete = useCallback(() => {
+        if (autocompleteRemoteQueryRef.current) {
+            autocompleteRemoteQueryRef.current = "";
+            setAutocompleteRemoteQuery("");
+        }
+        if (autocompleteRemoteSuggestionsRef.current.length > 0) {
+            autocompleteRemoteSuggestionsRef.current = [];
+            setAutocompleteRemoteSuggestions([]);
+        }
+        if (autocompleteLoadingRef.current) {
+            autocompleteLoadingRef.current = false;
+            setAutocompleteLoading(false);
+        }
+    }, []);
+
+    const collectAutocompleteSuggestions = useCallback(
+        (query: string, remoteSuggestions: string[] = []) => {
+            const normalizedQuery = query.trim().toLowerCase();
+            if (!normalizedQuery) {
+                return [];
+            }
+
+            const merged: string[] = [];
+            const seen = new Set<string>();
+            const addSuggestion = (candidate: string) => {
+                const trimmed = candidate.trim();
+                if (!trimmed) {
+                    return;
+                }
+
+                const normalizedCandidate = trimmed.toLowerCase();
+                if (
+                    normalizedCandidate === normalizedQuery ||
+                    !normalizedCandidate.startsWith(normalizedQuery) ||
+                    seen.has(normalizedCandidate)
+                ) {
+                    return;
+                }
+
+                seen.add(normalizedCandidate);
+                merged.push(trimmed);
+            };
+
+            recentSearches.forEach((entry) => {
+                addSuggestion(entry.term);
+            });
+            favorites.forEach((entry) => {
+                addSuggestion(entry.word.word);
+            });
+            remoteSuggestions.forEach((entry) => {
+                addSuggestion(entry);
+            });
+
+            return merged
+                .sort((left, right) => compareAutocompleteCandidates(normalizedQuery, left, right))
+                .slice(0, AUTOCOMPLETE_LIMIT);
+        },
+        [favorites, recentSearches],
     );
 
     const ensurePhoneticForWord = useCallback(async (word: WordResult) => {
@@ -494,6 +624,8 @@ export function useAppScreen(): AppScreenHookResult {
     const executeSearch = useCallback(
         async (term: string) => {
             const normalizedTerm = term.trim();
+            setAutocompleteEnabled(false);
+            clearAutocomplete();
             setHasSearched(true);
             if (!normalizedTerm) {
                 activeLookupRef.current += 1;
@@ -563,27 +695,110 @@ export function useAppScreen(): AppScreenHookResult {
                 }
             }
         },
-        [reportAiAssistError, setErrorMessage, updateSearchHistory, warmUpPronunciationAsync],
+        [clearAutocomplete, reportAiAssistError, setErrorMessage, updateSearchHistory, warmUpPronunciationAsync],
     );
 
-    const handleSearchTermChange = useCallback((text: string) => {
-        setSearchTerm(text);
+    const handleSearchTermChange = useCallback(
+        (text: string) => {
+            setAutocompleteEnabled(true);
+            setSearchTerm(text);
 
-        const trimmed = text.trim();
-        if (!trimmed) {
+            const trimmed = text.trim();
+            if (!trimmed) {
+                activeLookupRef.current += 1;
+                clearAutocomplete();
+                setHasSearched(false);
+                setError(null);
+                setAiAssistError(null);
+                setLoading(false);
+                setExamplesVisible(false);
+                return;
+            }
+            // Cancel any in-flight result updates; user must submit explicitly.
             activeLookupRef.current += 1;
-            setHasSearched(false);
-            setError(null);
             setAiAssistError(null);
             setLoading(false);
-            setExamplesVisible(false);
+        },
+        [clearAutocomplete],
+    );
+
+    const normalizedAutocompleteTerm = useMemo(() => searchTerm.trim().toLowerCase(), [searchTerm]);
+
+    const autocompleteLocalSuggestions = useMemo(() => {
+        if (!autocompleteEnabled || !normalizedAutocompleteTerm) {
+            return [];
+        }
+
+        return collectAutocompleteSuggestions(normalizedAutocompleteTerm);
+    }, [autocompleteEnabled, collectAutocompleteSuggestions, normalizedAutocompleteTerm]);
+
+    const autocompleteSuggestions = useMemo(() => {
+        if (!autocompleteEnabled || !normalizedAutocompleteTerm) {
+            return [];
+        }
+
+        const remoteSuggestions =
+            autocompleteRemoteQuery === normalizedAutocompleteTerm ? autocompleteRemoteSuggestions : [];
+
+        return collectAutocompleteSuggestions(normalizedAutocompleteTerm, remoteSuggestions);
+    }, [
+        autocompleteEnabled,
+        autocompleteRemoteQuery,
+        autocompleteRemoteSuggestions,
+        collectAutocompleteSuggestions,
+        normalizedAutocompleteTerm,
+    ]);
+
+    useEffect(() => {
+        if (!autocompleteEnabled) {
+            clearAutocomplete();
             return;
         }
-        // Cancel any in-flight result updates; user must submit explicitly.
-        activeLookupRef.current += 1;
-        setAiAssistError(null);
-        setLoading(false);
-    }, []);
+
+        if (!normalizedAutocompleteTerm) {
+            clearAutocomplete();
+            return;
+        }
+
+        if (
+            normalizedAutocompleteTerm.length < AUTOCOMPLETE_MIN_QUERY_LENGTH ||
+            autocompleteLocalSuggestions.length >= AUTOCOMPLETE_LIMIT
+        ) {
+            clearAutocomplete();
+            return;
+        }
+
+        let active = true;
+        autocompleteLoadingRef.current = true;
+        setAutocompleteLoading(true);
+
+        const timeoutId = setTimeout(() => {
+            void fetchWordSuggestions(normalizedAutocompleteTerm, AUTOCOMPLETE_LIMIT)
+                .then((remoteSuggestions) => {
+                    if (!active) {
+                        return;
+                    }
+                    autocompleteRemoteQueryRef.current = normalizedAutocompleteTerm;
+                    autocompleteRemoteSuggestionsRef.current = remoteSuggestions;
+                    autocompleteLoadingRef.current = false;
+                    setAutocompleteRemoteQuery(normalizedAutocompleteTerm);
+                    setAutocompleteRemoteSuggestions(remoteSuggestions);
+                    setAutocompleteLoading(false);
+                })
+                .catch(() => {
+                    if (!active) {
+                        return;
+                    }
+                    autocompleteLoadingRef.current = false;
+                    setAutocompleteLoading(false);
+                });
+        }, AUTOCOMPLETE_DEBOUNCE_MS);
+
+        return () => {
+            active = false;
+            clearTimeout(timeoutId);
+        };
+    }, [autocompleteEnabled, autocompleteLocalSuggestions.length, clearAutocomplete, normalizedAutocompleteTerm]);
 
     const refreshExamplesAsync = useCallback(
         async ({ forceFresh, includeExistingExamples }: { forceFresh: boolean; includeExistingExamples: boolean }) => {
@@ -654,10 +869,26 @@ export function useAppScreen(): AppScreenHookResult {
             if (!normalizedTerm) {
                 return;
             }
+            setAutocompleteEnabled(false);
+            clearAutocomplete();
             setSearchTerm(normalizedTerm);
             void executeSearch(normalizedTerm);
         },
-        [executeSearch],
+        [clearAutocomplete, executeSearch],
+    );
+
+    const handleSelectAutocomplete = useCallback(
+        (term: string) => {
+            const normalizedTerm = term.trim();
+            if (!normalizedTerm) {
+                return;
+            }
+            setAutocompleteEnabled(false);
+            clearAutocomplete();
+            setSearchTerm(normalizedTerm);
+            void executeSearch(normalizedTerm);
+        },
+        [clearAutocomplete, executeSearch],
     );
 
     const handleToggleExamples = useCallback(() => {
@@ -1422,6 +1653,9 @@ export function useAppScreen(): AppScreenHookResult {
             isCurrentFavorite,
             onPlayPronunciation: playPronunciation,
             pronunciationAvailable: isPronunciationAvailable,
+            autocompleteSuggestions,
+            autocompleteLoading,
+            onSelectAutocomplete: handleSelectAutocomplete,
             themeMode,
             onThemeModeChange: handleThemeModeChange,
             fontScale,
@@ -1453,11 +1687,14 @@ export function useAppScreen(): AppScreenHookResult {
         [
             canLogout,
             aiAssistError,
+            autocompleteLoading,
+            autocompleteSuggestions,
             error,
             examplesVisible,
             favorites,
             handleGuestLoginRequest,
             handleGuestSignUpRequest,
+            handleSelectAutocomplete,
             handleSelectRecentSearch,
             handleToggleExamples,
             handleProfilePasswordUpdate,

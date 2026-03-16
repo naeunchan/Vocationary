@@ -33,6 +33,9 @@ export function RootTabNavigator({
     isCurrentFavorite,
     onPlayPronunciation,
     pronunciationAvailable,
+    autocompleteSuggestions,
+    autocompleteLoading,
+    onSelectAutocomplete,
     themeMode,
     onThemeModeChange,
     fontScale,
@@ -120,6 +123,9 @@ export function RootTabNavigator({
                         isCurrentFavorite={isCurrentFavorite}
                         onPlayPronunciation={onPlayPronunciation}
                         pronunciationAvailable={pronunciationAvailable}
+                        autocompleteSuggestions={autocompleteSuggestions}
+                        autocompleteLoading={autocompleteLoading}
+                        onSelectAutocomplete={onSelectAutocomplete}
                         recentSearches={recentSearches}
                         onSelectRecentSearch={onSelectRecentSearch}
                         onClearRecentSearches={onClearRecentSearches}

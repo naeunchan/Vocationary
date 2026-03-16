@@ -26,6 +26,9 @@ export function SearchScreen({
     isCurrentFavorite,
     onPlayPronunciation,
     pronunciationAvailable,
+    autocompleteSuggestions,
+    autocompleteLoading,
+    onSelectAutocomplete,
     recentSearches,
     onSelectRecentSearch,
     onClearRecentSearches,
@@ -37,11 +40,12 @@ export function SearchScreen({
     const { theme } = useAppAppearance();
     const showPlaceholder = !hasSearched && !loading && !error && !result;
     const showEmptyState = hasSearched && !loading && !error && !result;
-    const hasRecentSearches = recentSearches.length > 0;
+    const showAutocomplete = autocompleteSuggestions.length > 0 || autocompleteLoading;
+    const hasRecentSearches = recentSearches.length > 0 && !showAutocomplete;
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
                 {!pronunciationAvailable ? (
                     <View style={styles.aiNotice}>
                         <Text style={styles.aiNoticeTitle}>{t("search.aiNotice.title")}</Text>
@@ -49,7 +53,14 @@ export function SearchScreen({
                     </View>
                 ) : null}
 
-                <SearchBar value={searchTerm} onChangeText={onChangeSearchTerm} onSubmit={onSubmit} />
+                <SearchBar
+                    value={searchTerm}
+                    onChangeText={onChangeSearchTerm}
+                    onSubmit={onSubmit}
+                    suggestions={autocompleteSuggestions}
+                    suggestionsLoading={autocompleteLoading}
+                    onSelectSuggestion={onSelectAutocomplete}
+                />
 
                 <View style={styles.resultsWrapper}>
                     {showPlaceholder ? (
