@@ -13,6 +13,7 @@ import { useThemedStyles } from "@/theme/useThemedStyles";
 
 export function SearchScreen({
     searchTerm,
+    hasSearched,
     onChangeSearchTerm,
     onSubmit,
     loading,
@@ -34,7 +35,8 @@ export function SearchScreen({
 }: SearchScreenProps) {
     const styles = useThemedStyles(createSearchScreenStyles);
     const { theme } = useAppAppearance();
-    const showPlaceholder = !loading && !error && !result;
+    const showPlaceholder = !hasSearched && !loading && !error && !result;
+    const showEmptyState = hasSearched && !loading && !error && !result;
     const hasRecentSearches = recentSearches.length > 0;
 
     return (
@@ -53,10 +55,13 @@ export function SearchScreen({
                     {showPlaceholder ? (
                         <View style={styles.placeholderCard}>
                             <Ionicons name="sparkles-outline" size={20} color={theme.accent} />
-                            <Text style={styles.placeholderTitle}>검색 결과가 여기에 표시됩니다</Text>
-                            <Text style={styles.placeholderSubtitle}>
-                                검색할 단어를 입력하고 검색 버튼을 눌러주세요.
-                            </Text>
+                            <Text style={styles.placeholderTitle}>{t("search.placeholder.title")}</Text>
+                            <Text style={styles.placeholderSubtitle}>{t("search.placeholder.body")}</Text>
+                        </View>
+                    ) : showEmptyState ? (
+                        <View style={styles.errorCard}>
+                            <Text style={styles.errorTitle}>{t("search.empty.title")}</Text>
+                            <Text style={styles.errorDescription}>{t("search.empty.body")}</Text>
                         </View>
                     ) : (
                         <SearchResults

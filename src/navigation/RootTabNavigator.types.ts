@@ -10,6 +10,7 @@ export type RootTabNavigatorProps = {
     onUpdateFavoriteStatus: (word: string, status: MemorizationStatus) => void;
     onRemoveFavorite: (word: string) => void;
     searchTerm: string;
+    hasSearched: boolean;
     onChangeSearchTerm: (text: string) => void;
     onSubmitSearch: () => void;
     loading: boolean;

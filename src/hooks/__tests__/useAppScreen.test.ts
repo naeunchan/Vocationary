@@ -148,7 +148,7 @@ describe("useAppScreen search history", () => {
 
     it("does not add missing words to recent history", async () => {
         mockGetWordData.mockRejectedValue(
-            createAppError("ValidationError", "사전 정보를 찾을 수 없어요.", {
+            createAppError("ValidationError", "철자를 다시 확인하거나 다른 단어로 검색해 보세요.", {
                 code: "DICTIONARY_NOT_FOUND",
                 retryable: false,
             }),

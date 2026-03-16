@@ -37,7 +37,7 @@ describe("freeDictionaryClient", () => {
 
         await expect(fetchDictionaryEntry("vocationary")).rejects.toMatchObject({
             kind: "ValidationError",
-            message: "사전 정보를 찾을 수 없어요.",
+            message: "철자를 다시 확인하거나 다른 단어로 검색해 보세요.",
             code: "DICTIONARY_NOT_FOUND",
             retryable: false,
         });

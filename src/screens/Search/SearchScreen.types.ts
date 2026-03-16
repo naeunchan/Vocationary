@@ -4,6 +4,7 @@ import type { SearchHistoryEntry } from "@/services/searchHistory/types";
 
 export type SearchScreenProps = {
     searchTerm: string;
+    hasSearched: boolean;
     onChangeSearchTerm: (text: string) => void;
     onSubmit: () => void;
     loading: boolean;

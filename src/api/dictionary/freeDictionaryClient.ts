@@ -5,7 +5,7 @@ import { DefinitionEntry, MeaningEntry, WordResult } from "@/services/dictionary
 const MAX_MEANINGS = 2;
 const MAX_DEFINITIONS = 2;
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
-const DICTIONARY_NOT_FOUND_MESSAGE = "사전 정보를 찾을 수 없어요.";
+const DICTIONARY_NOT_FOUND_MESSAGE = "철자를 다시 확인하거나 다른 단어로 검색해 보세요.";
 
 type CacheEntry = {
     expiresAt: number;

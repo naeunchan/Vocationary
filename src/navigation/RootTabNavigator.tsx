@@ -21,6 +21,7 @@ export function RootTabNavigator({
     onUpdateFavoriteStatus,
     onRemoveFavorite,
     searchTerm,
+    hasSearched,
     onChangeSearchTerm,
     onSubmitSearch,
     loading,
@@ -104,6 +105,7 @@ export function RootTabNavigator({
                 {() => (
                     <SearchScreen
                         searchTerm={searchTerm}
+                        hasSearched={hasSearched}
                         onChangeSearchTerm={onChangeSearchTerm}
                         onSubmit={onSubmitSearch}
                         loading={loading}

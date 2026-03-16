@@ -52,6 +52,7 @@ const buildProps = (): RootTabNavigatorProps => {
         onUpdateFavoriteStatus: jest.fn(),
         onRemoveFavorite: jest.fn(),
         searchTerm: "apple",
+        hasSearched: false,
         onChangeSearchTerm: noop,
         onSubmitSearch: noop,
         loading: false,
@@ -110,6 +111,7 @@ describe("RootTabNavigator", () => {
         expect(mockSearchScreen).toHaveBeenCalledWith(
             expect.objectContaining({
                 searchTerm: props.searchTerm,
+                hasSearched: props.hasSearched,
                 onChangeSearchTerm: props.onChangeSearchTerm,
                 onSubmit: props.onSubmitSearch,
                 loading: props.loading,

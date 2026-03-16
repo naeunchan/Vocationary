@@ -6,6 +6,7 @@ import { shouldRetry } from "@/errors/AppError";
 import { createSearchScreenStyles } from "@/screens/Search/SearchScreen.styles";
 import { WordResultCard } from "@/services/dictionary/components/WordResultCard";
 import { WordResult } from "@/services/dictionary/types";
+import { t } from "@/shared/i18n";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
 type SearchResultsProps = {
@@ -56,7 +57,7 @@ export function SearchResults({
         return (
             <View style={styles.errorCard} testID="search-results-error">
                 <Text style={styles.errorTitle}>
-                    {isDictionaryNotFoundError ? "검색 결과가 없어요" : "잠깐 문제가 생겼어요"}
+                    {isDictionaryNotFoundError ? t("search.empty.title") : "잠깐 문제가 생겼어요"}
                 </Text>
                 <Text style={styles.errorDescription}>{error.message}</Text>
                 {canRetry ? (

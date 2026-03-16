@@ -72,14 +72,14 @@ describe("SearchResults", () => {
         const error: AppError = {
             kind: "ValidationError",
             code: "DICTIONARY_NOT_FOUND",
-            message: "사전 정보를 찾을 수 없어요.",
+            message: "철자를 다시 확인하거나 다른 단어로 검색해 보세요.",
             retryable: false,
         };
 
         const { getByText, queryByText } = render(<SearchResults {...defaultProps} error={error} result={null} />);
 
-        expect(getByText("검색 결과가 없어요")).toBeTruthy();
-        expect(getByText("사전 정보를 찾을 수 없어요.")).toBeTruthy();
+        expect(getByText("검색한 단어를 찾을 수 없어요.")).toBeTruthy();
+        expect(getByText("철자를 다시 확인하거나 다른 단어로 검색해 보세요.")).toBeTruthy();
         expect(queryByText("다시 시도하기")).toBeNull();
     });
 

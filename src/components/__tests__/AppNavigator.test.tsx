@@ -35,6 +35,7 @@ const createProps = (): RootTabNavigatorProps => {
         onUpdateFavoriteStatus: jest.fn(),
         onRemoveFavorite: jest.fn(),
         searchTerm: "",
+        hasSearched: false,
         onChangeSearchTerm: noop,
         onSubmitSearch: noop,
         loading: false,

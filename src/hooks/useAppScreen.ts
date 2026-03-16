@@ -101,6 +101,7 @@ import {
 
 export function useAppScreen(): AppScreenHookResult {
     const [searchTerm, setSearchTerm] = useState("");
+    const [hasSearched, setHasSearched] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<AppError | null>(null);
     const [aiAssistError, setAiAssistError] = useState<AppError | null>(null);
@@ -493,6 +494,7 @@ export function useAppScreen(): AppScreenHookResult {
     const executeSearch = useCallback(
         async (term: string) => {
             const normalizedTerm = term.trim();
+            setHasSearched(true);
             if (!normalizedTerm) {
                 activeLookupRef.current += 1;
                 setErrorMessage(EMPTY_SEARCH_ERROR_MESSAGE, "ValidationError", { retryable: false });
@@ -570,6 +572,7 @@ export function useAppScreen(): AppScreenHookResult {
         const trimmed = text.trim();
         if (!trimmed) {
             activeLookupRef.current += 1;
+            setHasSearched(false);
             setError(null);
             setAiAssistError(null);
             setLoading(false);
@@ -1407,6 +1410,7 @@ export function useAppScreen(): AppScreenHookResult {
             onUpdateFavoriteStatus: updateFavoriteStatus,
             onRemoveFavorite: handleRemoveFavorite,
             searchTerm,
+            hasSearched,
             onChangeSearchTerm: handleSearchTermChange,
             onSubmitSearch: handleSearch,
             loading,
@@ -1468,6 +1472,7 @@ export function useAppScreen(): AppScreenHookResult {
             handleRemoveFavorite,
             handleSearch,
             handleSearchTermChange,
+            hasSearched,
             retryExamplesAsync,
             regenerateExamplesAsync,
             handleBackupExport,
