@@ -22,6 +22,9 @@ export type RootTabNavigatorProps = {
     isCurrentFavorite: boolean;
     onPlayPronunciation: () => void;
     pronunciationAvailable: boolean;
+    autocompleteSuggestions: string[];
+    autocompleteLoading: boolean;
+    onSelectAutocomplete: (term: string) => void;
     themeMode: ThemeMode;
     onThemeModeChange: (mode: ThemeMode) => void;
     fontScale: number;

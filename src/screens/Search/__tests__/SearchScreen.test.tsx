@@ -46,6 +46,9 @@ const baseProps = {
     isCurrentFavorite: false,
     onPlayPronunciation: jest.fn(),
     pronunciationAvailable: false,
+    autocompleteSuggestions: [],
+    autocompleteLoading: false,
+    onSelectAutocomplete: jest.fn(),
     recentSearches: [],
     onSelectRecentSearch: jest.fn(),
     onClearRecentSearches: jest.fn(),
@@ -113,5 +116,20 @@ describe("SearchScreen", () => {
 
         fireEvent.press(getByLabelText("apple 검색어로 이동"));
         expect(props.onSelectRecentSearch).toHaveBeenCalledWith(props.recentSearches[0]);
+    });
+
+    it("renders autocomplete suggestions and hides recent searches while typing", () => {
+        const props = {
+            ...baseProps,
+            autocompleteSuggestions: ["apple"],
+            recentSearches: [{ term: "apple", mode: "en-en" as const, searchedAt: "2024-01-01T00:00:00.000Z" }],
+        };
+        const { getByText, queryByText } = render(<SearchScreen {...props} />, { wrapper });
+
+        expect(getByText("추천 검색어")).toBeTruthy();
+        expect(queryByText("최근 검색")).toBeNull();
+
+        fireEvent.press(getByText("apple"));
+        expect(props.onSelectAutocomplete).toHaveBeenCalledWith("apple");
     });
 });

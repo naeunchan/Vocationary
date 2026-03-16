@@ -47,6 +47,11 @@ const translations: Record<Locale, Record<string, string>> = {
         "search.aiNotice.title": "AI 발음/예문 준비 중",
         "search.aiNotice.body":
             "백엔드 프록시가 설정되면 발음 재생과 AI 예문이 자동으로 활성화돼요. 현재는 사전 검색만 이용할 수 있어요.",
+        "search.bar.placeholder": "검색할 영어 단어를 입력하세요",
+        "search.bar.clear": "지우기",
+        "search.bar.submit": "검색",
+        "search.suggestions.title": "추천 검색어",
+        "search.suggestions.loading": "추천 검색어를 불러오는 중이에요.",
         "search.placeholder.title": "검색 결과가 여기에 표시됩니다",
         "search.placeholder.body": "검색할 단어를 입력하고 검색 버튼을 눌러주세요.",
         "search.empty.title": "검색한 단어를 찾을 수 없어요.",
@@ -98,6 +103,11 @@ const translations: Record<Locale, Record<string, string>> = {
         "search.aiNotice.title": "AI pronunciation/examples pending",
         "search.aiNotice.body":
             "Once the backend proxy is configured, pronunciation and AI examples will activate. For now, dictionary search works without them.",
+        "search.bar.placeholder": "Enter an English word to search",
+        "search.bar.clear": "Clear",
+        "search.bar.submit": "Search",
+        "search.suggestions.title": "Suggestions",
+        "search.suggestions.loading": "Loading suggestions.",
         "search.placeholder.title": "Search results will appear here",
         "search.placeholder.body": "Enter a word and tap search to see dictionary results.",
         "search.empty.title": "We couldn't find that word.",
