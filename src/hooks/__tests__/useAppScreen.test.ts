@@ -6,6 +6,14 @@ import { createAppError } from "@/errors/AppError";
 import { useAppScreen } from "@/hooks/useAppScreen";
 import * as database from "@/services/database";
 import type { WordResult } from "@/services/dictionary/types";
+import type { FavoriteWordEntry } from "@/services/favorites/types";
+import {
+    FONT_SCALE_PREFERENCE_KEY,
+    GUEST_FAVORITES_PREFERENCE_KEY,
+    GUEST_USED_PREFERENCE_KEY,
+    ONBOARDING_PREFERENCE_KEY,
+    THEME_MODE_PREFERENCE_KEY,
+} from "@/theme/constants";
 
 jest.mock("@/config/openAI", () => ({
     OPENAI_FEATURE_ENABLED: false,
@@ -77,6 +85,8 @@ jest.mock("@/services/database", () => ({
 const mockGetWordData = getWordData as jest.MockedFunction<typeof getWordData>;
 const mockFetchWordSuggestions = fetchWordSuggestions as jest.MockedFunction<typeof fetchWordSuggestions>;
 const mockGetActiveSession = database.getActiveSession as jest.MockedFunction<typeof database.getActiveSession>;
+const mockFindUserByUsername = database.findUserByUsername as jest.MockedFunction<typeof database.findUserByUsername>;
+const mockGetFavoritesByUser = database.getFavoritesByUser as jest.MockedFunction<typeof database.getFavoritesByUser>;
 const mockGetPreferenceValue = database.getPreferenceValue as jest.MockedFunction<typeof database.getPreferenceValue>;
 const mockGetSearchHistoryEntries = database.getSearchHistoryEntries as jest.MockedFunction<
     typeof database.getSearchHistoryEntries
@@ -84,6 +94,12 @@ const mockGetSearchHistoryEntries = database.getSearchHistoryEntries as jest.Moc
 const mockSaveSearchHistoryEntries = database.saveSearchHistoryEntries as jest.MockedFunction<
     typeof database.saveSearchHistoryEntries
 >;
+const mockSetPreferenceValue = database.setPreferenceValue as jest.MockedFunction<typeof database.setPreferenceValue>;
+const mockUpsertFavoriteForUser = database.upsertFavoriteForUser as jest.MockedFunction<
+    typeof database.upsertFavoriteForUser
+>;
+const mockImportBackupFromDocument = jest.requireMock("@/services/backup/manualBackup")
+    .importBackupFromDocument as jest.Mock;
 
 const baseResult: WordResult = {
     word: "apple",
@@ -101,6 +117,35 @@ const baseResult: WordResult = {
     ],
 };
 
+const loggedInUser = {
+    id: 1,
+    username: "tester@example.com",
+    displayName: "Tester",
+    phoneNumber: null,
+};
+
+function createFavorite(word: string, updatedAt: string): FavoriteWordEntry {
+    return {
+        word: {
+            word,
+            phonetic: `/${word}/`,
+            meanings: [
+                {
+                    partOfSpeech: "noun",
+                    definitions: [
+                        {
+                            definition: `${word} definition`,
+                            pendingExample: true,
+                        },
+                    ],
+                },
+            ],
+        },
+        status: "toMemorize",
+        updatedAt,
+    };
+}
+
 async function waitForHookReady(result: ReturnType<typeof renderHook<typeof useAppScreen>>["result"]) {
     await waitFor(() => {
         expect(result.current.initializing).toBe(false);
@@ -112,9 +157,18 @@ describe("useAppScreen search history", () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockGetActiveSession.mockResolvedValue(null);
+        mockFindUserByUsername.mockResolvedValue(null);
+        mockGetFavoritesByUser.mockResolvedValue([]);
         mockGetPreferenceValue.mockResolvedValue(null);
         mockGetSearchHistoryEntries.mockResolvedValue([]);
         mockSaveSearchHistoryEntries.mockResolvedValue(undefined);
+        mockSetPreferenceValue.mockResolvedValue(undefined);
+        mockUpsertFavoriteForUser.mockResolvedValue(undefined);
+        mockImportBackupFromDocument.mockResolvedValue({
+            ok: true,
+            code: "OK",
+            restored: { users: 0, favorites: 0, searchHistory: 0 },
+        });
         mockFetchWordSuggestions.mockResolvedValue([]);
     });
 
@@ -317,5 +371,125 @@ describe("useAppScreen search history", () => {
         } finally {
             jest.useRealTimers();
         }
+    });
+
+    it("merges guest favorites into the logged-in user's favorites on bootstrap", async () => {
+        mockGetActiveSession.mockResolvedValue({ isGuest: false, user: loggedInUser });
+        mockGetFavoritesByUser.mockResolvedValue([createFavorite("banana", "2026-03-22T00:00:00.000Z")]);
+        mockGetPreferenceValue.mockImplementation(async (key: string) => {
+            if (key === GUEST_FAVORITES_PREFERENCE_KEY) {
+                return JSON.stringify([createFavorite("apple", "2026-03-22T01:00:00.000Z")]);
+            }
+            if (key === ONBOARDING_PREFERENCE_KEY) {
+                return "true";
+            }
+            if (key === GUEST_USED_PREFERENCE_KEY) {
+                return "false";
+            }
+            if (key === THEME_MODE_PREFERENCE_KEY) {
+                return null;
+            }
+            if (key === FONT_SCALE_PREFERENCE_KEY) {
+                return null;
+            }
+            return null;
+        });
+
+        const { result } = renderHook(() => useAppScreen());
+        await waitForHookReady(result);
+
+        expect(result.current.navigatorProps.favorites).toEqual([
+            expect.objectContaining({ word: expect.objectContaining({ word: "apple" }) }),
+            expect.objectContaining({ word: expect.objectContaining({ word: "banana" }) }),
+        ]);
+        expect(mockUpsertFavoriteForUser).toHaveBeenCalledWith(
+            loggedInUser.id,
+            expect.objectContaining({ word: expect.objectContaining({ word: "apple" }) }),
+        );
+        expect(mockUpsertFavoriteForUser).toHaveBeenCalledWith(
+            loggedInUser.id,
+            expect.objectContaining({ word: expect.objectContaining({ word: "banana" }) }),
+        );
+        expect(mockSetPreferenceValue).toHaveBeenCalledWith(GUEST_FAVORITES_PREFERENCE_KEY, "[]");
+    });
+
+    it("keeps onboarding hidden after guest conversion has already been completed", async () => {
+        mockGetActiveSession.mockResolvedValue({ isGuest: false, user: loggedInUser });
+        mockGetPreferenceValue.mockImplementation(async (key: string) => {
+            if (key === GUEST_FAVORITES_PREFERENCE_KEY) {
+                return "[]";
+            }
+            if (key === ONBOARDING_PREFERENCE_KEY) {
+                return "false";
+            }
+            if (key === GUEST_USED_PREFERENCE_KEY) {
+                return "true";
+            }
+            if (key === THEME_MODE_PREFERENCE_KEY) {
+                return null;
+            }
+            if (key === FONT_SCALE_PREFERENCE_KEY) {
+                return null;
+            }
+            return null;
+        });
+
+        const { result } = renderHook(() => useAppScreen());
+        await waitForHookReady(result);
+
+        expect(result.current.isOnboardingVisible).toBe(false);
+        expect(mockSetPreferenceValue).toHaveBeenCalledWith(ONBOARDING_PREFERENCE_KEY, "true");
+    });
+
+    it("refreshes the active user's favorites and search history after backup import", async () => {
+        mockGetActiveSession.mockResolvedValue({ isGuest: false, user: loggedInUser });
+        mockFindUserByUsername.mockResolvedValue(loggedInUser as any);
+        mockGetFavoritesByUser
+            .mockResolvedValueOnce([createFavorite("banana", "2026-03-22T00:00:00.000Z")])
+            .mockResolvedValueOnce([createFavorite("apple", "2026-03-22T02:00:00.000Z")]);
+        mockGetSearchHistoryEntries
+            .mockResolvedValueOnce([{ term: "banana", mode: "en-en", searchedAt: "2026-03-22T00:00:00.000Z" }])
+            .mockResolvedValueOnce([{ term: "apple", mode: "en-en", searchedAt: "2026-03-22T02:00:00.000Z" }]);
+        mockGetPreferenceValue.mockImplementation(async (key: string) => {
+            if (key === GUEST_FAVORITES_PREFERENCE_KEY) {
+                return "[]";
+            }
+            if (key === ONBOARDING_PREFERENCE_KEY) {
+                return "true";
+            }
+            if (key === GUEST_USED_PREFERENCE_KEY) {
+                return "false";
+            }
+            if (key === THEME_MODE_PREFERENCE_KEY) {
+                return null;
+            }
+            if (key === FONT_SCALE_PREFERENCE_KEY) {
+                return null;
+            }
+            return null;
+        });
+        mockImportBackupFromDocument.mockResolvedValue({
+            ok: true,
+            code: "OK",
+            restored: { users: 1, favorites: 1, searchHistory: 1 },
+        });
+
+        const { result } = renderHook(() => useAppScreen());
+        await waitForHookReady(result);
+
+        await act(async () => {
+            await result.current.navigatorProps.onImportBackup("secret");
+        });
+
+        await waitFor(() => {
+            expect(result.current.navigatorProps.favorites).toEqual([
+                expect.objectContaining({ word: expect.objectContaining({ word: "apple" }) }),
+            ]);
+        });
+        expect(result.current.navigatorProps.recentSearches).toEqual([expect.objectContaining({ term: "apple" })]);
+        expect(mockFindUserByUsername).toHaveBeenCalledWith("tester@example.com");
+        expect(mockGetFavoritesByUser).toHaveBeenCalledTimes(2);
+        expect(mockGetSearchHistoryEntries).toHaveBeenCalledTimes(2);
+        expect(mockImportBackupFromDocument).toHaveBeenCalledWith("secret");
     });
 });

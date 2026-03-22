@@ -108,4 +108,72 @@ describe("database persistence", () => {
             reloadedDatabase.consumeEmailVerificationCode("tester@example.com", verification.code),
         ).resolves.toBe("verified");
     });
+
+    it("cleans up account-owned state on deletion without removing app-level search history", async () => {
+        const database = loadDatabaseModule();
+        await database.initializeDatabase();
+
+        const createdUser = await database.createUser("tester@example.com", "Passw0rd!123", "Tester");
+        const currentUser = await database.findUserByUsername("tester@example.com");
+        await database.setUserSession(createdUser.id);
+        await database.saveAutoLoginCredentials(createdUser.username, currentUser?.passwordHash ?? "");
+        await database.upsertFavoriteForUser(createdUser.id, {
+            word: {
+                word: "orange",
+                phonetic: "/ˈɒr.ɪndʒ/",
+                meanings: [{ partOfSpeech: "noun", definitions: [{ definition: "A fruit." }] }],
+            },
+            status: "review",
+            updatedAt: "2026-03-22T00:00:00.000Z",
+        });
+        await database.saveSearchHistoryEntries([
+            {
+                term: "orange",
+                mode: "en-en",
+                searchedAt: "2026-03-22T00:00:00.000Z",
+            },
+        ]);
+        await database.setPreferenceValue("settings.theme.mode", "dark");
+        await database.sendEmailVerificationCode("tester@example.com");
+
+        await database.deleteUserAccount(createdUser.id, createdUser.username);
+
+        expect(await database.getActiveSession()).toBeNull();
+        expect(await database.getAutoLoginCredentials()).toBeNull();
+        expect(await database.getFavoritesByUser(createdUser.id)).toEqual([]);
+        expect(await database.getPreferenceValue("settings.theme.mode")).toBeNull();
+        expect(await database.getSearchHistoryEntries()).toEqual([
+            {
+                term: "orange",
+                mode: "en-en",
+                searchedAt: "2026-03-22T00:00:00.000Z",
+            },
+        ]);
+    });
+
+    it("clears search history without wiping unrelated preferences", async () => {
+        const database = loadDatabaseModule();
+        await database.initializeDatabase();
+
+        await database.saveSearchHistoryEntries([
+            {
+                term: "apple",
+                mode: "en-en",
+                searchedAt: "2026-03-22T00:00:00.000Z",
+            },
+        ]);
+        await database.setPreferenceValue("settings.theme.mode", "dark");
+        await database.clearSearchHistoryEntries();
+
+        expect(await database.getSearchHistoryEntries()).toEqual([]);
+        expect(await database.getPreferenceValue("settings.theme.mode")).toBe("dark");
+
+        jest.resetModules();
+
+        const reloadedDatabase = loadDatabaseModule();
+        await reloadedDatabase.initializeDatabase();
+
+        expect(await reloadedDatabase.getSearchHistoryEntries()).toEqual([]);
+        expect(await reloadedDatabase.getPreferenceValue("settings.theme.mode")).toBe("dark");
+    });
 });
