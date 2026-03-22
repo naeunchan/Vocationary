@@ -3,10 +3,17 @@ import { AppError, createAppError, isAppError } from "@/errors/AppError";
 export const AI_TRANSIENT_ERROR_MESSAGE = "AI 연결이 원활하지 않아요. 잠시 후 다시 시도해주세요.";
 export const AI_UNAVAILABLE_ERROR_MESSAGE = "AI 기능이 아직 준비되지 않았어요. 사전 검색은 계속 이용할 수 있어요.";
 
-type AIProxyScope = "examples" | "tts";
+type AIProxyScope = "examples" | "tts" | "study";
 
 function codePrefix(scope: AIProxyScope) {
-    return scope === "examples" ? "AI_EXAMPLES" : "AI_TTS";
+    switch (scope) {
+        case "examples":
+            return "AI_EXAMPLES";
+        case "tts":
+            return "AI_TTS";
+        case "study":
+            return "AI_STUDY";
+    }
 }
 
 export function createAIUnavailableError(scope: AIProxyScope): AppError {

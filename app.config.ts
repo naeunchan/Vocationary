@@ -26,11 +26,31 @@ module.exports = () => {
         featureAccountAuth: !isProduction,
         featureGuestAccountCta: !isProduction,
         featureBackupRestore: false,
+        featureReviewLoop: false,
+        featureReviewHomeDashboard: false,
+        featureReviewSessionUi: false,
+        featureDailyGoal: false,
+        featureReviewReminder: false,
+        featureCollections: false,
+        featureFavoritesBatchActions: false,
+        featureAiStudyMode: false,
+        featureAiStudyEntryPoints: false,
+        featureAiStudySessionUi: false,
     };
 
     const accountAuthFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_ACCOUNT_AUTH);
     const guestCtaFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_GUEST_ACCOUNT_CTA);
     const backupRestoreFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_BACKUP_RESTORE);
+    const reviewLoopFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_REVIEW_LOOP);
+    const reviewHomeDashboardFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_REVIEW_HOME_DASHBOARD);
+    const reviewSessionUiFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_REVIEW_SESSION_UI);
+    const dailyGoalFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_DAILY_GOAL);
+    const reviewReminderFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_REVIEW_REMINDER);
+    const collectionsFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_COLLECTIONS);
+    const favoritesBatchActionsFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_FAVORITES_BATCH_ACTIONS);
+    const aiStudyModeFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_MODE);
+    const aiStudyEntryPointsFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_ENTRY_POINTS);
+    const aiStudySessionUiFromEnv = parseBoolean(process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_SESSION_UI);
     const openAIProxyUrlFromEnv = parseString(process.env.EXPO_PUBLIC_OPENAI_PROXY_URL);
     const openAIProxyKeyFromEnv = parseString(process.env.EXPO_PUBLIC_OPENAI_PROXY_KEY);
     const aiHealthUrlFromEnv = parseString(process.env.EXPO_PUBLIC_AI_HEALTH_URL);
@@ -43,6 +63,16 @@ module.exports = () => {
             featureAccountAuth: accountAuthFromEnv ?? profileDefaults.featureAccountAuth,
             featureGuestAccountCta: guestCtaFromEnv ?? profileDefaults.featureGuestAccountCta,
             featureBackupRestore: backupRestoreFromEnv ?? profileDefaults.featureBackupRestore,
+            featureReviewLoop: reviewLoopFromEnv ?? profileDefaults.featureReviewLoop,
+            featureReviewHomeDashboard: reviewHomeDashboardFromEnv ?? profileDefaults.featureReviewHomeDashboard,
+            featureReviewSessionUi: reviewSessionUiFromEnv ?? profileDefaults.featureReviewSessionUi,
+            featureDailyGoal: dailyGoalFromEnv ?? profileDefaults.featureDailyGoal,
+            featureReviewReminder: reviewReminderFromEnv ?? profileDefaults.featureReviewReminder,
+            featureCollections: collectionsFromEnv ?? profileDefaults.featureCollections,
+            featureFavoritesBatchActions: favoritesBatchActionsFromEnv ?? profileDefaults.featureFavoritesBatchActions,
+            featureAiStudyMode: aiStudyModeFromEnv ?? profileDefaults.featureAiStudyMode,
+            featureAiStudyEntryPoints: aiStudyEntryPointsFromEnv ?? profileDefaults.featureAiStudyEntryPoints,
+            featureAiStudySessionUi: aiStudySessionUiFromEnv ?? profileDefaults.featureAiStudySessionUi,
             openAIProxyUrl: openAIProxyUrlFromEnv,
             openAIProxyKey: openAIProxyKeyFromEnv,
             aiHealthUrl: aiHealthUrlFromEnv,

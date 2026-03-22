@@ -6,6 +6,9 @@ const originalEnv = {
     reviewReminder: process.env.EXPO_PUBLIC_FEATURE_REVIEW_REMINDER,
     collections: process.env.EXPO_PUBLIC_FEATURE_COLLECTIONS,
     favoritesBatchActions: process.env.EXPO_PUBLIC_FEATURE_FAVORITES_BATCH_ACTIONS,
+    aiStudyMode: process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_MODE,
+    aiStudyEntryPoints: process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_ENTRY_POINTS,
+    aiStudySessionUi: process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_SESSION_UI,
 };
 
 function restoreEnv() {
@@ -16,6 +19,9 @@ function restoreEnv() {
     process.env.EXPO_PUBLIC_FEATURE_REVIEW_REMINDER = originalEnv.reviewReminder;
     process.env.EXPO_PUBLIC_FEATURE_COLLECTIONS = originalEnv.collections;
     process.env.EXPO_PUBLIC_FEATURE_FAVORITES_BATCH_ACTIONS = originalEnv.favoritesBatchActions;
+    process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_MODE = originalEnv.aiStudyMode;
+    process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_ENTRY_POINTS = originalEnv.aiStudyEntryPoints;
+    process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_SESSION_UI = originalEnv.aiStudySessionUi;
 }
 
 function loadFeatureFlags(extra: Record<string, unknown> = {}) {
@@ -54,6 +60,9 @@ describe("review feature flags", () => {
             reviewReminder: false,
             collections: false,
             favoritesBatchActions: false,
+            aiStudyMode: false,
+            aiStudyEntryPoints: false,
+            aiStudySessionUi: false,
         });
     });
 
@@ -65,6 +74,9 @@ describe("review feature flags", () => {
         process.env.EXPO_PUBLIC_FEATURE_REVIEW_REMINDER = "off";
         process.env.EXPO_PUBLIC_FEATURE_COLLECTIONS = "true";
         process.env.EXPO_PUBLIC_FEATURE_FAVORITES_BATCH_ACTIONS = "on";
+        process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_MODE = "true";
+        process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_ENTRY_POINTS = "on";
+        process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_SESSION_UI = "false";
 
         const { FEATURE_FLAGS } = loadFeatureFlags({
             featureReviewLoop: false,
@@ -74,6 +86,9 @@ describe("review feature flags", () => {
             featureReviewReminder: true,
             featureCollections: false,
             featureFavoritesBatchActions: false,
+            featureAiStudyMode: false,
+            featureAiStudyEntryPoints: false,
+            featureAiStudySessionUi: true,
         });
 
         expect(FEATURE_FLAGS).toMatchObject({
@@ -84,6 +99,9 @@ describe("review feature flags", () => {
             reviewReminder: false,
             collections: true,
             favoritesBatchActions: true,
+            aiStudyMode: true,
+            aiStudyEntryPoints: true,
+            aiStudySessionUi: false,
         });
     });
 });

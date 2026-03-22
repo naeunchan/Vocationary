@@ -11,6 +11,9 @@ type AppExtra = {
     featureReviewReminder?: unknown;
     featureCollections?: unknown;
     featureFavoritesBatchActions?: unknown;
+    featureAiStudyMode?: unknown;
+    featureAiStudyEntryPoints?: unknown;
+    featureAiStudySessionUi?: unknown;
 };
 
 type FeatureFlags = {
@@ -24,6 +27,9 @@ type FeatureFlags = {
     reviewReminder: boolean;
     collections: boolean;
     favoritesBatchActions: boolean;
+    aiStudyMode: boolean;
+    aiStudyEntryPoints: boolean;
+    aiStudySessionUi: boolean;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as AppExtra;
@@ -93,6 +99,20 @@ export const FEATURE_FLAGS: FeatureFlags = {
     favoritesBatchActions: resolveFlag(
         process.env.EXPO_PUBLIC_FEATURE_FAVORITES_BATCH_ACTIONS,
         extra.featureFavoritesBatchActions,
+        false,
+    ),
+    // Hidden by default until AI study generation is stable behind the proxy.
+    aiStudyMode: resolveFlag(process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_MODE, extra.featureAiStudyMode, false),
+    // Hidden by default until Search/Favorites entry points are wired to the study flow.
+    aiStudyEntryPoints: resolveFlag(
+        process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_ENTRY_POINTS,
+        extra.featureAiStudyEntryPoints,
+        false,
+    ),
+    // Hidden by default until the dedicated study session UI is implemented.
+    aiStudySessionUi: resolveFlag(
+        process.env.EXPO_PUBLIC_FEATURE_AI_STUDY_SESSION_UI,
+        extra.featureAiStudySessionUi,
         false,
     ),
 };

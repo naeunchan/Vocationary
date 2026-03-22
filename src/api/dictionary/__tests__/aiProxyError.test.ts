@@ -44,4 +44,13 @@ describe("aiProxyError helpers", () => {
         expect(appError.retryable).toBe(false);
         expect(appError.code).toBe("AI_TTS_UNAVAILABLE");
     });
+
+    it("supports study scope codes", () => {
+        const appError = createAIHttpError(429, "study");
+
+        expect(appError.kind).toBe("ServerError");
+        expect(appError.message).toBe(AI_TRANSIENT_ERROR_MESSAGE);
+        expect(appError.retryable).toBe(true);
+        expect(appError.code).toBe("AI_STUDY_HTTP_429");
+    });
 });
