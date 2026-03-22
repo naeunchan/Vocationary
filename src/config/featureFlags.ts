@@ -7,6 +7,8 @@ type AppExtra = {
     featureReviewLoop?: unknown;
     featureReviewHomeDashboard?: unknown;
     featureReviewSessionUi?: unknown;
+    featureDailyGoal?: unknown;
+    featureReviewReminder?: unknown;
 };
 
 type FeatureFlags = {
@@ -16,6 +18,8 @@ type FeatureFlags = {
     reviewLoop: boolean;
     reviewHomeDashboard: boolean;
     reviewSessionUi: boolean;
+    dailyGoal: boolean;
+    reviewReminder: boolean;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as AppExtra;
@@ -75,4 +79,8 @@ export const FEATURE_FLAGS: FeatureFlags = {
         extra.featureReviewSessionUi,
         false,
     ),
+    // Hidden by default until goal tracking is wired into review progress.
+    dailyGoal: resolveFlag(process.env.EXPO_PUBLIC_FEATURE_DAILY_GOAL, extra.featureDailyGoal, false),
+    // Hidden by default until reminder UX and scheduling policy are finalized.
+    reviewReminder: resolveFlag(process.env.EXPO_PUBLIC_FEATURE_REVIEW_REMINDER, extra.featureReviewReminder, false),
 };
