@@ -52,5 +52,4 @@ scripts/automation/issues/*
 audit/
 .vscode
 .codex
-
-AGENTS.md
+.agents

@@ -11,7 +11,7 @@ const compat = new FlatCompat({
 
 export default [
     {
-        ignores: ["node_modules", "dist", "eslint.config.mjs"],
+        ignores: ["node_modules", ".expo", "dist", "dist-web", "coverage", "eslint.config.mjs"],
     },
     ...compat.extends(
         "universe/native",

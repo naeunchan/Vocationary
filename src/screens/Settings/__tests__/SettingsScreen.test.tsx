@@ -2,6 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import React from "react";
 import { Alert, Linking } from "react-native";
 
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { SettingsScreen } from "@/screens/Settings/SettingsScreen";
 
 const mockUseAIStatus = jest.fn();
@@ -55,6 +56,7 @@ describe("SettingsScreen", () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        FEATURE_FLAGS.accountAuth = true;
         mockUseAIStatus.mockReturnValue({ status: "unavailable", lastCheckedAt: null, refresh: jest.fn() });
     });
 
@@ -125,6 +127,15 @@ describe("SettingsScreen", () => {
 
         fireEvent.press(getByText("계정 복구 안내"));
         expect(baseProps.onNavigateRecoveryGuide).toHaveBeenCalled();
+    });
+
+    it("hides guest account section when account auth is disabled", () => {
+        FEATURE_FLAGS.accountAuth = false;
+        const { queryByText, getByText } = render(<SettingsScreen {...baseProps} isGuest />);
+
+        expect(queryByText("회원가입 후 계속하기")).toBeNull();
+        expect(queryByText("기존 계정으로 로그인")).toBeNull();
+        expect(getByText("지원 안내")).toBeTruthy();
     });
 
     it("shows unavailable label when AI proxy is not configured", () => {

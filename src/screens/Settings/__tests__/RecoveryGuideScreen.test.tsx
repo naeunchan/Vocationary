@@ -7,6 +7,7 @@ import { RecoveryGuideScreen } from "@/screens/Settings/RecoveryGuideScreen";
 
 jest.mock("@/config/featureFlags", () => ({
     FEATURE_FLAGS: {
+        accountAuth: true,
         guestAccountCta: false,
         backupRestore: false,
     },
@@ -15,6 +16,7 @@ jest.mock("@/config/featureFlags", () => ({
 describe("RecoveryGuideScreen", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        FEATURE_FLAGS.accountAuth = true;
         FEATURE_FLAGS.backupRestore = false;
     });
 
@@ -70,5 +72,20 @@ describe("RecoveryGuideScreen", () => {
 
         expect(getByText(/설정 > 백업 및 복원 > 백업에서 복원하기/)).toBeTruthy();
         expect(getByText("5. 문제가 계속되면 고객센터로 문의하기")).toBeTruthy();
+    });
+
+    it("hides auth shortcut actions when account auth is disabled", () => {
+        FEATURE_FLAGS.accountAuth = false;
+        const { queryByText, getByText } = render(
+            <RecoveryGuideScreen
+                onRequestSignUp={jest.fn()}
+                onContinueAsGuest={jest.fn()}
+                onRequestPasswordReset={jest.fn()}
+            />,
+        );
+
+        expect(queryByText("비밀번호 재설정")).toBeNull();
+        expect(queryByText("새 계정 만들기")).toBeNull();
+        expect(getByText(/게스트 모드 중심으로 제공되며 계정 기능은 제한적으로 운영됩니다/)).toBeTruthy();
     });
 });
