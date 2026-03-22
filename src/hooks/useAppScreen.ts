@@ -3,15 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import { normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
-import { generateDefinitionExamples } from "@/api/dictionary/exampleGenerator";
 import { fetchDictionaryEntry } from "@/api/dictionary/freeDictionaryClient";
-import { getPronunciationAudio, prefetchPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
-import { getWordData } from "@/api/dictionary/getWordData";
-import { fetchWordSuggestions } from "@/api/dictionary/wordSuggestionClient";
+import { getPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
 import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
 import type { AppError } from "@/errors/AppError";
-import { createAppError, normalizeError, shouldRetry } from "@/errors/AppError";
+import { shouldRetry } from "@/errors/AppError";
 import { useAppearanceFlow } from "@/hooks/app/useAppearanceFlow";
+import { useSearchFlow } from "@/hooks/app/useSearchFlow";
 import { captureAppError, setUserContext } from "@/logging/logger";
 import type { RootTabNavigatorProps } from "@/navigation/RootTabNavigator.types";
 import {
@@ -25,9 +23,7 @@ import {
     DISPLAY_NAME_AVAILABLE_MESSAGE,
     DISPLAY_NAME_DUPLICATE_ERROR_MESSAGE,
     DISPLAY_NAME_REQUIRED_ERROR_MESSAGE,
-    EMPTY_SEARCH_ERROR_MESSAGE,
     FAVORITE_LIMIT_MESSAGE,
-    GENERIC_ERROR_MESSAGE,
     GUEST_ACCESS_ERROR_MESSAGE,
     LOGIN_FAILED_ERROR_MESSAGE,
     LOGIN_GENERIC_ERROR_MESSAGE,
@@ -62,13 +58,11 @@ import {
     getActiveSession,
     getFavoritesByUser,
     getPreferenceValue,
-    getSearchHistoryEntries,
     initializeDatabase,
     isDisplayNameTaken,
     removeFavoriteForUser,
     resetPasswordWithEmailCode,
     saveAutoLoginCredentials,
-    saveSearchHistoryEntries,
     sendEmailVerificationCode,
     setGuestSession,
     setPreferenceValue,
@@ -80,11 +74,10 @@ import {
     verifyPasswordHash,
 } from "@/services/database";
 import { WordResult } from "@/services/dictionary/types";
-import { applyExampleUpdates, clearPendingFlags } from "@/services/dictionary/utils/mergeExampleUpdates";
+import { clearPendingFlags } from "@/services/dictionary/utils/mergeExampleUpdates";
 import { createFavoriteEntry, FavoriteWordEntry, MemorizationStatus } from "@/services/favorites/types";
-import { SEARCH_HISTORY_LIMIT, SearchHistoryEntry } from "@/services/searchHistory/types";
 import { GUEST_FAVORITES_PREFERENCE_KEY, GUEST_USED_PREFERENCE_KEY } from "@/theme/constants";
-import { playRemoteAudio, prefetchRemoteAudio } from "@/utils/audio";
+import { playRemoteAudio } from "@/utils/audio";
 import {
     getEmailValidationError,
     getGooglePasswordValidationError,
@@ -93,76 +86,8 @@ import {
     normalizePhoneNumber,
 } from "@/utils/authValidation";
 
-const AUTOCOMPLETE_LIMIT = 6;
-const AUTOCOMPLETE_MIN_QUERY_LENGTH = 2;
-const AUTOCOMPLETE_DEBOUNCE_MS = 180;
-
-function getLevenshteinDistance(source: string, target: string) {
-    const rows = source.length + 1;
-    const cols = target.length + 1;
-    const distances = Array.from({ length: rows }, () => Array<number>(cols).fill(0));
-
-    for (let row = 0; row < rows; row += 1) {
-        distances[row][0] = row;
-    }
-    for (let col = 0; col < cols; col += 1) {
-        distances[0][col] = col;
-    }
-
-    for (let row = 1; row < rows; row += 1) {
-        for (let col = 1; col < cols; col += 1) {
-            const substitutionCost = source[row - 1] === target[col - 1] ? 0 : 1;
-            distances[row][col] = Math.min(
-                distances[row - 1][col] + 1,
-                distances[row][col - 1] + 1,
-                distances[row - 1][col - 1] + substitutionCost,
-            );
-        }
-    }
-
-    return distances[source.length][target.length];
-}
-
-function compareAutocompleteCandidates(query: string, left: string, right: string) {
-    const normalizedQuery = query.trim().toLowerCase();
-    const normalizedLeft = left.trim().toLowerCase();
-    const normalizedRight = right.trim().toLowerCase();
-
-    const leftStartsWithQuery = normalizedLeft.startsWith(normalizedQuery);
-    const rightStartsWithQuery = normalizedRight.startsWith(normalizedQuery);
-
-    if (leftStartsWithQuery !== rightStartsWithQuery) {
-        return leftStartsWithQuery ? -1 : 1;
-    }
-
-    const leftDistance = getLevenshteinDistance(normalizedQuery, normalizedLeft);
-    const rightDistance = getLevenshteinDistance(normalizedQuery, normalizedRight);
-
-    if (leftDistance !== rightDistance) {
-        return leftDistance - rightDistance;
-    }
-
-    if (normalizedLeft.length !== normalizedRight.length) {
-        return normalizedLeft.length - normalizedRight.length;
-    }
-
-    return normalizedLeft.localeCompare(normalizedRight);
-}
-
 export function useAppScreen(): AppScreenHookResult {
-    const [searchTerm, setSearchTerm] = useState("");
-    const [hasSearched, setHasSearched] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<AppError | null>(null);
-    const [aiAssistError, setAiAssistError] = useState<AppError | null>(null);
-    const [result, setResult] = useState<WordResult | null>(null);
-    const [examplesVisible, setExamplesVisible] = useState(false);
     const [favorites, setFavorites] = useState<FavoriteWordEntry[]>([]);
-    const [recentSearches, setRecentSearches] = useState<SearchHistoryEntry[]>([]);
-    const [autocompleteRemoteQuery, setAutocompleteRemoteQuery] = useState("");
-    const [autocompleteRemoteSuggestions, setAutocompleteRemoteSuggestions] = useState<string[]>([]);
-    const [autocompleteLoading, setAutocompleteLoading] = useState(false);
-    const [autocompleteEnabled, setAutocompleteEnabled] = useState(true);
     const [user, setUser] = useState<UserRecord | null>(null);
     const [initializing, setInitializing] = useState(true);
     const [isGuest, setIsGuest] = useState(false);
@@ -185,20 +110,37 @@ export function useAppScreen(): AppScreenHookResult {
         onCompleteOnboarding: handleCompleteOnboarding,
         syncOnboardingVisibilityAfterAuthentication,
     } = useAppearanceFlow();
-    const activeLookupRef = useRef(0);
-    const autocompleteRemoteQueryRef = useRef("");
-    const autocompleteRemoteSuggestionsRef = useRef<string[]>([]);
-    const autocompleteLoadingRef = useRef(false);
     const hasShownPronunciationInfoRef = useRef(false);
     const loadUserStateRef = useRef<(userRecord: UserRecord) => Promise<void>>(async () => {});
     const isPronunciationAvailable = OPENAI_FEATURE_ENABLED;
-
-    const setErrorMessage = useCallback(
-        (message: string, kind: AppError["kind"] = "UnknownError", extras?: Partial<AppError>) => {
-            setError(createAppError(kind, message, extras));
-        },
-        [],
-    );
+    const {
+        searchTerm,
+        hasSearched,
+        loading,
+        error,
+        aiAssistError,
+        result,
+        examplesVisible,
+        recentSearches,
+        autocompleteSuggestions,
+        autocompleteLoading,
+        setErrorMessage,
+        clearError,
+        resetSearchState,
+        reloadRecentSearches,
+        onChangeSearchTerm: handleSearchTermChange,
+        onSubmitSearch: handleSearch,
+        onSelectRecentSearch: handleSelectRecentSearch,
+        onSelectAutocomplete: handleSelectAutocomplete,
+        onToggleExamples: handleToggleExamples,
+        onClearRecentSearches: handleClearRecentSearches,
+        onRetrySearch: retrySearch,
+        onRetryAiAssist: retryExamples,
+        onRegenerateExamples: regenerateExamples,
+    } = useSearchFlow({
+        favorites,
+        pronunciationAvailable: isPronunciationAvailable,
+    });
 
     const resolveAuthMessage = useCallback((error: unknown, fallbackMessage: string): string => {
         return error instanceof Error ? error.message : fallbackMessage;
@@ -246,15 +188,6 @@ export function useAppScreen(): AppScreenHookResult {
         });
     }, []);
 
-    const persistSearchHistory = useCallback(
-        (entries: SearchHistoryEntry[]) => {
-            void saveSearchHistoryEntries(entries).catch((error) => {
-                console.warn("검색 이력을 저장하는 중 문제가 발생했어요.", error);
-            });
-        },
-        [saveSearchHistoryEntries],
-    );
-
     const persistGuestFavorites = useCallback(
         (entries: FavoriteWordEntry[]) => {
             void setPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY, JSON.stringify(entries)).catch((error) => {
@@ -262,72 +195,6 @@ export function useAppScreen(): AppScreenHookResult {
             });
         },
         [setPreferenceValue],
-    );
-
-    useEffect(() => {
-        autocompleteRemoteQueryRef.current = autocompleteRemoteQuery;
-        autocompleteRemoteSuggestionsRef.current = autocompleteRemoteSuggestions;
-        autocompleteLoadingRef.current = autocompleteLoading;
-    }, [autocompleteLoading, autocompleteRemoteQuery, autocompleteRemoteSuggestions]);
-
-    const clearAutocomplete = useCallback(() => {
-        if (autocompleteRemoteQueryRef.current) {
-            autocompleteRemoteQueryRef.current = "";
-            setAutocompleteRemoteQuery("");
-        }
-        if (autocompleteRemoteSuggestionsRef.current.length > 0) {
-            autocompleteRemoteSuggestionsRef.current = [];
-            setAutocompleteRemoteSuggestions([]);
-        }
-        if (autocompleteLoadingRef.current) {
-            autocompleteLoadingRef.current = false;
-            setAutocompleteLoading(false);
-        }
-    }, []);
-
-    const collectAutocompleteSuggestions = useCallback(
-        (query: string, remoteSuggestions: string[] = []) => {
-            const normalizedQuery = query.trim().toLowerCase();
-            if (!normalizedQuery) {
-                return [];
-            }
-
-            const merged: string[] = [];
-            const seen = new Set<string>();
-            const addSuggestion = (candidate: string) => {
-                const trimmed = candidate.trim();
-                if (!trimmed) {
-                    return;
-                }
-
-                const normalizedCandidate = trimmed.toLowerCase();
-                if (
-                    normalizedCandidate === normalizedQuery ||
-                    !normalizedCandidate.startsWith(normalizedQuery) ||
-                    seen.has(normalizedCandidate)
-                ) {
-                    return;
-                }
-
-                seen.add(normalizedCandidate);
-                merged.push(trimmed);
-            };
-
-            recentSearches.forEach((entry) => {
-                addSuggestion(entry.term);
-            });
-            favorites.forEach((entry) => {
-                addSuggestion(entry.word.word);
-            });
-            remoteSuggestions.forEach((entry) => {
-                addSuggestion(entry);
-            });
-
-            return merged
-                .sort((left, right) => compareAutocompleteCandidates(normalizedQuery, left, right))
-                .slice(0, AUTOCOMPLETE_LIMIT);
-        },
-        [favorites, recentSearches],
     );
 
     const ensurePhoneticForWord = useCallback(async (word: WordResult) => {
@@ -402,11 +269,7 @@ export function useAppScreen(): AppScreenHookResult {
                 setIsGuest(true);
                 setUser(null);
                 setFavorites(guestFavorites);
-                setSearchTerm("");
-                setResult(null);
-                setExamplesVisible(false);
-                setError(null);
-                setAiAssistError(null);
+                resetSearchState();
                 setAuthError(null);
                 setSignUpError(null);
                 return;
@@ -423,11 +286,7 @@ export function useAppScreen(): AppScreenHookResult {
             setIsGuest(false);
             setUser(null);
             setFavorites([]);
-            setSearchTerm("");
-            setResult(null);
-            setExamplesVisible(false);
-            setError(null);
-            setAiAssistError(null);
+            resetSearchState();
             setAuthError(null);
             setSignUpError(null);
         };
@@ -469,26 +328,9 @@ export function useAppScreen(): AppScreenHookResult {
         hydrateFavorites,
         initializeDatabase,
         parseGuestFavorites,
+        resetSearchState,
         setErrorMessage,
     ]);
-
-    useEffect(() => {
-        let isMounted = true;
-
-        getSearchHistoryEntries()
-            .then((history) => {
-                if (isMounted) {
-                    setRecentSearches(history);
-                }
-            })
-            .catch((error) => {
-                console.warn("검색 이력을 불러오는 중 문제가 발생했어요.", error);
-            });
-
-        return () => {
-            isMounted = false;
-        };
-    }, []);
 
     useEffect(() => {
         if (!isGuest) {
@@ -497,353 +339,12 @@ export function useAppScreen(): AppScreenHookResult {
         persistGuestFavorites(favorites);
     }, [favorites, isGuest, persistGuestFavorites]);
 
-    const updateSearchHistory = useCallback(
-        (term: string) => {
-            const normalizedTerm = term.trim();
-            if (!normalizedTerm) {
-                return;
-            }
-
-            setRecentSearches((previous) => {
-                const lowerTerm = normalizedTerm.toLowerCase();
-                const filtered = previous.filter((entry) => entry.term.toLowerCase() !== lowerTerm);
-                const entry: SearchHistoryEntry = {
-                    term: normalizedTerm,
-                    mode: "en-en",
-                    searchedAt: new Date().toISOString(),
-                };
-                const next = [entry, ...filtered].slice(0, SEARCH_HISTORY_LIMIT);
-                persistSearchHistory(next);
-                return next;
-            });
-        },
-        [persistSearchHistory],
-    );
-
-    const handleClearRecentSearches = useCallback(() => {
-        setRecentSearches([]);
-        void clearSearchHistoryEntries().catch((error) => {
-            console.warn("검색 이력을 삭제하는 중 문제가 발생했어요.", error);
-        });
-    }, [clearSearchHistoryEntries]);
-
-    const toPendingExampleState = useCallback((base: WordResult, includeExistingExamples: boolean): WordResult => {
-        return {
-            ...base,
-            meanings: base.meanings.map((meaning) => ({
-                ...meaning,
-                definitions: meaning.definitions.map((definition) => {
-                    if (!includeExistingExamples && definition.example) {
-                        return definition;
-                    }
-                    return {
-                        ...definition,
-                        pendingExample: true,
-                    };
-                }),
-            })),
-        };
-    }, []);
-
     const reportAiAssistError = useCallback((error: unknown, scope: "examples" | "tts"): AppError => {
         const appError = normalizeAIProxyError(error, scope);
         if (appError.kind !== "ValidationError") {
             captureAppError(appError, { scope: `ai.${scope}` });
         }
         return appError;
-    }, []);
-
-    const warmUpPronunciationAsync = useCallback(
-        async (word: string, lookupId: number) => {
-            if (!isPronunciationAvailable) {
-                return;
-            }
-
-            try {
-                const uri = await prefetchPronunciationAudio(word);
-                if (lookupId !== activeLookupRef.current) {
-                    return;
-                }
-                await prefetchRemoteAudio(uri);
-            } catch (error) {
-                console.warn("발음 오디오를 미리 준비하는 중 문제가 발생했어요.", error);
-            }
-        },
-        [isPronunciationAvailable],
-    );
-
-    const executeSearch = useCallback(
-        async (term: string) => {
-            const normalizedTerm = term.trim();
-            setAutocompleteEnabled(false);
-            clearAutocomplete();
-            setHasSearched(true);
-            if (!normalizedTerm) {
-                activeLookupRef.current += 1;
-                setErrorMessage(EMPTY_SEARCH_ERROR_MESSAGE, "ValidationError", { retryable: false });
-                setAiAssistError(null);
-                setResult(null);
-                setExamplesVisible(false);
-                setLoading(false);
-                return;
-            }
-
-            const lookupId = activeLookupRef.current + 1;
-            activeLookupRef.current = lookupId;
-
-            setError(null);
-            setAiAssistError(null);
-            setLoading(true);
-            setExamplesVisible(false);
-
-            try {
-                const { base, examplesPromise } = await getWordData(normalizedTerm);
-                if (lookupId !== activeLookupRef.current) {
-                    return;
-                }
-
-                updateSearchHistory(normalizedTerm);
-                setResult(base);
-                setLoading(false);
-                void warmUpPronunciationAsync(base.word, lookupId);
-
-                void examplesPromise
-                    .then((updates) => {
-                        if (lookupId !== activeLookupRef.current) {
-                            return;
-                        }
-                        setAiAssistError(null);
-                        setResult((previous) => {
-                            if (!previous) {
-                                return previous;
-                            }
-                            if (updates.length === 0) {
-                                return clearPendingFlags(previous);
-                            }
-                            return applyExampleUpdates(previous, updates);
-                        });
-                    })
-                    .catch((err) => {
-                        if (lookupId !== activeLookupRef.current) {
-                            return;
-                        }
-                        const appError = reportAiAssistError(err, "examples");
-                        setAiAssistError(appError);
-                        setResult((previous) => (previous ? clearPendingFlags(previous) : previous));
-                    });
-            } catch (err) {
-                if (lookupId !== activeLookupRef.current) {
-                    return;
-                }
-                setResult(null);
-                setExamplesVisible(false);
-                setAiAssistError(null);
-                setLoading(false);
-                const appError = normalizeError(err, GENERIC_ERROR_MESSAGE);
-                setError(appError);
-                if (appError.kind !== "ValidationError") {
-                    captureAppError(appError, { scope: "search.execute" });
-                }
-            }
-        },
-        [clearAutocomplete, reportAiAssistError, setErrorMessage, updateSearchHistory, warmUpPronunciationAsync],
-    );
-
-    const handleSearchTermChange = useCallback(
-        (text: string) => {
-            setAutocompleteEnabled(true);
-            setSearchTerm(text);
-
-            const trimmed = text.trim();
-            if (!trimmed) {
-                activeLookupRef.current += 1;
-                clearAutocomplete();
-                setHasSearched(false);
-                setError(null);
-                setAiAssistError(null);
-                setLoading(false);
-                setExamplesVisible(false);
-                return;
-            }
-            // Cancel any in-flight result updates; user must submit explicitly.
-            activeLookupRef.current += 1;
-            setAiAssistError(null);
-            setLoading(false);
-        },
-        [clearAutocomplete],
-    );
-
-    const normalizedAutocompleteTerm = useMemo(() => searchTerm.trim().toLowerCase(), [searchTerm]);
-
-    const autocompleteLocalSuggestions = useMemo(() => {
-        if (!autocompleteEnabled || !normalizedAutocompleteTerm) {
-            return [];
-        }
-
-        return collectAutocompleteSuggestions(normalizedAutocompleteTerm);
-    }, [autocompleteEnabled, collectAutocompleteSuggestions, normalizedAutocompleteTerm]);
-
-    const autocompleteSuggestions = useMemo(() => {
-        if (!autocompleteEnabled || !normalizedAutocompleteTerm) {
-            return [];
-        }
-
-        const remoteSuggestions =
-            autocompleteRemoteQuery === normalizedAutocompleteTerm ? autocompleteRemoteSuggestions : [];
-
-        return collectAutocompleteSuggestions(normalizedAutocompleteTerm, remoteSuggestions);
-    }, [
-        autocompleteEnabled,
-        autocompleteRemoteQuery,
-        autocompleteRemoteSuggestions,
-        collectAutocompleteSuggestions,
-        normalizedAutocompleteTerm,
-    ]);
-
-    useEffect(() => {
-        if (!autocompleteEnabled) {
-            clearAutocomplete();
-            return;
-        }
-
-        if (!normalizedAutocompleteTerm) {
-            clearAutocomplete();
-            return;
-        }
-
-        if (
-            normalizedAutocompleteTerm.length < AUTOCOMPLETE_MIN_QUERY_LENGTH ||
-            autocompleteLocalSuggestions.length >= AUTOCOMPLETE_LIMIT
-        ) {
-            clearAutocomplete();
-            return;
-        }
-
-        let active = true;
-        autocompleteLoadingRef.current = true;
-        setAutocompleteLoading(true);
-
-        const timeoutId = setTimeout(() => {
-            void fetchWordSuggestions(normalizedAutocompleteTerm, AUTOCOMPLETE_LIMIT)
-                .then((remoteSuggestions) => {
-                    if (!active) {
-                        return;
-                    }
-                    autocompleteRemoteQueryRef.current = normalizedAutocompleteTerm;
-                    autocompleteRemoteSuggestionsRef.current = remoteSuggestions;
-                    autocompleteLoadingRef.current = false;
-                    setAutocompleteRemoteQuery(normalizedAutocompleteTerm);
-                    setAutocompleteRemoteSuggestions(remoteSuggestions);
-                    setAutocompleteLoading(false);
-                })
-                .catch(() => {
-                    if (!active) {
-                        return;
-                    }
-                    autocompleteLoadingRef.current = false;
-                    setAutocompleteLoading(false);
-                });
-        }, AUTOCOMPLETE_DEBOUNCE_MS);
-
-        return () => {
-            active = false;
-            clearTimeout(timeoutId);
-        };
-    }, [autocompleteEnabled, autocompleteLocalSuggestions.length, clearAutocomplete, normalizedAutocompleteTerm]);
-
-    const refreshExamplesAsync = useCallback(
-        async ({ forceFresh, includeExistingExamples }: { forceFresh: boolean; includeExistingExamples: boolean }) => {
-            if (!result) {
-                return;
-            }
-
-            const lookupId = activeLookupRef.current;
-            const retryBase = toPendingExampleState(result, includeExistingExamples);
-            setAiAssistError(null);
-            setResult((previous) => {
-                if (!previous || previous.word !== retryBase.word) {
-                    return previous;
-                }
-                return retryBase;
-            });
-
-            try {
-                const updates = await generateDefinitionExamples(retryBase.word, retryBase.meanings, {
-                    forceFresh,
-                });
-                if (lookupId !== activeLookupRef.current) {
-                    return;
-                }
-                setAiAssistError(null);
-                setResult((previous) => {
-                    if (!previous || previous.word !== retryBase.word) {
-                        return previous;
-                    }
-                    if (updates.length === 0) {
-                        return clearPendingFlags(previous);
-                    }
-                    return applyExampleUpdates(previous, updates);
-                });
-            } catch (error) {
-                if (lookupId !== activeLookupRef.current) {
-                    return;
-                }
-                const appError = reportAiAssistError(error, "examples");
-                setAiAssistError(appError);
-                setResult((previous) => (previous ? clearPendingFlags(previous) : previous));
-            }
-        },
-        [reportAiAssistError, result, toPendingExampleState],
-    );
-
-    const retryExamplesAsync = useCallback(async () => {
-        await refreshExamplesAsync({
-            forceFresh: false,
-            includeExistingExamples: false,
-        });
-    }, [refreshExamplesAsync]);
-
-    const regenerateExamplesAsync = useCallback(async () => {
-        await refreshExamplesAsync({
-            forceFresh: true,
-            includeExistingExamples: true,
-        });
-    }, [refreshExamplesAsync]);
-
-    const handleSearch = useCallback(() => {
-        void executeSearch(searchTerm);
-    }, [executeSearch, searchTerm]);
-
-    const handleSelectRecentSearch = useCallback(
-        (entry: SearchHistoryEntry) => {
-            const normalizedTerm = entry.term.trim();
-            if (!normalizedTerm) {
-                return;
-            }
-            setAutocompleteEnabled(false);
-            clearAutocomplete();
-            setSearchTerm(normalizedTerm);
-            void executeSearch(normalizedTerm);
-        },
-        [clearAutocomplete, executeSearch],
-    );
-
-    const handleSelectAutocomplete = useCallback(
-        (term: string) => {
-            const normalizedTerm = term.trim();
-            if (!normalizedTerm) {
-                return;
-            }
-            setAutocompleteEnabled(false);
-            clearAutocomplete();
-            setSearchTerm(normalizedTerm);
-            void executeSearch(normalizedTerm);
-        },
-        [clearAutocomplete, executeSearch],
-    );
-
-    const handleToggleExamples = useCallback(() => {
-        setExamplesVisible((previous) => !previous);
     }, []);
 
     const isCurrentFavorite = useMemo(() => {
@@ -887,7 +388,7 @@ export function useAppScreen(): AppScreenHookResult {
                     setErrorMessage(FAVORITE_LIMIT_MESSAGE, "ValidationError", { retryable: false });
                     return;
                 }
-                setError(null);
+                clearError();
                 if (existingEntry) {
                     setFavorites(previousFavorites.filter((item) => item.word.word !== word.word));
                 } else {
@@ -918,7 +419,7 @@ export function useAppScreen(): AppScreenHookResult {
                 setErrorMessage(message);
             }
         },
-        [ensurePhoneticForWord, favorites, isGuest, removeFavoritePersisted, user],
+        [clearError, ensurePhoneticForWord, favorites, isGuest, removeFavoritePersisted, user],
     );
 
     const updateFavoriteStatusAsync = useCallback(
@@ -1040,15 +541,11 @@ export function useAppScreen(): AppScreenHookResult {
         setIsGuest(false);
         setUser(null);
         setFavorites([]);
-        setSearchTerm("");
-        setResult(null);
-        setExamplesVisible(false);
-        setError(null);
-        setAiAssistError(null);
+        resetSearchState();
         setAuthError(null);
         setSignUpError(null);
         setOnboardingVisible(false);
-    }, [setOnboardingVisible]);
+    }, [resetSearchState, setOnboardingVisible]);
 
     const handleGuestAccessAsync = useCallback(async () => {
         setAuthLoading(true);
@@ -1062,18 +559,14 @@ export function useAppScreen(): AppScreenHookResult {
             setIsGuest(true);
             setUser(null);
             setFavorites([]);
-            setSearchTerm("");
-            setResult(null);
-            setExamplesVisible(false);
-            setError(null);
-            setAiAssistError(null);
+            resetSearchState();
         } catch (err) {
             const message = err instanceof Error ? err.message : GUEST_ACCESS_ERROR_MESSAGE;
             setAuthError(message);
         } finally {
             setAuthLoading(false);
         }
-    }, [setOnboardingVisible]);
+    }, [resetSearchState, setOnboardingVisible]);
 
     const resetAuthState = useCallback(() => {
         setInitialAuthState();
@@ -1124,11 +617,7 @@ export function useAppScreen(): AppScreenHookResult {
             setIsGuest(false);
             setUser(userRecord);
             setFavorites(nextFavorites);
-            setSearchTerm("");
-            setResult(null);
-            setExamplesVisible(false);
-            setError(null);
-            setAiAssistError(null);
+            resetSearchState();
             setAuthError(null);
             if (mergedCount > 0) {
                 Alert.alert(
@@ -1136,11 +625,7 @@ export function useAppScreen(): AppScreenHookResult {
                     `게스트 단어장 ${mergedCount}개를 계정에 반영했어요. 최신 항목 기준으로 병합되었습니다.`,
                 );
             }
-            try {
-                await syncOnboardingVisibilityAfterAuthentication();
-            } catch {
-                // useAppearanceFlow already normalizes onboarding fallback behavior.
-            }
+            await syncOnboardingVisibilityAfterAuthentication();
         },
         [
             hydrateFavorites,
@@ -1149,6 +634,7 @@ export function useAppScreen(): AppScreenHookResult {
             setPreferenceValue,
             syncOnboardingVisibilityAfterAuthentication,
             upsertFavoriteForUser,
+            resetSearchState,
         ],
     );
     loadUserStateRef.current = loadUserState;
@@ -1401,7 +887,7 @@ export function useAppScreen(): AppScreenHookResult {
             await clearAutoLoginCredentials();
             await clearSearchHistoryEntries();
             setInitialAuthState();
-            setRecentSearches([]);
+            await reloadRecentSearches();
         } catch (error) {
             const message = resolveAuthMessage(error, ACCOUNT_DELETION_ERROR_MESSAGE);
             throw new Error(message);
@@ -1411,9 +897,9 @@ export function useAppScreen(): AppScreenHookResult {
         clearSearchHistoryEntries,
         clearSession,
         deleteUserAccount,
+        reloadRecentSearches,
         resolveAuthMessage,
         setInitialAuthState,
-        setRecentSearches,
         user,
     ]);
 
@@ -1554,8 +1040,7 @@ export function useAppScreen(): AppScreenHookResult {
                         setInitialAuthState();
                     }
                 }
-                const history = await getSearchHistoryEntries();
-                setRecentSearches(history);
+                await reloadRecentSearches();
                 Alert.alert(
                     "복원 완료",
                     `백업 데이터로 복원했어요.\n계정 ${restoreResult.restored.users}개, 단어 ${restoreResult.restored.favorites}개, 검색 ${restoreResult.restored.searchHistory}개`,
@@ -1565,7 +1050,7 @@ export function useAppScreen(): AppScreenHookResult {
                 Alert.alert("복원 실패", message);
             }
         },
-        [findUserByUsername, getSearchHistoryEntries, loadUserState, setInitialAuthState, user?.username],
+        [findUserByUsername, loadUserState, reloadRecentSearches, setInitialAuthState, user?.username],
     );
 
     const navigatorProps = useMemo<RootTabNavigatorProps>(
@@ -1597,9 +1082,9 @@ export function useAppScreen(): AppScreenHookResult {
             recentSearches,
             onSelectRecentSearch: handleSelectRecentSearch,
             onClearRecentSearches: handleClearRecentSearches,
-            onRetrySearch: handleSearch,
-            onRetryAiAssist: retryExamplesAsync,
-            onRegenerateExamples: regenerateExamplesAsync,
+            onRetrySearch: retrySearch,
+            onRetryAiAssist: retryExamples,
+            onRegenerateExamples: regenerateExamples,
             userName,
             onLogout: handleLogout,
             canLogout,
@@ -1641,11 +1126,10 @@ export function useAppScreen(): AppScreenHookResult {
             handleThemeModeChange,
             handleFontScaleChange,
             handleRemoveFavorite,
-            handleSearch,
             handleSearchTermChange,
             hasSearched,
-            retryExamplesAsync,
-            regenerateExamplesAsync,
+            retryExamples,
+            regenerateExamples,
             handleBackupExport,
             handleBackupImport,
             isCurrentFavorite,
@@ -1656,6 +1140,7 @@ export function useAppScreen(): AppScreenHookResult {
             recentSearches,
             playPronunciation,
             result,
+            retrySearch,
             searchTerm,
             toggleFavorite,
             updateFavoriteStatus,
