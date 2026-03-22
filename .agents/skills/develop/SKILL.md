@@ -10,10 +10,11 @@ Use this skill to carry implementation work from code inspection through validat
 ## Workflow
 
 1. Inspect the relevant feature folder, nearby tests, and boundary files before editing.
-2. Default to the smallest coherent change that satisfies the request.
-3. Preserve public signatures, navigation structure, theme patterns, auth behavior, backup behavior, and feature-flag behavior unless the request clearly requires a change.
-4. Route AI behavior through the backend proxy and keep the client safe when proxy env vars are missing.
-5. Run the narrowest useful validation command after editing. Use broader validation when shared flows are affected.
+2. If the user asks for a PR, or the task is clearly PR-bound, create or switch to a dedicated branch before making new edits. Use `codex/<short-task-name>` by default unless the user specifies otherwise.
+3. Default to the smallest coherent change that satisfies the request.
+4. Preserve public signatures, navigation structure, theme patterns, auth behavior, backup behavior, and feature-flag behavior unless the request clearly requires a change.
+5. Route AI behavior through the backend proxy and keep the client safe when proxy env vars are missing.
+6. Run the narrowest useful validation command after editing. Use broader validation when shared flows are affected.
 
 ## Repository Guardrails
 
