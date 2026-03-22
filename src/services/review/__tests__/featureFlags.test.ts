@@ -4,6 +4,8 @@ const originalEnv = {
     reviewSessionUi: process.env.EXPO_PUBLIC_FEATURE_REVIEW_SESSION_UI,
     dailyGoal: process.env.EXPO_PUBLIC_FEATURE_DAILY_GOAL,
     reviewReminder: process.env.EXPO_PUBLIC_FEATURE_REVIEW_REMINDER,
+    collections: process.env.EXPO_PUBLIC_FEATURE_COLLECTIONS,
+    favoritesBatchActions: process.env.EXPO_PUBLIC_FEATURE_FAVORITES_BATCH_ACTIONS,
 };
 
 function restoreEnv() {
@@ -12,6 +14,8 @@ function restoreEnv() {
     process.env.EXPO_PUBLIC_FEATURE_REVIEW_SESSION_UI = originalEnv.reviewSessionUi;
     process.env.EXPO_PUBLIC_FEATURE_DAILY_GOAL = originalEnv.dailyGoal;
     process.env.EXPO_PUBLIC_FEATURE_REVIEW_REMINDER = originalEnv.reviewReminder;
+    process.env.EXPO_PUBLIC_FEATURE_COLLECTIONS = originalEnv.collections;
+    process.env.EXPO_PUBLIC_FEATURE_FAVORITES_BATCH_ACTIONS = originalEnv.favoritesBatchActions;
 }
 
 function loadFeatureFlags(extra: Record<string, unknown> = {}) {
@@ -48,6 +52,8 @@ describe("review feature flags", () => {
             reviewSessionUi: false,
             dailyGoal: false,
             reviewReminder: false,
+            collections: false,
+            favoritesBatchActions: false,
         });
     });
 
@@ -57,6 +63,8 @@ describe("review feature flags", () => {
         process.env.EXPO_PUBLIC_FEATURE_REVIEW_SESSION_UI = "on";
         process.env.EXPO_PUBLIC_FEATURE_DAILY_GOAL = "1";
         process.env.EXPO_PUBLIC_FEATURE_REVIEW_REMINDER = "off";
+        process.env.EXPO_PUBLIC_FEATURE_COLLECTIONS = "true";
+        process.env.EXPO_PUBLIC_FEATURE_FAVORITES_BATCH_ACTIONS = "on";
 
         const { FEATURE_FLAGS } = loadFeatureFlags({
             featureReviewLoop: false,
@@ -64,6 +72,8 @@ describe("review feature flags", () => {
             featureReviewSessionUi: false,
             featureDailyGoal: false,
             featureReviewReminder: true,
+            featureCollections: false,
+            featureFavoritesBatchActions: false,
         });
 
         expect(FEATURE_FLAGS).toMatchObject({
@@ -72,6 +82,8 @@ describe("review feature flags", () => {
             reviewSessionUi: true,
             dailyGoal: true,
             reviewReminder: false,
+            collections: true,
+            favoritesBatchActions: true,
         });
     });
 });
