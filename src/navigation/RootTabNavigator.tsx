@@ -15,55 +15,7 @@ import { useThemedStyles } from "@/theme/useThemedStyles";
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-export function RootTabNavigator({
-    favorites,
-    onToggleFavorite,
-    onUpdateFavoriteStatus,
-    onRemoveFavorite,
-    searchTerm,
-    hasSearched,
-    onChangeSearchTerm,
-    onSubmitSearch,
-    loading,
-    error,
-    aiAssistError,
-    result,
-    examplesVisible,
-    onToggleExamples,
-    isCurrentFavorite,
-    onPlayPronunciation,
-    pronunciationAvailable,
-    autocompleteSuggestions,
-    autocompleteLoading,
-    onSelectAutocomplete,
-    themeMode,
-    onThemeModeChange,
-    fontScale,
-    onFontScaleChange,
-    recentSearches,
-    onSelectRecentSearch,
-    onClearRecentSearches,
-    onRetrySearch,
-    onRetryAiAssist,
-    onRegenerateExamples,
-    userName,
-    onLogout,
-    canLogout,
-    isGuest,
-    onRequestLogin,
-    onRequestSignUp,
-    onPlayWordAudio,
-    appVersion,
-    profileDisplayName,
-    profileUsername,
-    onUpdateProfile,
-    onCheckDisplayName,
-    onUpdatePassword,
-    onDeleteAccount,
-    onExportBackup,
-    onImportBackup,
-    onShowOnboarding,
-}: RootTabNavigatorProps) {
+export function RootTabNavigator({ home, favorites: favoritesTab, search, settings }: RootTabNavigatorProps) {
     const tabStyles = useThemedStyles(createTabStyles);
     const { theme } = useAppAppearance();
     return (
@@ -82,84 +34,10 @@ export function RootTabNavigator({
                 };
             }}
         >
-            <Tab.Screen name="Home">
-                {() => (
-                    <HomeScreen
-                        favorites={favorites}
-                        onMoveToStatus={onUpdateFavoriteStatus}
-                        userName={userName}
-                        onPlayWordAudio={onPlayWordAudio}
-                        pronunciationAvailable={pronunciationAvailable}
-                    />
-                )}
-            </Tab.Screen>
-            <Tab.Screen name="Favorites">
-                {() => (
-                    <FavoritesScreen
-                        favorites={favorites}
-                        onUpdateStatus={onUpdateFavoriteStatus}
-                        onRemoveFavorite={onRemoveFavorite}
-                        onPlayAudio={onPlayWordAudio}
-                        pronunciationAvailable={pronunciationAvailable}
-                    />
-                )}
-            </Tab.Screen>
-            <Tab.Screen name="Search">
-                {() => (
-                    <SearchScreen
-                        searchTerm={searchTerm}
-                        hasSearched={hasSearched}
-                        onChangeSearchTerm={onChangeSearchTerm}
-                        onSubmit={onSubmitSearch}
-                        loading={loading}
-                        error={error}
-                        aiAssistError={aiAssistError}
-                        result={result}
-                        examplesVisible={examplesVisible}
-                        onToggleExamples={onToggleExamples}
-                        onToggleFavorite={(word) => {
-                            void onToggleFavorite(word);
-                        }}
-                        isCurrentFavorite={isCurrentFavorite}
-                        onPlayPronunciation={onPlayPronunciation}
-                        pronunciationAvailable={pronunciationAvailable}
-                        autocompleteSuggestions={autocompleteSuggestions}
-                        autocompleteLoading={autocompleteLoading}
-                        onSelectAutocomplete={onSelectAutocomplete}
-                        recentSearches={recentSearches}
-                        onSelectRecentSearch={onSelectRecentSearch}
-                        onClearRecentSearches={onClearRecentSearches}
-                        onRetry={onRetrySearch}
-                        onRetryAiAssist={onRetryAiAssist}
-                        onRegenerateExamples={onRegenerateExamples}
-                    />
-                )}
-            </Tab.Screen>
-            <Tab.Screen name="Settings">
-                {() => (
-                    <SettingsNavigator
-                        onLogout={onLogout}
-                        canLogout={canLogout}
-                        isGuest={isGuest}
-                        onRequestLogin={onRequestLogin}
-                        onRequestSignUp={onRequestSignUp}
-                        appVersion={appVersion}
-                        profileDisplayName={profileDisplayName}
-                        profileUsername={profileUsername}
-                        onUpdateProfile={onUpdateProfile}
-                        onCheckDisplayName={onCheckDisplayName}
-                        onUpdatePassword={onUpdatePassword}
-                        onDeleteAccount={onDeleteAccount}
-                        onExportBackup={onExportBackup}
-                        onImportBackup={onImportBackup}
-                        onShowOnboarding={onShowOnboarding}
-                        themeMode={themeMode}
-                        onThemeModeChange={onThemeModeChange}
-                        fontScale={fontScale}
-                        onFontScaleChange={onFontScaleChange}
-                    />
-                )}
-            </Tab.Screen>
+            <Tab.Screen name="Home">{() => <HomeScreen {...home} />}</Tab.Screen>
+            <Tab.Screen name="Favorites">{() => <FavoritesScreen {...favoritesTab} />}</Tab.Screen>
+            <Tab.Screen name="Search">{() => <SearchScreen {...search} />}</Tab.Screen>
+            <Tab.Screen name="Settings">{() => <SettingsNavigator {...settings} />}</Tab.Screen>
         </Tab.Navigator>
     );
 }

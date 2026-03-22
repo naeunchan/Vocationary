@@ -182,18 +182,18 @@ describe("useAppScreen search history", () => {
         await waitForHookReady(result);
 
         act(() => {
-            result.current.navigatorProps.onChangeSearchTerm("apple");
+            result.current.navigatorProps.search.onChangeSearchTerm("apple");
         });
 
         act(() => {
-            result.current.navigatorProps.onSubmitSearch();
+            result.current.navigatorProps.search.onSubmit();
         });
 
         await waitFor(() => {
-            expect(result.current.navigatorProps.recentSearches).toHaveLength(1);
+            expect(result.current.navigatorProps.search.recentSearches).toHaveLength(1);
         });
 
-        expect(result.current.navigatorProps.recentSearches[0]).toEqual(
+        expect(result.current.navigatorProps.search.recentSearches[0]).toEqual(
             expect.objectContaining({
                 term: "apple",
                 mode: "en-en",
@@ -219,18 +219,18 @@ describe("useAppScreen search history", () => {
         await waitForHookReady(result);
 
         act(() => {
-            result.current.navigatorProps.onChangeSearchTerm("vocationary");
+            result.current.navigatorProps.search.onChangeSearchTerm("vocationary");
         });
 
         act(() => {
-            result.current.navigatorProps.onSubmitSearch();
+            result.current.navigatorProps.search.onSubmit();
         });
 
         await waitFor(() => {
-            expect(result.current.navigatorProps.error?.code).toBe("DICTIONARY_NOT_FOUND");
+            expect(result.current.navigatorProps.search.error?.code).toBe("DICTIONARY_NOT_FOUND");
         });
 
-        expect(result.current.navigatorProps.recentSearches).toEqual([]);
+        expect(result.current.navigatorProps.search.recentSearches).toEqual([]);
         expect(mockSaveSearchHistoryEntries).not.toHaveBeenCalled();
     });
 
@@ -244,11 +244,11 @@ describe("useAppScreen search history", () => {
         await waitForHookReady(result);
 
         act(() => {
-            result.current.navigatorProps.onChangeSearchTerm("app");
+            result.current.navigatorProps.search.onChangeSearchTerm("app");
         });
 
         await waitFor(() => {
-            expect(result.current.navigatorProps.autocompleteSuggestions).toEqual(["apple"]);
+            expect(result.current.navigatorProps.search.autocompleteSuggestions).toEqual(["apple"]);
         });
     });
 
@@ -264,11 +264,11 @@ describe("useAppScreen search history", () => {
         await waitForHookReady(result);
 
         act(() => {
-            result.current.navigatorProps.onChangeSearchTerm("app");
+            result.current.navigatorProps.search.onChangeSearchTerm("app");
         });
 
         await waitFor(() => {
-            expect(result.current.navigatorProps.autocompleteSuggestions).toEqual([
+            expect(result.current.navigatorProps.search.autocompleteSuggestions).toEqual([
                 "apps",
                 "apple",
                 "apply",
@@ -290,23 +290,23 @@ describe("useAppScreen search history", () => {
         await waitForHookReady(result);
 
         act(() => {
-            result.current.navigatorProps.onChangeSearchTerm("app");
+            result.current.navigatorProps.search.onChangeSearchTerm("app");
         });
 
         await waitFor(() => {
-            expect(result.current.navigatorProps.autocompleteSuggestions).toEqual(["apple"]);
+            expect(result.current.navigatorProps.search.autocompleteSuggestions).toEqual(["apple"]);
         });
 
         act(() => {
-            result.current.navigatorProps.onSelectAutocomplete("apple");
+            result.current.navigatorProps.search.onSelectAutocomplete("apple");
         });
 
         await waitFor(() => {
             expect(mockGetWordData).toHaveBeenCalledWith("apple");
         });
 
-        expect(result.current.navigatorProps.searchTerm).toBe("apple");
-        expect(result.current.navigatorProps.autocompleteSuggestions).toEqual([]);
+        expect(result.current.navigatorProps.search.searchTerm).toBe("apple");
+        expect(result.current.navigatorProps.search.autocompleteSuggestions).toEqual([]);
     });
 
     it("keeps remote autocomplete suggestions stable without refetch flicker", async () => {
@@ -318,7 +318,7 @@ describe("useAppScreen search history", () => {
             await waitForHookReady(result);
 
             act(() => {
-                result.current.navigatorProps.onChangeSearchTerm("app");
+                result.current.navigatorProps.search.onChangeSearchTerm("app");
             });
 
             await act(async () => {
@@ -327,7 +327,7 @@ describe("useAppScreen search history", () => {
             });
 
             await waitFor(() => {
-                expect(result.current.navigatorProps.autocompleteSuggestions).toEqual(["apple", "application"]);
+                expect(result.current.navigatorProps.search.autocompleteSuggestions).toEqual(["apple", "application"]);
             });
 
             await act(async () => {
@@ -336,8 +336,8 @@ describe("useAppScreen search history", () => {
             });
 
             expect(mockFetchWordSuggestions).toHaveBeenCalledTimes(1);
-            expect(result.current.navigatorProps.autocompleteSuggestions).toEqual(["apple", "application"]);
-            expect(result.current.navigatorProps.autocompleteLoading).toBe(false);
+            expect(result.current.navigatorProps.search.autocompleteSuggestions).toEqual(["apple", "application"]);
+            expect(result.current.navigatorProps.search.autocompleteLoading).toBe(false);
         } finally {
             jest.useRealTimers();
         }
@@ -352,7 +352,7 @@ describe("useAppScreen search history", () => {
             await waitForHookReady(result);
 
             act(() => {
-                result.current.navigatorProps.onChangeSearchTerm("app");
+                result.current.navigatorProps.search.onChangeSearchTerm("app");
             });
 
             await act(async () => {
@@ -361,7 +361,7 @@ describe("useAppScreen search history", () => {
             });
 
             await waitFor(() => {
-                expect(result.current.navigatorProps.autocompleteSuggestions).toEqual([
+                expect(result.current.navigatorProps.search.autocompleteSuggestions).toEqual([
                     "apps",
                     "apple",
                     "apply",
@@ -398,7 +398,7 @@ describe("useAppScreen search history", () => {
         const { result } = renderHook(() => useAppScreen());
         await waitForHookReady(result);
 
-        expect(result.current.navigatorProps.favorites).toEqual([
+        expect(result.current.navigatorProps.home.favorites).toEqual([
             expect.objectContaining({ word: expect.objectContaining({ word: "apple" }) }),
             expect.objectContaining({ word: expect.objectContaining({ word: "banana" }) }),
         ]);
@@ -478,15 +478,17 @@ describe("useAppScreen search history", () => {
         await waitForHookReady(result);
 
         await act(async () => {
-            await result.current.navigatorProps.onImportBackup("secret");
+            await result.current.navigatorProps.settings.onImportBackup("secret");
         });
 
         await waitFor(() => {
-            expect(result.current.navigatorProps.favorites).toEqual([
+            expect(result.current.navigatorProps.home.favorites).toEqual([
                 expect.objectContaining({ word: expect.objectContaining({ word: "apple" }) }),
             ]);
         });
-        expect(result.current.navigatorProps.recentSearches).toEqual([expect.objectContaining({ term: "apple" })]);
+        expect(result.current.navigatorProps.search.recentSearches).toEqual([
+            expect.objectContaining({ term: "apple" }),
+        ]);
         expect(mockFindUserByUsername).toHaveBeenCalledWith("tester@example.com");
         expect(mockGetFavoritesByUser).toHaveBeenCalledTimes(2);
         expect(mockGetSearchHistoryEntries).toHaveBeenCalledTimes(2);
