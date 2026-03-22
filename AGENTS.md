@@ -17,7 +17,7 @@
 - `project-manager.agent.md` handles planning, sequencing, rollout scope, and risk management.
 - `qa.agent.md` handles regression safety, targeted test planning, shared-flow validation, and release-risk review.
 - Codex app skills live in `.agents/skills/`.
-- In Codex, use `/develop` or `$develop` for implementation work, `/design` or `$design` for UI and UX work, `/pm` or `$pm` for planning work, and `/architecture` or `$architecture` for architecture analysis.
+- In Codex, use `/develop` or `$develop` for implementation work, `/design` or `$design` for UI design, UX flow, usability, and interaction work, `/pm` or `$pm` for planning work, and `/architecture` or `$architecture` for architecture analysis.
 - Keep both files aligned when architecture, workflow, or testing expectations change.
 
 ## Stack
