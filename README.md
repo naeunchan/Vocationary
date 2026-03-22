@@ -7,7 +7,7 @@
 - Primary project guidance for coding agents lives in `AGENTS.md`.
 - In Codex, use `/architecture <task>` or `$architecture` for senior-level architecture reviews, tradeoff analysis, and migration planning.
 - In Codex, use `/develop <task>` or `$develop` for implementation work.
-- In Codex, use `/design <task>` or `$design` for UI and UX work.
+- In Codex, use `/design <task>` or `$design` for UI design, UX flow, usability, and interaction work.
 - In Codex, use `/pm <task>` or `$pm` for planning and scope breakdown work.
 
 ## 주요 기능 (Korean)
