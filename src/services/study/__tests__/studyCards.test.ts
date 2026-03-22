@@ -1,11 +1,11 @@
 import type { MeaningEntry } from "@/services/dictionary/types";
 import {
     clampStudyCardLimit,
+    clearStudyCardDeckCache,
     createStudyCardCacheKey,
+    getCachedStudyCardDeck,
     normalizeStudyCardDeck,
     setCachedStudyCardDeck,
-    getCachedStudyCardDeck,
-    clearStudyCardDeckCache,
 } from "@/services/study";
 
 const meanings: MeaningEntry[] = [
