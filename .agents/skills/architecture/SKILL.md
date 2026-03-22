@@ -10,11 +10,12 @@ Use this skill for senior-level architecture analysis and decision support in th
 ## Workflow
 
 1. Inspect the relevant source files, adjacent tests, and architectural boundaries before making recommendations.
-2. Define the problem, success criteria, and non-negotiable constraints.
-3. Map the current ownership boundaries, coupling points, and failure modes.
-4. Compare realistic options when tradeoffs matter.
-5. Recommend the option with the best balance of maintainability, migration safety, delivery risk, and testability.
-6. Stay in analysis and planning mode unless the user explicitly asks to switch into implementation.
+2. If the user explicitly asks to implement architecture changes and open a PR, create or switch to a dedicated branch before making new edits. Use `codex/<short-task-name>` by default unless the user specifies otherwise.
+3. Define the problem, success criteria, and non-negotiable constraints.
+4. Map the current ownership boundaries, coupling points, and failure modes.
+5. Compare realistic options when tradeoffs matter.
+6. Recommend the option with the best balance of maintainability, migration safety, delivery risk, and testability.
+7. Stay in analysis and planning mode unless the user explicitly asks to switch into implementation.
 
 ## Output Structure
 

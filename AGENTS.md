@@ -47,6 +47,9 @@
 - Read the relevant feature folder, nearby tests, and the source-of-truth boundary files before editing.
 - Prefer small, local changes over broad rewrites.
 - Preserve public function signatures unless the task explicitly requires a breaking change.
+- If the user asks for a PR, or the task is clearly intended to end in a PR, create or switch to a dedicated branch before making new edits.
+- Use the `codex/<short-task-name>` branch pattern by default unless the user specifies a different name.
+- Do not do PR-bound implementation work on `main`. If already on a non-`main` task branch, continue there unless the user asks for a new branch.
 - Route AI requests through the backend proxy and keep the client safe when proxy env vars are missing.
 - Run the most focused test or lint command that covers the change; run the full suite for shared-flow changes.
 - Call out env, feature-flag, backup, auth, or release impacts in the final handoff.

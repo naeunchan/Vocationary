@@ -10,10 +10,11 @@ Use this skill to handle UI and UX changes while preserving the repository's cur
 ## Workflow
 
 1. Inspect the target screen, adjacent styles file, theme tokens, localization, and nearby tests before editing.
-2. Default to preserving the current visual language unless the user explicitly asks for a broader redesign.
-3. Improve hierarchy, spacing, readability, touch targets, and interaction clarity before adding decorative complexity.
-4. Keep layouts working on both phone-sized screens and larger web widths where the app already supports them.
-5. Run the narrowest useful validation command after editing and summarize visual and behavioral impact.
+2. If the user asks for a PR, or the task is clearly PR-bound, create or switch to a dedicated branch before making new edits. Use `codex/<short-task-name>` by default unless the user specifies otherwise.
+3. Default to preserving the current visual language unless the user explicitly asks for a broader redesign.
+4. Improve hierarchy, spacing, readability, touch targets, and interaction clarity before adding decorative complexity.
+5. Keep layouts working on both phone-sized screens and larger web widths where the app already supports them.
+6. Run the narrowest useful validation command after editing and summarize visual and behavioral impact.
 
 ## Visual And System Guardrails
 
