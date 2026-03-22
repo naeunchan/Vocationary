@@ -6,6 +6,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const { OpenAI } = require("openai");
+const { buildStudyPrompt, SUPPORTED_CARD_TYPES } = require("./studyPrompt");
 
 // Load env values from both project root and server folder (server/.env overrides).
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
@@ -115,6 +116,50 @@ const EXAMPLE_SCHEMA = {
     strict: true,
 };
 
+const STUDY_CARD_SCHEMA = {
+    name: "study_cards",
+    schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+            cards: {
+                type: "array",
+                items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["id", "type", "prompt", "choices", "answer"],
+                    properties: {
+                        id: { type: "string" },
+                        type: {
+                            type: "string",
+                            enum: SUPPORTED_CARD_TYPES,
+                        },
+                        prompt: { type: "string" },
+                        answer: { type: "string" },
+                        explanation: { type: ["string", "null"] },
+                        choices: {
+                            type: "array",
+                            minItems: 2,
+                            items: {
+                                type: "object",
+                                additionalProperties: false,
+                                required: ["id", "label", "value"],
+                                properties: {
+                                    id: { type: "string" },
+                                    label: { type: "string" },
+                                    value: { type: "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        required: ["cards"],
+    },
+    strict: true,
+};
+
 function clampTokens(value, fallback) {
     const num = Number(value);
     if (!Number.isFinite(num)) return fallback;
@@ -144,6 +189,57 @@ function normalizeItems(payload) {
                 typeof item.translatedDefinition === "string" ? item.translatedDefinition.trim() : null,
         }))
         .filter((item) => item.example);
+}
+
+function normalizeStudyCards(payload) {
+    if (!payload || typeof payload !== "object" || !Array.isArray(payload.cards)) {
+        return [];
+    }
+
+    return payload.cards
+        .map((card, index) => {
+            const type = typeof card.type === "string" ? card.type.trim() : "";
+            const prompt = typeof card.prompt === "string" ? card.prompt.trim() : "";
+            const answer = typeof card.answer === "string" ? card.answer.trim() : "";
+            const explanation = typeof card.explanation === "string" ? card.explanation.trim() : null;
+
+            if (!SUPPORTED_CARD_TYPES.includes(type) || !prompt || !answer || !Array.isArray(card.choices)) {
+                return null;
+            }
+
+            const choices = card.choices
+                .map((choice, choiceIndex) => {
+                    const label = typeof choice.label === "string" ? choice.label.trim() : "";
+                    const value = typeof choice.value === "string" ? choice.value.trim() : "";
+                    if (!label || !value) {
+                        return null;
+                    }
+
+                    return {
+                        id:
+                            typeof choice.id === "string" && choice.id.trim()
+                                ? choice.id.trim()
+                                : `choice-${choiceIndex + 1}`,
+                        label,
+                        value,
+                    };
+                })
+                .filter(Boolean);
+
+            if (choices.length < 2) {
+                return null;
+            }
+
+            return {
+                id: typeof card.id === "string" && card.id.trim() ? card.id.trim() : `${type}-${index + 1}`,
+                type,
+                prompt,
+                answer,
+                explanation,
+                choices,
+            };
+        })
+        .filter(Boolean);
 }
 
 function markAiSuccess() {
@@ -256,6 +352,57 @@ app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
         console.error("Failed to synthesize audio", error);
         markAiFailure("/dictionary/tts", error);
         return res.status(500).json({ message: "발음 오디오를 준비하지 못했어요." });
+    }
+});
+
+app.post("/study/cards", rateLimit, requireApiKey, async (req, res) => {
+    if (!ensureApiKey(res)) return;
+
+    const word = typeof req.body?.word === "string" ? req.body.word.trim() : "";
+    const context = Array.isArray(req.body?.context) ? req.body.context : [];
+    const cardTypes = Array.isArray(req.body?.cardTypes) ? req.body.cardTypes : [];
+    const cardCount = Math.min(6, Math.max(1, Math.round(Number(req.body?.cardCount) || 3)));
+
+    if (!word || context.length === 0) {
+        return res.status(400).json({ message: "word와 context가 필요해요." });
+    }
+
+    const prompt = buildStudyPrompt({
+        word,
+        context,
+        cardTypes,
+        cardCount,
+    });
+    const maxTokens = clampTokens(req.body?.maxTokens, 280);
+
+    try {
+        const completion = await openai.chat.completions.create({
+            model: MODEL,
+            messages: [
+                {
+                    role: "system",
+                    content:
+                        "You generate objective vocabulary study cards. Respond ONLY with JSON that matches the provided schema.",
+                },
+                { role: "user", content: prompt },
+            ],
+            response_format: { type: "json_schema", json_schema: STUDY_CARD_SCHEMA },
+            max_tokens: maxTokens,
+        });
+
+        const content = completion.choices?.[0]?.message?.content ?? "";
+        const raw = content ? JSON.parse(content) : { cards: [] };
+        const cards = normalizeStudyCards(raw);
+        if (cards.length === 0) {
+            throw new Error("empty_cards");
+        }
+
+        markAiSuccess();
+        return res.json({ cards });
+    } catch (error) {
+        console.error("Failed to generate study cards", error);
+        markAiFailure("/study/cards", error);
+        return res.status(500).json({ message: "학습 카드를 준비하지 못했어요." });
     }
 });
 
