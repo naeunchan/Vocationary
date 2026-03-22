@@ -30,9 +30,15 @@ describe("review reminder", () => {
                 weekdays: [1, 3, 5],
                 updatedAt: "2026-03-23T00:00:00.000Z",
             },
-            { from: new Date("2026-03-23T21:00:00") },
+            { from: new Date(2026, 2, 23, 21, 0, 0, 0) },
         );
 
-        expect(next?.toISOString()).toBe("2026-03-25T11:15:00.000Z");
+        expect(next).not.toBeNull();
+        expect(next?.getFullYear()).toBe(2026);
+        expect(next?.getMonth()).toBe(2);
+        expect(next?.getDate()).toBe(25);
+        expect(next?.getHours()).toBe(20);
+        expect(next?.getMinutes()).toBe(15);
+        expect(next?.getDay()).toBe(3);
     });
 });
