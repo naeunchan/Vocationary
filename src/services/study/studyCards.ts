@@ -1,11 +1,39 @@
 import type { MeaningEntry } from "@/services/dictionary/types";
-import type { StudyCard, StudyCardDeck, StudyCardPayload, StudyCardType } from "@/services/study/types";
+
+export type DraftStudyCardType = "definition_match" | "cloze";
+
+export type DraftStudyCard = {
+    id: string;
+    type: DraftStudyCardType;
+    prompt: string;
+    choices: string[];
+    answerIndex: number;
+    explanation: string;
+};
+
+export type DraftStudyCardDeck = {
+    word: string;
+    cards: DraftStudyCard[];
+    generatedAt: string;
+};
+
+export type DraftStudyCardPayload = {
+    cards?: unknown;
+    generatedAt?: unknown;
+};
+
+type DraftStudyCardCacheEntry = {
+    expiresAt: number;
+    deck: DraftStudyCardDeck;
+};
 
 export const DEFAULT_STUDY_CARD_LIMIT = 4;
 export const MAX_STUDY_CARD_LIMIT = 6;
+const STUDY_CARD_CACHE_TTL_MS = 1000 * 60 * 30;
 const MIN_STUDY_CARD_LIMIT = 1;
 const MIN_CHOICE_COUNT = 3;
 const MAX_CHOICE_COUNT = 4;
+const studyCardCache = new Map<string, DraftStudyCardCacheEntry>();
 
 function normalizeText(value: unknown): string {
     return typeof value === "string" ? value.trim() : "";
@@ -19,11 +47,11 @@ function normalizeWordKey(value: string): string {
     return normalizeWord(value).toLowerCase();
 }
 
-function normalizeStudyCardType(value: unknown): StudyCardType | null {
+function normalizeStudyCardType(value: unknown): DraftStudyCardType | null {
     return value === "definition_match" || value === "cloze" ? value : null;
 }
 
-function createStudyCardId(word: string, type: StudyCardType, index: number): string {
+function createStudyCardId(word: string, type: DraftStudyCardType, index: number): string {
     return `${normalizeWordKey(word)}:${type}:${index}`;
 }
 
@@ -81,7 +109,7 @@ function normalizeChoices(
     };
 }
 
-function normalizeStudyCard(word: string, rawCard: unknown, index: number): StudyCard | null {
+function normalizeStudyCard(word: string, rawCard: unknown, index: number): DraftStudyCard | null {
     if (!rawCard || typeof rawCard !== "object") {
         return null;
     }
@@ -147,16 +175,16 @@ export function createStudyCardCacheKey(
 
 export function normalizeStudyCardDeck(
     word: string,
-    payload: StudyCardPayload | unknown,
+    payload: DraftStudyCardPayload | unknown,
     options: { cardLimit?: number } = {},
-): StudyCardDeck {
+): DraftStudyCardDeck {
     const normalizedWord = normalizeWord(word);
     const limit = clampStudyCardLimit(options.cardLimit);
-    const candidate = payload && typeof payload === "object" ? (payload as StudyCardPayload) : {};
+    const candidate = payload && typeof payload === "object" ? (payload as DraftStudyCardPayload) : {};
     const rawCards = Array.isArray(candidate.cards) ? candidate.cards : [];
     const cards = rawCards
         .map((card, index) => normalizeStudyCard(normalizedWord, card, index))
-        .filter((card): card is StudyCard => Boolean(card))
+        .filter((card): card is DraftStudyCard => Boolean(card))
         .slice(0, limit);
 
     return {
@@ -164,4 +192,49 @@ export function normalizeStudyCardDeck(
         cards,
         generatedAt: normalizeText(candidate.generatedAt) || new Date().toISOString(),
     };
+}
+
+function cloneStudyCardDeck(deck: DraftStudyCardDeck): DraftStudyCardDeck {
+    return {
+        ...deck,
+        cards: deck.cards.map((card) => ({
+            ...card,
+            choices: [...card.choices],
+        })),
+    };
+}
+
+export function getCachedStudyCardDeck(cacheKey: string, now = Date.now()): DraftStudyCardDeck | null {
+    const cachedEntry = studyCardCache.get(cacheKey);
+    if (!cachedEntry) {
+        return null;
+    }
+
+    if (cachedEntry.expiresAt <= now) {
+        studyCardCache.delete(cacheKey);
+        return null;
+    }
+
+    return cloneStudyCardDeck(cachedEntry.deck);
+}
+
+export function setCachedStudyCardDeck(
+    cacheKey: string,
+    deck: DraftStudyCardDeck,
+    options: { ttlMs?: number; now?: number } = {},
+): DraftStudyCardDeck {
+    const now = options.now ?? Date.now();
+    const ttlMs = options.ttlMs ?? STUDY_CARD_CACHE_TTL_MS;
+    const cachedDeck = cloneStudyCardDeck(deck);
+
+    studyCardCache.set(cacheKey, {
+        expiresAt: now + ttlMs,
+        deck: cachedDeck,
+    });
+
+    return cloneStudyCardDeck(cachedDeck);
+}
+
+export function clearStudyCardDeckCache(): void {
+    studyCardCache.clear();
 }

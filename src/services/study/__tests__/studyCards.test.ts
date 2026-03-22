@@ -6,7 +6,7 @@ import {
     getCachedStudyCardDeck,
     normalizeStudyCardDeck,
     setCachedStudyCardDeck,
-} from "@/services/study";
+} from "@/services/study/studyCards";
 
 const meanings: MeaningEntry[] = [
     {
