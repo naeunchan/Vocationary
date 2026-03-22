@@ -3,12 +3,12 @@
 ## Purpose
 
 - This repository is `Vocachip`, an Expo-based React Native vocabulary app.
-- Use this file as the project-specific operating guide for Codex.
+- Use this file as the project-specific operating guide for GitHub Copilot coding agents.
 - Prefer the current source code over README assumptions when they disagree.
 
 ## Supported Coding Agents
 
-- `AGENTS.md` is the primary instruction file for Codex in this repository.
+- `AGENTS.md` is the primary instruction file for Codex and agentic coding tools.
 - `.github/copilot-instructions.md` mirrors the same project guidance for GitHub Copilot coding agents.
 - Custom agent profiles live in `.github/agents/`.
 - `architecture.agent.md` handles system design, architecture review, boundary definition, and migration planning.
