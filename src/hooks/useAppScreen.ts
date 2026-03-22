@@ -11,6 +11,7 @@ import { fetchWordSuggestions } from "@/api/dictionary/wordSuggestionClient";
 import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
 import type { AppError } from "@/errors/AppError";
 import { createAppError, normalizeError, shouldRetry } from "@/errors/AppError";
+import { useAppearanceFlow } from "@/hooks/app/useAppearanceFlow";
 import { captureAppError, setUserContext } from "@/logging/logger";
 import type { RootTabNavigatorProps } from "@/navigation/RootTabNavigator.types";
 import {
@@ -82,15 +83,7 @@ import { WordResult } from "@/services/dictionary/types";
 import { applyExampleUpdates, clearPendingFlags } from "@/services/dictionary/utils/mergeExampleUpdates";
 import { createFavoriteEntry, FavoriteWordEntry, MemorizationStatus } from "@/services/favorites/types";
 import { SEARCH_HISTORY_LIMIT, SearchHistoryEntry } from "@/services/searchHistory/types";
-import {
-    DEFAULT_FONT_SCALE,
-    FONT_SCALE_PREFERENCE_KEY,
-    GUEST_FAVORITES_PREFERENCE_KEY,
-    GUEST_USED_PREFERENCE_KEY,
-    ONBOARDING_PREFERENCE_KEY,
-    THEME_MODE_PREFERENCE_KEY,
-} from "@/theme/constants";
-import type { ThemeMode } from "@/theme/types";
+import { GUEST_FAVORITES_PREFERENCE_KEY, GUEST_USED_PREFERENCE_KEY } from "@/theme/constants";
 import { playRemoteAudio, prefetchRemoteAudio } from "@/utils/audio";
 import {
     getEmailValidationError,
@@ -170,20 +163,28 @@ export function useAppScreen(): AppScreenHookResult {
     const [autocompleteRemoteSuggestions, setAutocompleteRemoteSuggestions] = useState<string[]>([]);
     const [autocompleteLoading, setAutocompleteLoading] = useState(false);
     const [autocompleteEnabled, setAutocompleteEnabled] = useState(true);
-    const [themeMode, setThemeMode] = useState<ThemeMode>("light");
-    const [fontScale, setFontScale] = useState(DEFAULT_FONT_SCALE);
-    const [appearanceReady, setAppearanceReady] = useState(false);
     const [user, setUser] = useState<UserRecord | null>(null);
     const [initializing, setInitializing] = useState(true);
     const [isGuest, setIsGuest] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
     const [signUpError, setSignUpError] = useState<string | null>(null);
     const [authLoading, setAuthLoading] = useState(false);
-    const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
     const [versionLabel] = useState(() => {
         const extra = Constants.expoConfig?.extra;
         return extra?.versionLabel ?? DEFAULT_VERSION_LABEL;
     });
+    const {
+        themeMode,
+        fontScale,
+        appearanceReady,
+        isOnboardingVisible,
+        setOnboardingVisible,
+        onThemeModeChange: handleThemeModeChange,
+        onFontScaleChange: handleFontScaleChange,
+        onShowOnboarding: handleShowOnboarding,
+        onCompleteOnboarding: handleCompleteOnboarding,
+        syncOnboardingVisibilityAfterAuthentication,
+    } = useAppearanceFlow();
     const activeLookupRef = useRef(0);
     const autocompleteRemoteQueryRef = useRef("");
     const autocompleteRemoteSuggestionsRef = useRef<string[]>([]);
@@ -473,41 +474,6 @@ export function useAppScreen(): AppScreenHookResult {
 
     useEffect(() => {
         let isMounted = true;
-        async function loadAppearancePreferences() {
-            try {
-                const [storedMode, storedScale] = await Promise.all([
-                    getPreferenceValue(THEME_MODE_PREFERENCE_KEY),
-                    getPreferenceValue(FONT_SCALE_PREFERENCE_KEY),
-                ]);
-
-                if (storedMode === "dark" || storedMode === "light") {
-                    setThemeMode(storedMode);
-                }
-
-                if (storedScale) {
-                    const parsed = Number(storedScale);
-                    if (Number.isFinite(parsed) && parsed >= 0.85 && parsed <= 1.3) {
-                        setFontScale(parsed);
-                    }
-                }
-            } catch (error) {
-                console.warn("모양새 설정을 불러오는 중 문제가 발생했어요.", error);
-            } finally {
-                if (isMounted) {
-                    setAppearanceReady(true);
-                }
-            }
-        }
-
-        void loadAppearancePreferences();
-
-        return () => {
-            isMounted = false;
-        };
-    }, []);
-
-    useEffect(() => {
-        let isMounted = true;
 
         getSearchHistoryEntries()
             .then((history) => {
@@ -560,21 +526,6 @@ export function useAppScreen(): AppScreenHookResult {
             console.warn("검색 이력을 삭제하는 중 문제가 발생했어요.", error);
         });
     }, [clearSearchHistoryEntries]);
-
-    const handleThemeModeChange = useCallback((nextMode: ThemeMode) => {
-        setThemeMode(nextMode);
-        void setPreferenceValue(THEME_MODE_PREFERENCE_KEY, nextMode).catch((error) => {
-            console.warn("테마 설정을 저장하는 중 문제가 발생했어요.", error);
-        });
-    }, []);
-
-    const handleFontScaleChange = useCallback((scale: number) => {
-        const clamped = Math.min(Math.max(scale, 0.85), 1.3);
-        setFontScale(clamped);
-        void setPreferenceValue(FONT_SCALE_PREFERENCE_KEY, clamped.toString()).catch((error) => {
-            console.warn("글자 크기를 저장하는 중 문제가 발생했어요.", error);
-        });
-    }, []);
 
     const toPendingExampleState = useCallback((base: WordResult, includeExistingExamples: boolean): WordResult => {
         return {
@@ -1096,8 +1047,8 @@ export function useAppScreen(): AppScreenHookResult {
         setAiAssistError(null);
         setAuthError(null);
         setSignUpError(null);
-        setIsOnboardingVisible(false);
-    }, []);
+        setOnboardingVisible(false);
+    }, [setOnboardingVisible]);
 
     const handleGuestAccessAsync = useCallback(async () => {
         setAuthLoading(true);
@@ -1107,7 +1058,7 @@ export function useAppScreen(): AppScreenHookResult {
             await setGuestSession();
             await setPreferenceValue(GUEST_USED_PREFERENCE_KEY, "true");
             // Always show onboarding right after guest login.
-            setIsOnboardingVisible(true);
+            setOnboardingVisible(true);
             setIsGuest(true);
             setUser(null);
             setFavorites([]);
@@ -1122,7 +1073,7 @@ export function useAppScreen(): AppScreenHookResult {
         } finally {
             setAuthLoading(false);
         }
-    }, []);
+    }, [setOnboardingVisible]);
 
     const resetAuthState = useCallback(() => {
         setInitialAuthState();
@@ -1186,22 +1137,19 @@ export function useAppScreen(): AppScreenHookResult {
                 );
             }
             try {
-                const [onboardingValue, guestUsedValue] = await Promise.all([
-                    getPreferenceValue(ONBOARDING_PREFERENCE_KEY),
-                    getPreferenceValue(GUEST_USED_PREFERENCE_KEY),
-                ]);
-                if (guestUsedValue === "true") {
-                    setIsOnboardingVisible(false);
-                    await setPreferenceValue(ONBOARDING_PREFERENCE_KEY, "true");
-                } else {
-                    setIsOnboardingVisible(onboardingValue !== "true");
-                }
-            } catch (error) {
-                console.warn("온보딩 상태를 불러오는 중 문제가 발생했어요.", error);
-                setIsOnboardingVisible(true);
+                await syncOnboardingVisibilityAfterAuthentication();
+            } catch {
+                // useAppearanceFlow already normalizes onboarding fallback behavior.
             }
         },
-        [hydrateFavorites, mergeFavorites, parseGuestFavorites, setPreferenceValue, upsertFavoriteForUser],
+        [
+            hydrateFavorites,
+            mergeFavorites,
+            parseGuestFavorites,
+            setPreferenceValue,
+            syncOnboardingVisibilityAfterAuthentication,
+            upsertFavoriteForUser,
+        ],
     );
     loadUserStateRef.current = loadUserState;
 
@@ -1426,20 +1374,6 @@ export function useAppScreen(): AppScreenHookResult {
         },
         [clearAutoLoginCredentials, clearSession, resetPasswordWithEmailCode, resetAuthState, resolveAuthMessage],
     );
-
-    const handleShowOnboarding = useCallback(() => {
-        setIsOnboardingVisible(true);
-        void setPreferenceValue(ONBOARDING_PREFERENCE_KEY, "false").catch((error) => {
-            console.warn("온보딩 상태를 업데이트하는 중 문제가 발생했어요.", error);
-        });
-    }, []);
-
-    const handleCompleteOnboarding = useCallback(() => {
-        setIsOnboardingVisible(false);
-        void setPreferenceValue(ONBOARDING_PREFERENCE_KEY, "true").catch((error) => {
-            console.warn("온보딩 상태를 저장하는 중 문제가 발생했어요.", error);
-        });
-    }, []);
 
     const handleLogoutAsync = useCallback(async () => {
         setAuthLoading(true);
