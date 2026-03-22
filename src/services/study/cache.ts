@@ -1,56 +1,74 @@
-import QuickLRU from "quick-lru";
+import { MeaningEntry } from "@/services/dictionary/types/WordResult";
+import { DEFAULT_STUDY_CARD_TYPES, StudyCard, StudyCardType, StudySession } from "@/services/study/types";
 
-import type { StudyCardDeck } from "@/services/study/types";
+const STUDY_CACHE_TTL_MS = 1000 * 60 * 20;
 
-type StudyCardCacheEntry = {
+type CacheEntry = {
     expiresAt: number;
-    deck: StudyCardDeck;
+    value: StudySession;
 };
 
-const STUDY_CARD_CACHE_TTL_MS = 1000 * 60 * 30;
-const studyCardCache = new QuickLRU<string, StudyCardCacheEntry>({ maxSize: 200 });
+const studySessionCache = new Map<string, CacheEntry>();
 
-function cloneStudyCardDeck(deck: StudyCardDeck): StudyCardDeck {
+function cloneStudyCards(cards: StudyCard[]): StudyCard[] {
+    return cards.map((card) => ({
+        ...card,
+        choices: card.choices.map((choice) => ({ ...choice })),
+    }));
+}
+
+function cloneStudySession(session: StudySession): StudySession {
     return {
-        ...deck,
-        cards: deck.cards.map((card) => ({
-            ...card,
-            choices: [...card.choices],
-        })),
+        ...session,
+        cards: cloneStudyCards(session.cards),
     };
 }
 
-export function getCachedStudyCardDeck(cacheKey: string, now = Date.now()): StudyCardDeck | null {
-    const cachedEntry = studyCardCache.get(cacheKey);
-    if (!cachedEntry) {
-        return null;
-    }
-
-    if (cachedEntry.expiresAt <= now) {
-        studyCardCache.delete(cacheKey);
-        return null;
-    }
-
-    return cloneStudyCardDeck(cachedEntry.deck);
+function buildMeaningSignature(meanings: MeaningEntry[]): string {
+    return meanings
+        .map((meaning, meaningIndex) =>
+            meaning.definitions
+                .map((definition, definitionIndex) => {
+                    const baseDefinition = definition.originalDefinition ?? definition.definition;
+                    const partOfSpeech = meaning.partOfSpeech?.trim().toLowerCase() ?? "";
+                    const example = definition.example?.trim().toLowerCase() ?? "";
+                    return `${meaningIndex}:${definitionIndex}:${partOfSpeech}:${baseDefinition.trim().toLowerCase()}:${example}`;
+                })
+                .join("|"),
+        )
+        .join("||");
 }
 
-export function setCachedStudyCardDeck(
-    cacheKey: string,
-    deck: StudyCardDeck,
-    options: { ttlMs?: number; now?: number } = {},
-): StudyCardDeck {
-    const now = options.now ?? Date.now();
-    const ttlMs = options.ttlMs ?? STUDY_CARD_CACHE_TTL_MS;
-    const cachedDeck = cloneStudyCardDeck(deck);
+export function buildStudyCacheKey(
+    word: string,
+    meanings: MeaningEntry[],
+    cardTypes: readonly StudyCardType[] = DEFAULT_STUDY_CARD_TYPES,
+    cardCount = 3,
+): string {
+    const normalizedWord = word.trim().toLowerCase();
+    const normalizedCardTypes = [...cardTypes].sort().join(",");
+    return `${normalizedWord}:${cardCount}:${normalizedCardTypes}:${buildMeaningSignature(meanings)}`;
+}
 
-    studyCardCache.set(cacheKey, {
-        expiresAt: now + ttlMs,
-        deck: cachedDeck,
+export function getCachedStudySession(cacheKey: string, now = Date.now()): StudySession | null {
+    const cached = studySessionCache.get(cacheKey);
+    if (!cached || cached.expiresAt <= now) {
+        if (cached && cached.expiresAt <= now) {
+            studySessionCache.delete(cacheKey);
+        }
+        return null;
+    }
+
+    return cloneStudySession(cached.value);
+}
+
+export function setCachedStudySession(cacheKey: string, session: StudySession, now = Date.now()): void {
+    studySessionCache.set(cacheKey, {
+        expiresAt: now + STUDY_CACHE_TTL_MS,
+        value: cloneStudySession(session),
     });
-
-    return cloneStudyCardDeck(cachedDeck);
 }
 
-export function clearStudyCardDeckCache(): void {
-    studyCardCache.clear();
+export function clearStudySessionCache(): void {
+    studySessionCache.clear();
 }
