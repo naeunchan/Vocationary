@@ -9,6 +9,8 @@ type AppExtra = {
     featureReviewSessionUi?: unknown;
     featureDailyGoal?: unknown;
     featureReviewReminder?: unknown;
+    featureCollections?: unknown;
+    featureFavoritesBatchActions?: unknown;
 };
 
 type FeatureFlags = {
@@ -20,6 +22,8 @@ type FeatureFlags = {
     reviewSessionUi: boolean;
     dailyGoal: boolean;
     reviewReminder: boolean;
+    collections: boolean;
+    favoritesBatchActions: boolean;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as AppExtra;
@@ -83,4 +87,12 @@ export const FEATURE_FLAGS: FeatureFlags = {
     dailyGoal: resolveFlag(process.env.EXPO_PUBLIC_FEATURE_DAILY_GOAL, extra.featureDailyGoal, false),
     // Hidden by default until reminder UX and scheduling policy are finalized.
     reviewReminder: resolveFlag(process.env.EXPO_PUBLIC_FEATURE_REVIEW_REMINDER, extra.featureReviewReminder, false),
+    // Hidden by default until collection CRUD and filtering are wired into Search/Favorites.
+    collections: resolveFlag(process.env.EXPO_PUBLIC_FEATURE_COLLECTIONS, extra.featureCollections, false),
+    // Hidden by default until Favorites multi-select and batch actions are ready.
+    favoritesBatchActions: resolveFlag(
+        process.env.EXPO_PUBLIC_FEATURE_FAVORITES_BATCH_ACTIONS,
+        extra.featureFavoritesBatchActions,
+        false,
+    ),
 };
