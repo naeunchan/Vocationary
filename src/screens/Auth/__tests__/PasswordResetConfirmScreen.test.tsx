@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import React from "react";
 import { Alert } from "react-native";
 
@@ -69,24 +69,23 @@ describe("PasswordResetConfirmScreen", () => {
             fireEvent.changeText(getByPlaceholderText("6자리 인증 코드"), "ABC123RESETCODE");
             fireEvent.changeText(getByPlaceholderText("새 비밀번호"), "Newpass123");
             fireEvent.changeText(getByPlaceholderText("새 비밀번호 확인"), "Newpass123");
-            fireEvent.press(getByLabelText("비밀번호 재설정"));
 
-            await waitFor(() => {
-                expect(onConfirmPasswordReset).toHaveBeenCalledWith({
-                    email: "tester@example.com",
-                    code: "ABC123RESETCODE",
-                    newPassword: "Newpass123",
-                    confirmPassword: "Newpass123",
-                });
+            await act(async () => {
+                fireEvent.press(getByLabelText("비밀번호 재설정"));
             });
 
-            await waitFor(() => {
-                expect(alertSpy).toHaveBeenCalledWith(
-                    "비밀번호 재설정 완료",
-                    PASSWORD_RESET_SUCCESS_MESSAGE,
-                    expect.any(Array),
-                );
+            expect(onConfirmPasswordReset).toHaveBeenCalledWith({
+                email: "tester@example.com",
+                code: "ABC123RESETCODE",
+                newPassword: "Newpass123",
+                confirmPassword: "Newpass123",
             });
+
+            expect(alertSpy).toHaveBeenCalledWith(
+                "비밀번호 재설정 완료",
+                PASSWORD_RESET_SUCCESS_MESSAGE,
+                expect.any(Array),
+            );
 
             const alertButtons = alertSpy.mock.calls[0]?.[2];
             const confirmButton = Array.isArray(alertButtons) ? alertButtons[0] : undefined;
@@ -128,13 +127,13 @@ describe("PasswordResetConfirmScreen", () => {
             { wrapper },
         );
 
-        fireEvent.press(getByText("메일 다시 요청"));
-
-        await waitFor(() => {
-            expect(onRequestCode).toHaveBeenCalledWith("tester@example.com");
-            expect(alertSpy).toHaveBeenCalled();
-            expect(navigation.navigate).not.toHaveBeenCalled();
+        await act(async () => {
+            fireEvent.press(getByText("메일 다시 요청"));
         });
+
+        expect(onRequestCode).toHaveBeenCalledWith("tester@example.com");
+        expect(alertSpy).toHaveBeenCalledWith("인증 코드 재발급", expect.any(String));
+        expect(navigation.navigate).not.toHaveBeenCalled();
     });
 
     it("shows error text when reset fails", async () => {

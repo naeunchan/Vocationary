@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design"
+  short_description: "Design Vocachip UI and UX changes"
+  default_prompt: "Use $design to design or refine a screen, component, or UX flow in the Vocachip repository."

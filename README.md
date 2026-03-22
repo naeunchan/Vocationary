@@ -2,6 +2,14 @@
 
 > v1.0.0
 
+## Coding Agents
+
+- Primary project guidance for coding agents lives in `AGENTS.md`.
+- In Codex, use `/architecture <task>` or `$architecture` for senior-level architecture reviews, tradeoff analysis, and migration planning.
+- In Codex, use `/develop <task>` or `$develop` for implementation work.
+- In Codex, use `/design <task>` or `$design` for UI and UX work.
+- In Codex, use `/pm <task>` or `$pm` for planning and scope breakdown work.
+
 ## 주요 기능 (Korean)
 
 - **로그인 진입 UX**: 앱 첫 진입 시 로그인 화면이 기본으로 표시돼요.
@@ -47,6 +55,7 @@
     - `EXPO_PUBLIC_OPENAI_PROXY_URL`
     - `EXPO_PUBLIC_OPENAI_PROXY_KEY`
     - `EXPO_PUBLIC_AI_HEALTH_URL` (optional; defaults to `<EXPO_PUBLIC_OPENAI_PROXY_URL>/health`)
+    - `EXPO_PUBLIC_FEATURE_ACCOUNT_AUTH`
 - Set server vars separately:
     - `AI_PROXY_KEY` (server-side request auth)
     - `OPENAI_API_KEY` (server-side OpenAI access)
@@ -64,5 +73,5 @@
   Invalid or non-HTTPS URLs will fallback to the in-app legal documents. Ensure hosted URLs are set before release.
 - Automatic login credentials are stored in app-managed storage and removed on logout.
 - AI-powered examples/TTS require a backend proxy (`EXPO_PUBLIC_OPENAI_PROXY_URL` + `EXPO_PUBLIC_OPENAI_PROXY_KEY`). Without them, the UI keeps the feature disabled and surfaces an in-app notice.
-- 인증 책임은 Firebase Auth가 담당하며(로그인/회원가입/비밀번호 재설정), 단어장/검색 기록/설정은 앱 내부 저장소로 관리됩니다.
+- 인증, 세션, 단어장, 검색 기록은 현재 `src/services/database/index.ts`를 통해 관리되며, 원격 백엔드를 기본 전제로 두지 않습니다.
 - Quick start: `cp .env.example .env` 후 값 채우기

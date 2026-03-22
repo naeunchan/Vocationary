@@ -2,6 +2,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import React from "react";
 import { Alert } from "react-native";
 
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { LoginScreen } from "@/screens/Auth/LoginScreen";
 import { AppAppearanceProvider } from "@/theme/AppearanceContext";
 
@@ -41,6 +42,7 @@ const baseProps = {
 describe("LoginScreen", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        FEATURE_FLAGS.accountAuth = true;
     });
 
     it("shows guest confirmation alert on guest button press", () => {
@@ -71,5 +73,20 @@ describe("LoginScreen", () => {
 
         expect(onOpenPasswordResetFlow).toHaveBeenCalled();
         expect(alertSpy).not.toHaveBeenCalled();
+    });
+
+    it("shows guest-first preview when account auth is disabled", () => {
+        FEATURE_FLAGS.accountAuth = false;
+        const { getByText, queryByText, getByLabelText } = render(<LoginScreen {...baseProps} />, { wrapper });
+
+        expect(getByText("회원 기능은 준비 중이에요.")).toBeTruthy();
+        expect(
+            getByText(
+                "지금은 게스트 모드로 검색과 학습을 이용할 수 있어요. 계정 기능은 정식 출시 전까지 제한적으로 제공됩니다.",
+            ),
+        ).toBeTruthy();
+        expect(getByLabelText("게스트로 둘러보기")).toBeTruthy();
+        expect(queryByText("회원가입")).toBeNull();
+        expect(queryByText("비밀번호를 잊으셨나요?")).toBeNull();
     });
 });

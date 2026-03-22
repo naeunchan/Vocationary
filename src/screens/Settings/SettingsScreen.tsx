@@ -46,7 +46,8 @@ export function SettingsScreen({
     onNavigateRecoveryGuide,
 }: SettingsScreenProps) {
     const styles = useThemedStyles(createStyles);
-    const showGuestAccountCta = isGuest && FEATURE_FLAGS.guestAccountCta;
+    const showAccountAuth = FEATURE_FLAGS.accountAuth;
+    const showGuestAccountCta = isGuest && showAccountAuth && FEATURE_FLAGS.guestAccountCta;
     const showBackupRestore = FEATURE_FLAGS.backupRestore;
     const handleLogoutPress = useCallback(() => {
         if (!canLogout) {
@@ -228,7 +229,9 @@ export function SettingsScreen({
                         })}
                         {renderRow(t("settings.link.recovery"), {
                             onPress: onNavigateRecoveryGuide,
-                            value: t("settings.label.recoveryAvailable"),
+                            value: t(
+                                showAccountAuth ? "settings.label.recoveryAvailable" : "settings.label.recoveryPreview",
+                            ),
                         })}
                         {renderRow(t("settings.link.aiStatus"), { value: aiStatusLabel })}
                         {renderRow(t("settings.link.appVersion"), { value: appVersion, isLast: true })}
@@ -269,7 +272,7 @@ export function SettingsScreen({
                     </View>
                 ) : null}
 
-                {isGuest ? (
+                {isGuest && showAccountAuth ? (
                     <View style={styles.section}>
                         <Text style={styles.sectionLabel}>{t("settings.section.account")}</Text>
                         {showGuestAccountCta ? (
@@ -288,14 +291,14 @@ export function SettingsScreen({
                             </View>
                         )}
                     </View>
-                ) : (
+                ) : !isGuest ? (
                     <AuthenticatedActions
                         canLogout={canLogout}
                         onLogout={handleLogoutPress}
                         onNavigateProfile={handleNavigateProfile}
                         onNavigateAccountDeletion={handleNavigateAccountDeletion}
                     />
-                )}
+                ) : null}
             </ScrollView>
             {activeDocument ? (
                 <LegalDocumentModal

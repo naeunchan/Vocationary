@@ -1,11 +1,13 @@
 import Constants from "expo-constants";
 
 type AppExtra = {
+    featureAccountAuth?: unknown;
     featureGuestAccountCta?: unknown;
     featureBackupRestore?: unknown;
 };
 
 type FeatureFlags = {
+    accountAuth: boolean;
     guestAccountCta: boolean;
     backupRestore: boolean;
 };
@@ -43,6 +45,8 @@ function resolveFlag(envValue: string | undefined, extraValue: unknown, fallback
 }
 
 export const FEATURE_FLAGS: FeatureFlags = {
+    // Defaults to enabled outside production unless app config explicitly turns it off.
+    accountAuth: resolveFlag(process.env.EXPO_PUBLIC_FEATURE_ACCOUNT_AUTH, extra.featureAccountAuth, true),
     // Hidden by default since login/signup path is disabled in current release.
     guestAccountCta: resolveFlag(
         process.env.EXPO_PUBLIC_FEATURE_GUEST_ACCOUNT_CTA,

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PM"
+  short_description: "Plan Vocachip work with scope and risk"
+  default_prompt: "Use $pm to plan a feature, bug fix, refactor, or release task in the Vocachip repository."

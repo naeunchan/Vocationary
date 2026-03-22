@@ -1,0 +1,4 @@
+interface:
+  display_name: "Architecture"
+  short_description: "Senior architecture guidance for Vocachip"
+  default_prompt: "Use $architecture to analyze architecture, evaluate tradeoffs, or propose a migration plan in the Vocachip repository."

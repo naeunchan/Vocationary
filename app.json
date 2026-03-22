@@ -30,6 +30,7 @@
         "plugins": ["expo-audio", "@sentry/react-native/expo", "expo-asset"],
         "extra": {
             "versionLabel": "1.0.0",
+            "featureAccountAuth": true,
             "featureGuestAccountCta": true,
             "featureBackupRestore": false,
             "privacyPolicyUrl": "https://vocachip.app/legal/privacy",

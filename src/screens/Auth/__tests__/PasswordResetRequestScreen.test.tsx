@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import React from "react";
 import { Alert } from "react-native";
 
@@ -53,13 +53,13 @@ describe("PasswordResetRequestScreen", () => {
         );
 
         fireEvent.changeText(getByTestId("password-reset-request-email-input"), "TESTER@EXAMPLE.COM ");
-        fireEvent.press(getByTestId("password-reset-request-submit-button"));
-
-        await waitFor(() => {
-            expect(onRequestCode).toHaveBeenCalledWith("tester@example.com");
-            expect(alertSpy).toHaveBeenCalled();
-            expect(navigation.navigate).toHaveBeenCalledWith("PasswordResetConfirm", { email: "tester@example.com" });
+        await act(async () => {
+            fireEvent.press(getByTestId("password-reset-request-submit-button"));
         });
+
+        expect(onRequestCode).toHaveBeenCalledWith("tester@example.com");
+        expect(alertSpy).toHaveBeenCalledWith("인증 코드 발급됨", expect.any(String));
+        expect(navigation.navigate).toHaveBeenCalledWith("PasswordResetConfirm", { email: "tester@example.com" });
     });
 
     it("shows alert popup when email is not registered", async () => {
@@ -80,11 +80,11 @@ describe("PasswordResetRequestScreen", () => {
         );
 
         fireEvent.changeText(getByTestId("password-reset-request-email-input"), "nobody@example.com");
-        fireEvent.press(getByTestId("password-reset-request-submit-button"));
-
-        await waitFor(() => {
-            expect(alertSpy).toHaveBeenCalledWith("비밀번호 재설정", "가입된 이메일 계정을 찾을 수 없어요.");
-            expect(queryByText("가입된 이메일 계정을 찾을 수 없어요.")).toBeNull();
+        await act(async () => {
+            fireEvent.press(getByTestId("password-reset-request-submit-button"));
         });
+
+        expect(alertSpy).toHaveBeenCalledWith("비밀번호 재설정", "가입된 이메일 계정을 찾을 수 없어요.");
+        expect(queryByText("가입된 이메일 계정을 찾을 수 없어요.")).toBeNull();
     });
 });

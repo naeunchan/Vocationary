@@ -1,0 +1,4 @@
+interface:
+  display_name: "Develop"
+  short_description: "Implement Vocachip code changes safely"
+  default_prompt: "Use $develop to implement a feature, bug fix, or refactor in the Vocachip repository."

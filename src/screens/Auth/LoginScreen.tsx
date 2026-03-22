@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { CredentialFields } from "@/screens/Auth/components/CredentialFields";
 import { GuestButton } from "@/screens/Auth/components/GuestButton";
 import { LoginHeader } from "@/screens/Auth/components/LoginHeader";
@@ -30,6 +31,7 @@ export function LoginScreen({
     const [emailError, setEmailError] = useState<string | null>(null);
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const isBusy = loading;
+    const showAccountAuth = FEATURE_FLAGS.accountAuth;
 
     const handleGuestPress = useCallback(() => {
         if (isBusy) {
@@ -88,33 +90,44 @@ export function LoginScreen({
             >
                 <LoginHeader title="Vocachip" subtitle={copy.subtitle} />
                 <View style={styles.content}>
-                    <View style={styles.card}>
-                        <CredentialFields
-                            username={email}
-                            password={password}
-                            loading={isBusy}
-                            emailError={emailError}
-                            passwordError={passwordError}
-                            onChangeUsername={setEmail}
-                            onChangePassword={setPassword}
-                        />
-                        <TouchableOpacity style={styles.recoveryLink} onPress={handleRecoveryPress} disabled={isBusy}>
-                            <Text style={styles.recoveryLinkText}>{t("auth.forgotPassword")}</Text>
-                        </TouchableOpacity>
-                        <PrimaryActionButton
-                            label={copy.primaryButton}
-                            loading={isBusy}
-                            disabled={isPrimaryDisabled}
-                            onPress={handlePrimaryPress}
-                            mode="login"
-                        />
-                    </View>
-
                     <View style={styles.guestSection}>
                         <GuestButton loading={isBusy} onPress={handleGuestPress} />
                     </View>
 
-                    {onOpenSignUpFlow ? (
+                    {showAccountAuth ? (
+                        <View style={styles.card}>
+                            <CredentialFields
+                                username={email}
+                                password={password}
+                                loading={isBusy}
+                                emailError={emailError}
+                                passwordError={passwordError}
+                                onChangeUsername={setEmail}
+                                onChangePassword={setPassword}
+                            />
+                            <TouchableOpacity
+                                style={styles.recoveryLink}
+                                onPress={handleRecoveryPress}
+                                disabled={isBusy}
+                            >
+                                <Text style={styles.recoveryLinkText}>{t("auth.forgotPassword")}</Text>
+                            </TouchableOpacity>
+                            <PrimaryActionButton
+                                label={copy.primaryButton}
+                                loading={isBusy}
+                                disabled={isPrimaryDisabled}
+                                onPress={handlePrimaryPress}
+                                mode="login"
+                            />
+                        </View>
+                    ) : (
+                        <View style={styles.card}>
+                            <Text style={styles.cardTitle}>{t("auth.preview.title")}</Text>
+                            <Text style={styles.helperText}>{t("auth.preview.body")}</Text>
+                        </View>
+                    )}
+
+                    {showAccountAuth && onOpenSignUpFlow ? (
                         <TouchableOpacity style={styles.flowLink} onPress={onOpenSignUpFlow} disabled={isBusy}>
                             <Text style={styles.flowLinkText}>회원가입</Text>
                         </TouchableOpacity>
