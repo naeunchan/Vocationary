@@ -1,28 +1,25 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, Linking, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { LEGAL_DOCUMENTS, type LegalDocumentId } from "@/legal/legalDocuments";
 import { MISSING_USER_ERROR_MESSAGE } from "@/screens/App/AppScreen.constants";
 import { AuthenticatedActions } from "@/screens/Settings/components/AuthenticatedActions";
+import { BackupPassphraseModal } from "@/screens/Settings/components/BackupPassphraseModal";
 import { GuestActionCard } from "@/screens/Settings/components/GuestActionCard";
 import { LegalDocumentModal } from "@/screens/Settings/components/LegalDocumentModal";
+import { SettingsBackupSection } from "@/screens/Settings/components/SettingsBackupSection";
+import { SettingsDisplaySection } from "@/screens/Settings/components/SettingsDisplaySection";
+import { SettingsGeneralSection } from "@/screens/Settings/components/SettingsGeneralSection";
+import { SettingsProfileCard } from "@/screens/Settings/components/SettingsProfileCard";
+import { SettingsSection } from "@/screens/Settings/components/SettingsSection";
 import { createStyles } from "@/screens/Settings/SettingsScreen.styles";
 import { SettingsScreenProps } from "@/screens/Settings/SettingsScreen.types";
+import { buildSupportMailtoUrl, SETTINGS_SUPPORT_EMAIL } from "@/screens/Settings/utils/settingsSupport";
 import { t } from "@/shared/i18n";
 import { FONT_SCALE_OPTIONS, THEME_MODE_OPTIONS } from "@/theme/constants";
 import { useThemedStyles } from "@/theme/useThemedStyles";
-
-const SUPPORT_EMAIL = "support@vocachip.app";
-const CONTACT_SUBJECT = "Vocachip 1:1 문의";
-
-type RowOptions = {
-    onPress?: () => void;
-    value?: string;
-    isLast?: boolean;
-    disabled?: boolean;
-};
 
 export function SettingsScreen({
     onLogout,
@@ -101,11 +98,11 @@ export function SettingsScreen({
     }, [onNavigateAccountDeletion, profileUsername]);
 
     const handleContactSupport = useCallback(async () => {
-        const subject = encodeURIComponent(CONTACT_SUBJECT);
-        const body = encodeURIComponent(
-            `계정: ${profileUsername ?? (isGuest ? "게스트" : "알 수 없음")}\n앱 버전: ${appVersion}\n\n문의 내용을 작성해주세요.\n`,
-        );
-        const mailtoUrl = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+        const mailtoUrl = buildSupportMailtoUrl({
+            appVersion,
+            isGuest,
+            profileUsername,
+        });
 
         try {
             const canOpen = await Linking.canOpenURL(mailtoUrl);
@@ -113,8 +110,8 @@ export function SettingsScreen({
                 throw new Error("Cannot open mail app");
             }
             await Linking.openURL(mailtoUrl);
-        } catch (error) {
-            Alert.alert("문의하기", `메일 앱을 열 수 없어요.\n${SUPPORT_EMAIL}로 직접 메일을 보내주세요.`);
+        } catch {
+            Alert.alert("문의하기", `메일 앱을 열 수 없어요.\n${SETTINGS_SUPPORT_EMAIL}로 직접 메일을 보내주세요.`);
         }
     }, [appVersion, isGuest, profileUsername]);
 
@@ -176,95 +173,40 @@ export function SettingsScreen({
         [fontScale],
     );
 
-    const renderRow = (label: string, options: RowOptions = {}) => {
-        const { onPress, value, isLast = false, disabled = false } = options;
-        const isPressable = Boolean(onPress) && !disabled;
-        return (
-            <TouchableOpacity
-                key={label}
-                activeOpacity={isPressable ? 0.6 : 1}
-                disabled={!isPressable}
-                onPress={onPress}
-                style={[
-                    styles.row,
-                    !isLast && styles.rowBorder,
-                    (disabled || (!onPress && !value)) && styles.rowDisabled,
-                ]}
-            >
-                <Text style={styles.rowLabel}>{label}</Text>
-                {value ? <Text style={styles.rowValue}>{value}</Text> : <Text style={styles.rowChevron}>›</Text>}
-            </TouchableOpacity>
-        );
-    };
-
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.profileCard}>
-                    <View style={styles.profileAvatar}>
-                        <Text style={styles.profileAvatarInitial}>{initials}</Text>
-                    </View>
-                    <View style={styles.profileInfo}>
-                        <Text style={styles.profileName}>{displayName}</Text>
-                        <Text style={styles.profileSubtitle}>{profileSubtitle}</Text>
-                    </View>
-                </View>
+                <SettingsProfileCard displayName={displayName} subtitle={profileSubtitle} initials={initials} />
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>{t("settings.section.general")}</Text>
-                    <View style={styles.sectionCard}>
-                        {renderRow(t("settings.link.tutorial"), { onPress: onShowOnboarding })}
-                        {renderRow(t("settings.link.contact"), { onPress: handleContactSupport })}
-                        {renderRow(t("settings.link.privacy"), { onPress: () => handleOpenDocument("privacyPolicy") })}
-                        {renderRow(t("settings.link.terms"), { onPress: () => handleOpenDocument("termsOfService") })}
-                        {renderRow(t("settings.link.legal"), {
-                            onPress: () => {
-                                handleOpenDocument("legalNotice");
-                            },
-                        })}
-                        {renderRow(t("settings.link.appVersion"), { value: appVersion, isLast: true })}
-                    </View>
-                </View>
+                <SettingsGeneralSection
+                    appVersion={appVersion}
+                    onShowOnboarding={onShowOnboarding}
+                    onContactSupport={handleContactSupport}
+                    onOpenDocument={handleOpenDocument}
+                />
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>{t("settings.section.display")}</Text>
-                    <View style={styles.sectionCard}>
-                        {renderRow(t("settings.link.theme"), {
-                            onPress: onNavigateThemeSettings,
-                            value: themeModeLabel,
-                        })}
-                        {renderRow(t("settings.link.font"), {
-                            onPress: onNavigateFontSettings,
-                            value: fontScaleLabel,
-                            isLast: true,
-                        })}
-                    </View>
-                </View>
+                <SettingsDisplaySection
+                    themeModeLabel={themeModeLabel}
+                    fontScaleLabel={fontScaleLabel}
+                    onNavigateThemeSettings={onNavigateThemeSettings}
+                    onNavigateFontSettings={onNavigateFontSettings}
+                />
 
                 {showBackupRestore ? (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionLabel}>{t("settings.section.backup")}</Text>
-                        <View style={styles.sectionCard}>
-                            {renderRow(t("settings.link.backupExport"), {
-                                onPress: () => {
-                                    setBackupAction("export");
-                                },
-                            })}
-                            {renderRow(t("settings.link.backupImport"), {
-                                onPress: () => {
-                                    setBackupAction("import");
-                                },
-                                isLast: true,
-                            })}
-                        </View>
-                    </View>
+                    <SettingsBackupSection
+                        onExportBackup={() => {
+                            setBackupAction("export");
+                        }}
+                        onImportBackup={() => {
+                            setBackupAction("import");
+                        }}
+                    />
                 ) : null}
 
                 {isGuest && showGuestAccountCta ? (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionLabel}>{t("settings.section.account")}</Text>
+                    <SettingsSection label={t("settings.section.account")} useCard={false}>
                         <GuestActionCard onSignUp={handleSignUpPress} onLogin={handleLoginPress} />
-                    </View>
+                    </SettingsSection>
                 ) : !isGuest ? (
                     <AuthenticatedActions
                         canLogout={canLogout}
@@ -285,43 +227,18 @@ export function SettingsScreen({
                     }}
                 />
             ) : null}
-            <Modal
+            <BackupPassphraseModal
                 visible={showBackupRestore && backupAction !== null}
-                animationType="fade"
-                transparent
-                onRequestClose={closeBackupModal}
-            >
-                <View style={styles.backdrop}>
-                    <View style={styles.passphraseCard}>
-                        <Text style={styles.passphraseTitle}>
-                            {backupAction === "export" ? "백업 내보내기" : "백업 불러오기"}
-                        </Text>
-                        <Text style={styles.passphraseSubtitle}>
-                            백업 파일은 입력한 암호로 암호화돼요. 동일한 암호를 기억해두세요.
-                        </Text>
-                        <TextInput
-                            value={passphrase}
-                            onChangeText={(text) => {
-                                setPassphrase(text);
-                                setBackupError(null);
-                            }}
-                            secureTextEntry
-                            placeholder="암호 입력"
-                            style={styles.passphraseInput}
-                            autoFocus
-                        />
-                        {backupError ? <Text style={styles.passphraseError}>{backupError}</Text> : null}
-                        <View style={styles.passphraseActions}>
-                            <TouchableOpacity onPress={closeBackupModal} style={styles.passphraseButtonGhost}>
-                                <Text style={styles.passphraseButtonGhostText}>취소</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={handleConfirmBackup} style={styles.passphraseButton}>
-                                <Text style={styles.passphraseButtonText}>확인</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+                backupAction={backupAction}
+                passphrase={passphrase}
+                backupError={backupError}
+                onChangePassphrase={(text) => {
+                    setPassphrase(text);
+                    setBackupError(null);
+                }}
+                onClose={closeBackupModal}
+                onConfirm={handleConfirmBackup}
+            />
         </SafeAreaView>
     );
 }
