@@ -10,7 +10,8 @@ export type SettingsScreenProps = {
     appVersion: string;
     profileDisplayName: string | null;
     profileUsername: string | null;
-    onNavigateProfile: () => void;
+    onNavigateNickname: () => void;
+    onNavigatePassword: () => void;
     onNavigateAccountDeletion: () => void;
     onExportBackup: (passphrase: string) => Promise<void>;
     onImportBackup: (passphrase: string) => Promise<void>;

@@ -14,11 +14,43 @@ jest.mock("@expo/vector-icons/Ionicons", () => {
 });
 
 jest.mock("@/screens/Settings/components/GuestActionCard", () => ({
-    GuestActionCard: () => null,
+    GuestActionCard: ({ onSignUp, onLogin }: { onSignUp: () => void; onLogin: () => void }) => {
+        const React = require("react");
+        const { Text, TouchableOpacity, View } = require("react-native");
+        return (
+            <View>
+                <TouchableOpacity onPress={onSignUp}>
+                    <Text>회원가입 후 계속하기</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={onLogin}>
+                    <Text>기존 계정으로 로그인</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    },
 }));
 
 jest.mock("@/screens/Settings/components/AuthenticatedActions", () => ({
-    AuthenticatedActions: () => null,
+    AuthenticatedActions: ({
+        onNavigateNickname,
+        onNavigatePassword,
+    }: {
+        onNavigateNickname: () => void;
+        onNavigatePassword: () => void;
+    }) => {
+        const React = require("react");
+        const { Text, TouchableOpacity, View } = require("react-native");
+        return (
+            <View>
+                <TouchableOpacity onPress={onNavigateNickname}>
+                    <Text>닉네임 설정</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={onNavigatePassword}>
+                    <Text>비밀번호 변경</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    },
 }));
 
 jest.mock("@/hooks/useAIStatus", () => ({
@@ -43,7 +75,8 @@ describe("SettingsScreen", () => {
         appVersion: "1.0.0",
         profileDisplayName: "Alex",
         profileUsername: "alex",
-        onNavigateProfile: jest.fn(),
+        onNavigateNickname: jest.fn(),
+        onNavigatePassword: jest.fn(),
         onNavigateAccountDeletion: jest.fn(),
         onExportBackup: jest.fn(),
         onImportBackup: jest.fn(),
@@ -57,6 +90,7 @@ describe("SettingsScreen", () => {
     beforeEach(() => {
         jest.clearAllMocks();
         FEATURE_FLAGS.accountAuth = true;
+        FEATURE_FLAGS.guestAccountCta = true;
         mockUseAIStatus.mockReturnValue({ status: "unavailable", lastCheckedAt: null, refresh: jest.fn() });
     });
 
@@ -129,6 +163,14 @@ describe("SettingsScreen", () => {
         expect(baseProps.onNavigateRecoveryGuide).toHaveBeenCalled();
     });
 
+    it("hides guest account section when guest account cta is disabled", () => {
+        FEATURE_FLAGS.guestAccountCta = false;
+        const { queryByText } = render(<SettingsScreen {...baseProps} isGuest />);
+
+        expect(queryByText("회원가입 후 계속하기")).toBeNull();
+        expect(queryByText("기존 계정으로 로그인")).toBeNull();
+    });
+
     it("hides guest account section when account auth is disabled", () => {
         FEATURE_FLAGS.accountAuth = false;
         const { queryByText, getByText } = render(<SettingsScreen {...baseProps} isGuest />);
@@ -136,6 +178,20 @@ describe("SettingsScreen", () => {
         expect(queryByText("회원가입 후 계속하기")).toBeNull();
         expect(queryByText("기존 계정으로 로그인")).toBeNull();
         expect(getByText("지원 안내")).toBeTruthy();
+    });
+
+    it("navigates directly to nickname settings from account section", () => {
+        const { getByText } = render(<SettingsScreen {...baseProps} />);
+
+        fireEvent.press(getByText("닉네임 설정"));
+        expect(baseProps.onNavigateNickname).toHaveBeenCalled();
+    });
+
+    it("navigates directly to password settings from account section", () => {
+        const { getByText } = render(<SettingsScreen {...baseProps} />);
+
+        fireEvent.press(getByText("비밀번호 변경"));
+        expect(baseProps.onNavigatePassword).toHaveBeenCalled();
     });
 
     it("shows unavailable label when AI proxy is not configured", () => {

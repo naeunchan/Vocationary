@@ -6,7 +6,6 @@ import { DeleteAccountScreen } from "@/screens/Settings/DeleteAccountScreen";
 import { FontSizeScreen } from "@/screens/Settings/FontSizeScreen";
 import { MyPageNicknameScreen } from "@/screens/Settings/MyPageNicknameScreen";
 import { MyPagePasswordScreen } from "@/screens/Settings/MyPagePasswordScreen";
-import { MyPageScreen } from "@/screens/Settings/MyPageScreen";
 import { RecoveryGuideScreen } from "@/screens/Settings/RecoveryGuideScreen";
 import { SettingsNavigatorProps, SettingsStackParamList } from "@/screens/Settings/SettingsNavigator.types";
 import { SettingsScreen } from "@/screens/Settings/SettingsScreen";
@@ -49,14 +48,6 @@ export function SettingsNavigator({
 
     const settingsHomeOptions = React.useMemo<NativeStackNavigationOptions>(
         () => ({ headerShown: false, title: "설정" }),
-        [],
-    );
-    const myPageOptions = React.useMemo<NativeStackNavigationOptions>(
-        () => ({
-            title: "마이 페이지",
-            headerBackTitle: "",
-            headerBackButtonDisplayMode: "minimal",
-        }),
         [],
     );
     const myPageNicknameOptions = React.useMemo<NativeStackNavigationOptions>(
@@ -115,8 +106,11 @@ export function SettingsNavigator({
                         appVersion={appVersion}
                         profileDisplayName={profileDisplayName}
                         profileUsername={profileUsername}
-                        onNavigateProfile={() => {
-                            navigation.navigate("MyPage");
+                        onNavigateNickname={() => {
+                            navigation.navigate("MyPageNickname");
+                        }}
+                        onNavigatePassword={() => {
+                            navigation.navigate("MyPagePassword");
                         }}
                         onNavigateAccountDeletion={() => {
                             navigation.navigate("DeleteAccount");
@@ -133,23 +127,6 @@ export function SettingsNavigator({
                         }}
                         onNavigateRecoveryGuide={() => {
                             navigation.navigate("RecoveryGuide");
-                        }}
-                    />
-                )}
-            </Stack.Screen>
-            <Stack.Screen name="MyPage" options={myPageOptions}>
-                {({ navigation }) => (
-                    <MyPageScreen
-                        username={profileUsername ?? ""}
-                        displayName={profileDisplayName}
-                        onNavigateNickname={() => {
-                            navigation.navigate("MyPageNickname");
-                        }}
-                        onNavigatePassword={() => {
-                            navigation.navigate("MyPagePassword");
-                        }}
-                        onNavigateDeleteAccount={() => {
-                            navigation.navigate("DeleteAccount");
                         }}
                     />
                 )}

@@ -35,7 +35,8 @@ export function SettingsScreen({
     appVersion,
     profileDisplayName,
     profileUsername,
-    onNavigateProfile,
+    onNavigateNickname,
+    onNavigatePassword,
     onNavigateAccountDeletion,
     onExportBackup,
     onImportBackup,
@@ -77,13 +78,21 @@ export function SettingsScreen({
         onRequestSignUp();
     }, [onRequestSignUp, showGuestAccountCta]);
 
-    const handleNavigateProfile = useCallback(() => {
+    const handleNavigateNickname = useCallback(() => {
         if (!profileUsername) {
-            Alert.alert("마이 페이지", MISSING_USER_ERROR_MESSAGE);
+            Alert.alert("닉네임 설정", MISSING_USER_ERROR_MESSAGE);
             return;
         }
-        onNavigateProfile();
-    }, [profileUsername, onNavigateProfile]);
+        onNavigateNickname();
+    }, [profileUsername, onNavigateNickname]);
+
+    const handleNavigatePassword = useCallback(() => {
+        if (!profileUsername) {
+            Alert.alert("비밀번호 변경", MISSING_USER_ERROR_MESSAGE);
+            return;
+        }
+        onNavigatePassword();
+    }, [profileUsername, onNavigatePassword]);
 
     const handleNavigateAccountDeletion = useCallback(() => {
         if (!profileUsername) {
@@ -277,25 +286,14 @@ export function SettingsScreen({
                         <Text style={styles.sectionLabel}>{t("settings.section.account")}</Text>
                         {showGuestAccountCta ? (
                             <GuestActionCard onSignUp={handleSignUpPress} onLogin={handleLoginPress} />
-                        ) : (
-                            <View style={styles.sectionCard}>
-                                {renderRow(t("settings.link.signUp"), {
-                                    value: t("settings.label.comingSoon"),
-                                    disabled: true,
-                                })}
-                                {renderRow(t("settings.link.login"), {
-                                    value: t("settings.label.comingSoon"),
-                                    disabled: true,
-                                    isLast: true,
-                                })}
-                            </View>
-                        )}
+                        ) : null}
                     </View>
                 ) : !isGuest ? (
                     <AuthenticatedActions
                         canLogout={canLogout}
                         onLogout={handleLogoutPress}
-                        onNavigateProfile={handleNavigateProfile}
+                        onNavigateNickname={handleNavigateNickname}
+                        onNavigatePassword={handleNavigatePassword}
                         onNavigateAccountDeletion={handleNavigateAccountDeletion}
                     />
                 ) : null}
