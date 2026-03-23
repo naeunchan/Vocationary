@@ -49,7 +49,7 @@ describe("LoginScreen", () => {
         const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
         const { getByLabelText } = render(<LoginScreen {...baseProps} />, { wrapper });
 
-        fireEvent.press(getByLabelText("게스트로 둘러보기"));
+        fireEvent.press(getByLabelText("게스트 모드로 로그인"));
 
         expect(alertSpy).toHaveBeenCalled();
     });
@@ -75,6 +75,15 @@ describe("LoginScreen", () => {
         expect(alertSpy).not.toHaveBeenCalled();
     });
 
+    it("opens sign up flow from the secondary action area", () => {
+        const onOpenSignUpFlow = jest.fn();
+        const { getByText } = render(<LoginScreen {...baseProps} onOpenSignUpFlow={onOpenSignUpFlow} />, { wrapper });
+
+        fireEvent.press(getByText("회원가입"));
+
+        expect(onOpenSignUpFlow).toHaveBeenCalled();
+    });
+
     it("shows guest-first preview when account auth is disabled", () => {
         FEATURE_FLAGS.accountAuth = false;
         const { getByText, queryByText, getByLabelText } = render(<LoginScreen {...baseProps} />, { wrapper });
@@ -85,7 +94,7 @@ describe("LoginScreen", () => {
                 "지금은 게스트 모드로 검색과 학습을 이용할 수 있어요. 계정 기능은 정식 출시 전까지 제한적으로 제공됩니다.",
             ),
         ).toBeTruthy();
-        expect(getByLabelText("게스트로 둘러보기")).toBeTruthy();
+        expect(getByLabelText("게스트 모드로 로그인")).toBeTruthy();
         expect(queryByText("회원가입")).toBeNull();
         expect(queryByText("비밀번호를 잊으셨나요?")).toBeNull();
     });
