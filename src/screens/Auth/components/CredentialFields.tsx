@@ -2,6 +2,7 @@ import React from "react";
 import { Text, TextInput, View } from "react-native";
 
 import { createLoginScreenStyles } from "@/screens/Auth/LoginScreen.styles";
+import { t } from "@/shared/i18n";
 import { useAppAppearance } from "@/theme/AppearanceContext";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
@@ -28,36 +29,42 @@ export function CredentialFields({
     const { theme } = useAppAppearance();
 
     return (
-        <View style={{ gap: 12 }}>
-            <TextInput
-                style={styles.textInput}
-                value={username}
-                onChangeText={onChangeUsername}
-                placeholder="Email"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!loading}
-                autoComplete="email"
-                textContentType="emailAddress"
-                keyboardType="email-address"
-                returnKeyType="next"
-                placeholderTextColor={theme.textMuted}
-            />
-            <Text style={styles.errorText}>{emailError ?? " "}</Text>
+        <View style={styles.fieldStack}>
+            <View style={styles.fieldGroup}>
+                <Text style={styles.inputLabel}>{t("auth.field.email")}</Text>
+                <TextInput
+                    style={styles.textInput}
+                    value={username}
+                    onChangeText={onChangeUsername}
+                    placeholder={t("auth.placeholder.email")}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!loading}
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                    placeholderTextColor={theme.textMuted}
+                />
+                {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+            </View>
 
-            <TextInput
-                style={styles.textInput}
-                value={password}
-                onChangeText={onChangePassword}
-                placeholder="Password"
-                secureTextEntry
-                editable={!loading}
-                autoComplete="password"
-                textContentType="password"
-                returnKeyType="done"
-                placeholderTextColor={theme.textMuted}
-            />
-            <Text style={styles.errorText}>{passwordError ?? " "}</Text>
+            <View style={styles.fieldGroup}>
+                <Text style={styles.inputLabel}>{t("auth.field.password")}</Text>
+                <TextInput
+                    style={styles.textInput}
+                    value={password}
+                    onChangeText={onChangePassword}
+                    placeholder={t("auth.placeholder.password")}
+                    secureTextEntry
+                    editable={!loading}
+                    autoComplete="password"
+                    textContentType="password"
+                    returnKeyType="done"
+                    placeholderTextColor={theme.textMuted}
+                />
+                {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+            </View>
         </View>
     );
 }

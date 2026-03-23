@@ -5,15 +5,17 @@ import { createLoginScreenStyles } from "@/screens/Auth/LoginScreen.styles";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
 type LoginHeaderProps = {
-    title: string;
+    brand?: string;
+    title?: string;
     subtitle?: string;
 };
 
-export function LoginHeader({ title, subtitle }: LoginHeaderProps) {
+export function LoginHeader({ brand, title, subtitle }: LoginHeaderProps) {
     const styles = useThemedStyles(createLoginScreenStyles);
     return (
         <View style={styles.hero}>
-            <Text style={styles.brandText}>{title}</Text>
+            {brand ? <Text style={styles.brandText}>{brand}</Text> : null}
+            {title ? <Text style={styles.title}>{title}</Text> : null}
             {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
     );

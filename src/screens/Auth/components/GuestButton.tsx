@@ -2,6 +2,7 @@ import React from "react";
 import { Text, TouchableOpacity } from "react-native";
 
 import { createLoginScreenStyles } from "@/screens/Auth/LoginScreen.styles";
+import { t } from "@/shared/i18n";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
 type GuestButtonProps = {
@@ -11,6 +12,8 @@ type GuestButtonProps = {
 
 export function GuestButton({ loading, onPress }: GuestButtonProps) {
     const styles = useThemedStyles(createLoginScreenStyles);
+    const label = t("auth.guest.cta");
+
     return (
         <TouchableOpacity
             style={[styles.guestButton, loading && styles.disabledButton]}
@@ -18,10 +21,10 @@ export function GuestButton({ loading, onPress }: GuestButtonProps) {
             disabled={loading}
             activeOpacity={0.9}
             accessibilityRole="button"
-            accessibilityLabel="게스트로 둘러보기"
+            accessibilityLabel={label}
             accessibilityState={{ disabled: loading }}
         >
-            <Text style={styles.guestButtonText}>게스트로 둘러보기</Text>
+            <Text style={styles.guestButtonText}>{label}</Text>
         </TouchableOpacity>
     );
 }
