@@ -7,14 +7,16 @@ import { useThemedStyles } from "@/theme/useThemedStyles";
 type AuthenticatedActionsProps = {
     canLogout: boolean;
     onLogout: () => void;
-    onNavigateProfile: () => void;
+    onNavigateNickname: () => void;
+    onNavigatePassword: () => void;
     onNavigateAccountDeletion: () => void;
 };
 
 export function AuthenticatedActions({
     canLogout,
     onLogout,
-    onNavigateProfile,
+    onNavigateNickname,
+    onNavigatePassword,
     onNavigateAccountDeletion,
 }: AuthenticatedActionsProps) {
     const styles = useThemedStyles(createStyles);
@@ -25,9 +27,17 @@ export function AuthenticatedActions({
                 <TouchableOpacity
                     style={[styles.row, styles.rowBorder]}
                     activeOpacity={0.6}
-                    onPress={onNavigateProfile}
+                    onPress={onNavigateNickname}
                 >
-                    <Text style={styles.rowLabel}>계정 정보 관리</Text>
+                    <Text style={styles.rowLabel}>닉네임 설정</Text>
+                    <Text style={styles.rowChevron}>›</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.row, styles.rowBorder]}
+                    activeOpacity={0.6}
+                    onPress={onNavigatePassword}
+                >
+                    <Text style={styles.rowLabel}>비밀번호 변경</Text>
                     <Text style={styles.rowChevron}>›</Text>
                 </TouchableOpacity>
                 {canLogout ? (

@@ -2,7 +2,6 @@ import type { ThemeMode } from "@/theme/types";
 
 export type SettingsStackParamList = {
     SettingsHome: undefined;
-    MyPage: undefined;
     MyPageNickname: undefined;
     MyPagePassword: undefined;
     RecoveryGuide: undefined;
