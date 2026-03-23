@@ -4,7 +4,6 @@ export type SettingsStackParamList = {
     SettingsHome: undefined;
     MyPageNickname: undefined;
     MyPagePassword: undefined;
-    RecoveryGuide: undefined;
     ThemeModeSettings: undefined;
     FontSizeSettings: undefined;
     DeleteAccount: undefined;

@@ -19,5 +19,4 @@ export type SettingsScreenProps = {
     fontScale: number;
     onNavigateThemeSettings: () => void;
     onNavigateFontSettings: () => void;
-    onNavigateRecoveryGuide: () => void;
 };

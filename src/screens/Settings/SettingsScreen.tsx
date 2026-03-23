@@ -3,7 +3,6 @@ import { Alert, Linking, Modal, ScrollView, Text, TextInput, TouchableOpacity, V
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FEATURE_FLAGS } from "@/config/featureFlags";
-import { useAIStatus } from "@/hooks/useAIStatus";
 import { LEGAL_DOCUMENTS, type LegalDocumentId } from "@/legal/legalDocuments";
 import { MISSING_USER_ERROR_MESSAGE } from "@/screens/App/AppScreen.constants";
 import { AuthenticatedActions } from "@/screens/Settings/components/AuthenticatedActions";
@@ -44,7 +43,6 @@ export function SettingsScreen({
     fontScale,
     onNavigateThemeSettings,
     onNavigateFontSettings,
-    onNavigateRecoveryGuide,
 }: SettingsScreenProps) {
     const styles = useThemedStyles(createStyles);
     const showAccountAuth = FEATURE_FLAGS.accountAuth;
@@ -177,18 +175,6 @@ export function SettingsScreen({
         () => FONT_SCALE_OPTIONS.find((option) => option.value === fontScale)?.label ?? "",
         [fontScale],
     );
-    const { status: aiStatus } = useAIStatus();
-
-    const aiStatusLabel = useMemo(() => {
-        switch (aiStatus) {
-            case "healthy":
-                return t("settings.label.aiHealthy");
-            case "degraded":
-                return t("settings.label.aiDegraded");
-            default:
-                return t("settings.label.aiUnavailable");
-        }
-    }, [aiStatus]);
 
     const renderRow = (label: string, options: RowOptions = {}) => {
         const { onPress, value, isLast = false, disabled = false } = options;
@@ -236,13 +222,6 @@ export function SettingsScreen({
                                 handleOpenDocument("legalNotice");
                             },
                         })}
-                        {renderRow(t("settings.link.recovery"), {
-                            onPress: onNavigateRecoveryGuide,
-                            value: t(
-                                showAccountAuth ? "settings.label.recoveryAvailable" : "settings.label.recoveryPreview",
-                            ),
-                        })}
-                        {renderRow(t("settings.link.aiStatus"), { value: aiStatusLabel })}
                         {renderRow(t("settings.link.appVersion"), { value: appVersion, isLast: true })}
                     </View>
                 </View>
@@ -281,12 +260,10 @@ export function SettingsScreen({
                     </View>
                 ) : null}
 
-                {isGuest && showAccountAuth ? (
+                {isGuest && showGuestAccountCta ? (
                     <View style={styles.section}>
                         <Text style={styles.sectionLabel}>{t("settings.section.account")}</Text>
-                        {showGuestAccountCta ? (
-                            <GuestActionCard onSignUp={handleSignUpPress} onLogin={handleLoginPress} />
-                        ) : null}
+                        <GuestActionCard onSignUp={handleSignUpPress} onLogin={handleLoginPress} />
                     </View>
                 ) : !isGuest ? (
                     <AuthenticatedActions

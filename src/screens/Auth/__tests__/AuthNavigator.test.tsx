@@ -6,6 +6,7 @@ import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 import { AppAppearanceProvider } from "@/theme/AppearanceContext";
 
 const mockSignUpPasswordScreen = jest.fn(() => null);
+const mockRecoveryGuideScreen = jest.fn(() => null);
 
 jest.mock("@react-navigation/native", () => {
     const React = require("react");
@@ -74,7 +75,7 @@ jest.mock("@/screens/Auth/signup/SignUpSuccessScreen", () => ({
 }));
 
 jest.mock("@/screens/Settings/RecoveryGuideScreen", () => ({
-    RecoveryGuideScreen: () => null,
+    RecoveryGuideScreen: (props: any) => mockRecoveryGuideScreen(props),
 }));
 
 jest.mock("@/screens/Auth/signup/SignUpPasswordScreen", () => ({
@@ -122,6 +123,38 @@ describe("AuthNavigator", () => {
         expect(mockSignUpPasswordScreen).toHaveBeenCalledWith(
             expect.objectContaining({
                 errorMessage: "이미 사용 중인 이메일이에요. 다른 이메일을 사용해주세요.",
+            }),
+        );
+    });
+
+    it("keeps recovery guide available in auth flow", () => {
+        const loginProps: LoginScreenProps = {
+            onGuest: jest.fn(),
+            onLogin: jest.fn().mockResolvedValue(undefined),
+            onRequestPasswordResetCode: jest
+                .fn()
+                .mockResolvedValue({ email: "user@example.com", expiresAt: "2026-02-21T00:00:00.000Z" }),
+            onConfirmPasswordReset: jest.fn().mockResolvedValue(undefined),
+            onSignUp: jest.fn().mockResolvedValue(undefined),
+            loading: false,
+        };
+
+        render(
+            <AppAppearanceProvider
+                mode="light"
+                fontScale={1}
+                onChangeMode={() => undefined}
+                onChangeFontScale={() => undefined}
+            >
+                <AuthNavigator loginProps={loginProps} />
+            </AppAppearanceProvider>,
+        );
+
+        expect(mockRecoveryGuideScreen).toHaveBeenCalledWith(
+            expect.objectContaining({
+                onRequestPasswordReset: expect.any(Function),
+                onRequestSignUp: expect.any(Function),
+                onContinueAsGuest: loginProps.onGuest,
             }),
         );
     });

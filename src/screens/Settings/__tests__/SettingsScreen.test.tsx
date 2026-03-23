@@ -5,8 +5,6 @@ import { Alert, Linking } from "react-native";
 import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { SettingsScreen } from "@/screens/Settings/SettingsScreen";
 
-const mockUseAIStatus = jest.fn();
-
 jest.mock("@expo/vector-icons/Ionicons", () => {
     const React = require("react");
     const { Text } = require("react-native");
@@ -53,10 +51,6 @@ jest.mock("@/screens/Settings/components/AuthenticatedActions", () => ({
     },
 }));
 
-jest.mock("@/hooks/useAIStatus", () => ({
-    useAIStatus: () => mockUseAIStatus(),
-}));
-
 jest.mock("@/services/database", () => {
     return {
         getPreferenceValue: jest.fn().mockResolvedValue("false"),
@@ -84,14 +78,12 @@ describe("SettingsScreen", () => {
         fontScale: 1,
         onNavigateThemeSettings: jest.fn(),
         onNavigateFontSettings: jest.fn(),
-        onNavigateRecoveryGuide: jest.fn(),
     };
 
     beforeEach(() => {
         jest.clearAllMocks();
         FEATURE_FLAGS.accountAuth = true;
         FEATURE_FLAGS.guestAccountCta = true;
-        mockUseAIStatus.mockReturnValue({ status: "unavailable", lastCheckedAt: null, refresh: jest.fn() });
     });
 
     afterEach(() => {
@@ -156,19 +148,13 @@ describe("SettingsScreen", () => {
         expect(baseProps.onNavigateFontSettings).toHaveBeenCalled();
     });
 
-    it("navigates to recovery guide when recovery row tapped", () => {
-        const { getByText } = render(<SettingsScreen {...baseProps} />);
-
-        fireEvent.press(getByText("계정 복구 안내"));
-        expect(baseProps.onNavigateRecoveryGuide).toHaveBeenCalled();
-    });
-
     it("hides guest account section when guest account cta is disabled", () => {
         FEATURE_FLAGS.guestAccountCta = false;
         const { queryByText } = render(<SettingsScreen {...baseProps} isGuest />);
 
         expect(queryByText("회원가입 후 계속하기")).toBeNull();
         expect(queryByText("기존 계정으로 로그인")).toBeNull();
+        expect(queryByText("계정")).toBeNull();
     });
 
     it("hides guest account section when account auth is disabled", () => {
@@ -177,7 +163,8 @@ describe("SettingsScreen", () => {
 
         expect(queryByText("회원가입 후 계속하기")).toBeNull();
         expect(queryByText("기존 계정으로 로그인")).toBeNull();
-        expect(getByText("지원 안내")).toBeTruthy();
+        expect(queryByText("계정")).toBeNull();
+        expect(getByText("법적 고지 및 정보")).toBeTruthy();
     });
 
     it("navigates directly to nickname settings from account section", () => {
@@ -192,26 +179,5 @@ describe("SettingsScreen", () => {
 
         fireEvent.press(getByText("비밀번호 변경"));
         expect(baseProps.onNavigatePassword).toHaveBeenCalled();
-    });
-
-    it("shows unavailable label when AI proxy is not configured", () => {
-        mockUseAIStatus.mockReturnValue({ status: "unavailable", lastCheckedAt: null, refresh: jest.fn() });
-        const { getByText } = render(<SettingsScreen {...baseProps} />);
-
-        expect(getByText("비활성 (백엔드 필요)")).toBeTruthy();
-    });
-
-    it("shows degraded label when AI backend is unstable", () => {
-        mockUseAIStatus.mockReturnValue({ status: "degraded", lastCheckedAt: null, refresh: jest.fn() });
-        const { getByText } = render(<SettingsScreen {...baseProps} />);
-
-        expect(getByText("제한적 (백엔드 확인 필요)")).toBeTruthy();
-    });
-
-    it("shows healthy label when AI backend is healthy", () => {
-        mockUseAIStatus.mockReturnValue({ status: "healthy", lastCheckedAt: null, refresh: jest.fn() });
-        const { getByText } = render(<SettingsScreen {...baseProps} />);
-
-        expect(getByText("활성")).toBeTruthy();
     });
 });
