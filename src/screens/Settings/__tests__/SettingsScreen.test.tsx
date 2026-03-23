@@ -83,6 +83,7 @@ describe("SettingsScreen", () => {
     beforeEach(() => {
         jest.clearAllMocks();
         FEATURE_FLAGS.accountAuth = true;
+        FEATURE_FLAGS.backupRestore = false;
         FEATURE_FLAGS.guestAccountCta = true;
     });
 
@@ -102,6 +103,8 @@ describe("SettingsScreen", () => {
 
         expect(Linking.canOpenURL).toHaveBeenCalled();
         expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining("mailto:support@vocachip.app"));
+        expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent("계정: alex")));
+        expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent("앱 버전: 1.0.0")));
     });
 
     it("shows alert when mail composer unavailable", async () => {
@@ -146,6 +149,30 @@ describe("SettingsScreen", () => {
 
         fireEvent.press(getByText("글자 크기"));
         expect(baseProps.onNavigateFontSettings).toHaveBeenCalled();
+    });
+
+    it("opens the backup modal, validates passphrase, and exports with trimmed input", async () => {
+        FEATURE_FLAGS.backupRestore = true;
+        const onExportBackup = jest.fn().mockResolvedValue(undefined);
+        const { getByPlaceholderText, getByText, queryByText } = render(
+            <SettingsScreen {...baseProps} onExportBackup={onExportBackup} />,
+        );
+
+        fireEvent.press(getByText("데이터 백업 내보내기"));
+        expect(getByText("백업 내보내기")).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(getByText("확인"));
+        });
+        expect(getByText("암호를 입력해주세요.")).toBeTruthy();
+
+        fireEvent.changeText(getByPlaceholderText("암호 입력"), " secret ");
+        expect(queryByText("암호를 입력해주세요.")).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(getByText("확인"));
+        });
+        expect(onExportBackup).toHaveBeenCalledWith("secret");
     });
 
     it("hides guest account section when guest account cta is disabled", () => {
