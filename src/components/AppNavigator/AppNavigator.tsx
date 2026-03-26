@@ -27,7 +27,7 @@ export function AppNavigator(props: AppNavigatorProps) {
     );
 
     return (
-        <NavigationContainer theme={navigationTheme}>
+        <NavigationContainer independent theme={navigationTheme}>
             <RootTabNavigator {...props} />
         </NavigationContainer>
     );

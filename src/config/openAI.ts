@@ -1,16 +1,16 @@
-import Constants from "expo-constants";
+import { getRuntimeConfig } from "@/config/runtime";
 
-const extra = Constants.expoConfig?.extra ?? {};
+const runtime = getRuntimeConfig();
 
 function normalizeUrl(value: string): string {
     return value.trim().replace(/\/+$/, "");
 }
 
-const proxyFromExtra = typeof extra.openAIProxyUrl === "string" ? normalizeUrl(extra.openAIProxyUrl) : "";
+const proxyFromExtra = typeof runtime.openAIProxyUrl === "string" ? normalizeUrl(runtime.openAIProxyUrl) : "";
 const proxyFromEnv = (process.env.EXPO_PUBLIC_OPENAI_PROXY_URL ?? "").trim();
-const proxyKeyFromExtra = typeof extra.openAIProxyKey === "string" ? extra.openAIProxyKey.trim() : "";
+const proxyKeyFromExtra = typeof runtime.openAIProxyKey === "string" ? runtime.openAIProxyKey.trim() : "";
 const proxyKeyFromEnv = (process.env.EXPO_PUBLIC_OPENAI_PROXY_KEY ?? "").trim();
-const healthFromExtra = typeof extra.aiHealthUrl === "string" ? normalizeUrl(extra.aiHealthUrl) : "";
+const healthFromExtra = typeof runtime.aiHealthUrl === "string" ? normalizeUrl(runtime.aiHealthUrl) : "";
 
 /**
  * Backend proxy URL used for AI-powered features (examples/TTS).

@@ -1,5 +1,39 @@
-import { type AudioPlayer, type AudioStatus, createAudioPlayer, setAudioModeAsync } from "expo-audio";
-import type { EventSubscription } from "expo-modules-core";
+type AudioStatus = {
+    isLoaded?: boolean;
+    didJustFinish?: boolean;
+    playbackState?: string;
+    reasonForWaitingToPlay?: string | null;
+};
+
+type EventSubscription = {
+    remove: () => void;
+};
+
+type AudioPlayer = {
+    isLoaded?: boolean;
+    play: () => void;
+    pause: () => void;
+    remove: () => void;
+    seekTo: (position: number) => Promise<void>;
+    addListener: (eventName: string, listener: (status: AudioStatus) => void) => EventSubscription;
+};
+
+type ExpoAudioModule = {
+    createAudioPlayer: (
+        source: { uri: string },
+        options?: {
+            downloadFirst?: boolean;
+            keepAudioSessionActive?: boolean;
+        },
+    ) => AudioPlayer;
+    setAudioModeAsync: (options: {
+        playsInSilentMode: boolean;
+        shouldPlayInBackground: boolean;
+        allowsRecording: boolean;
+        interruptionMode: string;
+        shouldRouteThroughEarpiece: boolean;
+    }) => Promise<void>;
+};
 
 const MAX_CACHED_PLAYERS = 6;
 const PLAYER_READY_TIMEOUT_MS = 8000;
@@ -14,17 +48,42 @@ let audioModePromise: Promise<void> | null = null;
 let activePlayerUri: string | null = null;
 const cachedPlayers = new Map<string, CachedPlayer>();
 
+function getExpoAudioModule(): ExpoAudioModule | null {
+    try {
+        const moduleValue = require("expo-audio") as Partial<ExpoAudioModule>;
+        if (
+            typeof moduleValue?.createAudioPlayer !== "function" ||
+            typeof moduleValue?.setAudioModeAsync !== "function"
+        ) {
+            return null;
+        }
+        return moduleValue as ExpoAudioModule;
+    } catch {
+        return null;
+    }
+}
+
+function getAudioModule(): ExpoAudioModule {
+    const audioModule = getExpoAudioModule();
+    if (!audioModule) {
+        throw new Error("현재 환경에서는 오디오 재생을 지원하지 않아요.");
+    }
+    return audioModule;
+}
+
 async function ensureAudioModeConfigured() {
     if (!audioModePromise) {
-        audioModePromise = setAudioModeAsync({
-            playsInSilentMode: true,
-            shouldPlayInBackground: false,
-            allowsRecording: false,
-            interruptionMode: "mixWithOthers",
-            shouldRouteThroughEarpiece: false,
-        }).catch((error) => {
-            console.warn("오디오 모드를 설정하는 중 문제가 발생했어요.", error);
-        });
+        audioModePromise = getAudioModule()
+            .setAudioModeAsync({
+                playsInSilentMode: true,
+                shouldPlayInBackground: false,
+                allowsRecording: false,
+                interruptionMode: "mixWithOthers",
+                shouldRouteThroughEarpiece: false,
+            })
+            .catch((error) => {
+                console.warn("오디오 모드를 설정하는 중 문제가 발생했어요.", error);
+            });
     }
 
     await audioModePromise;
@@ -123,7 +182,7 @@ function getOrCreateCachedPlayer(uri: string): CachedPlayer {
         return existing;
     }
 
-    const player = createAudioPlayer(
+    const player = getAudioModule().createAudioPlayer(
         { uri },
         {
             downloadFirst: true,

@@ -35,7 +35,6 @@ import {
     UPDATE_STATUS_ERROR_MESSAGE,
 } from "@/screens/App/AppScreen.constants";
 import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
-import { exportBackupToFile, importBackupFromDocument } from "@/services/backup/manualBackup";
 import {
     clearAutoLoginCredentials,
     clearSearchHistoryEntries,
@@ -801,6 +800,8 @@ export function useSessionFlow({
 
     const handleBackupExport = useCallback(async (passphrase: string) => {
         try {
+            const { exportBackupToFile } =
+                require("@/services/backup/manualBackup") as typeof import("@/services/backup/manualBackup");
             await exportBackupToFile(passphrase);
             Alert.alert("백업 완료", "암호화된 백업 파일을 저장하거나 공유했어요.");
         } catch (error) {
@@ -812,6 +813,8 @@ export function useSessionFlow({
     const handleBackupImport = useCallback(
         async (passphrase: string) => {
             try {
+                const { importBackupFromDocument } =
+                    require("@/services/backup/manualBackup") as typeof import("@/services/backup/manualBackup");
                 const restoreResult = await importBackupFromDocument(passphrase);
                 if ("canceled" in restoreResult) {
                     return;

@@ -6,6 +6,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const { OpenAI } = require("openai");
+const { createCorsOriginResolver, getAllowedCorsOrigins } = require("./corsConfig");
 const { buildStudyPrompt, SUPPORTED_CARD_TYPES } = require("./studyPrompt");
 
 // Load env values from both project root and server folder (server/.env overrides).
@@ -31,18 +32,29 @@ const aiRuntimeHealth = {
     lastFailureMessage: null,
 };
 
-const corsOrigins = (process.env.CORS_ORIGINS || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
 const isProduction = process.env.NODE_ENV === "production";
+const allowedCorsOrigins = getAllowedCorsOrigins({
+    configuredOrigins: process.env.CORS_ORIGINS,
+    appName: process.env.AIT_APP_NAME,
+});
 
 app.use(
     cors({
-        origin: corsOrigins.length ? corsOrigins : isProduction ? false : "*",
+        origin: createCorsOriginResolver({
+            allowedOrigins: allowedCorsOrigins,
+            isProduction,
+        }),
         optionsSuccessStatus: 200,
     }),
 );
+
+if (allowedCorsOrigins.length > 0) {
+    console.log(`[CORS] Allowing browser origins: ${allowedCorsOrigins.join(", ")}`);
+} else if (isProduction) {
+    console.warn("[CORS] No allowed browser origins configured. Set AIT_APP_NAME or CORS_ORIGINS before release.");
+} else {
+    console.log("[CORS] Development mode with no allowlist. Any browser origin is allowed.");
+}
 
 app.use(express.json({ limit: "1mb" }));
 

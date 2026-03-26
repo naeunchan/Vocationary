@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/react-native";
-import Constants from "expo-constants";
 
+import { getRuntimeConfig } from "@/config/runtime";
 import type { AppError } from "@/errors/AppError";
 
 let initialized = false;
@@ -11,7 +11,8 @@ export function initializeLogging() {
         return;
     }
     initialized = true;
-    const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN ?? Constants.expoConfig?.extra?.sentryDsn;
+    const runtime = getRuntimeConfig();
+    const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN ?? runtime.sentryDsn;
     if (!dsn) {
         console.info("[logger] Sentry disabled (missing DSN).");
         return;
@@ -20,8 +21,9 @@ export function initializeLogging() {
         dsn,
         debug: __DEV__,
         tracesSampleRate: 0.1,
+        enableNative: runtime.runtimeTarget !== "apps-in-toss",
     });
-    const appVersion = Constants.expoConfig?.version ?? Constants.expoConfig?.extra?.versionLabel;
+    const appVersion = runtime.appVersion || runtime.versionLabel;
     if (appVersion) {
         Sentry.setTag("app_version", String(appVersion));
     }
