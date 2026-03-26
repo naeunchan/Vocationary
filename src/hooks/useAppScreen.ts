@@ -1,10 +1,10 @@
-import Constants from "expo-constants";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import { normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
 import { getPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
 import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
+import { getRuntimeConfig } from "@/config/runtime";
 import type { AppError } from "@/errors/AppError";
 import { shouldRetry } from "@/errors/AppError";
 import { useAppearanceFlow } from "@/hooks/app/useAppearanceFlow";
@@ -24,8 +24,7 @@ import { playRemoteAudio } from "@/utils/audio";
 
 export function useAppScreen(): AppScreenHookResult {
     const [versionLabel] = useState(() => {
-        const extra = Constants.expoConfig?.extra;
-        return extra?.versionLabel ?? DEFAULT_VERSION_LABEL;
+        return getRuntimeConfig().versionLabel ?? DEFAULT_VERSION_LABEL;
     });
     const appearanceFlow = useAppearanceFlow();
     const searchFlowBridgeRef = useRef<SearchFlowBridge | null>(null);

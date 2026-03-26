@@ -1,6 +1,4 @@
 import { Buffer } from "buffer";
-import * as Crypto from "expo-crypto";
-import { getRandomBytesAsync } from "expo-crypto";
 
 import { clearPreferenceValues } from "@/services/database/preferences";
 import {
@@ -19,6 +17,7 @@ import {
     persistState,
     type UserWithPasswordRecord,
 } from "@/services/database/state";
+import { digestSha256, getRandomBytesAsync } from "@/utils/crypto";
 
 type EmailVerificationPayload = {
     code: string;
@@ -46,7 +45,7 @@ async function generatePasswordSalt(byteLength = 16) {
 }
 
 async function derivePasswordDigest(password: string, salt: string) {
-    return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${salt}:${password}`);
+    return await digestSha256(`${salt}:${password}`);
 }
 
 export async function hashPassword(password: string, salt?: string) {

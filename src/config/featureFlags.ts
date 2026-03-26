@@ -1,4 +1,4 @@
-import Constants from "expo-constants";
+import { getRuntimeConfig } from "@/config/runtime";
 
 type AppExtra = {
     featureAccountAuth?: unknown;
@@ -32,7 +32,7 @@ type FeatureFlags = {
     aiStudySessionUi: boolean;
 };
 
-const extra = (Constants.expoConfig?.extra ?? {}) as AppExtra;
+const extra = getRuntimeConfig() as AppExtra;
 
 function parseBooleanFlag(value: unknown): boolean | null {
     if (typeof value === "boolean") {

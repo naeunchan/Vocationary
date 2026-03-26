@@ -1,5 +1,3 @@
-import * as FileSystem from "expo-file-system";
-
 import {
     createAIHttpError,
     createAIInvalidPayloadError,
@@ -15,16 +13,29 @@ const TTS_FORMAT = "mp3";
 const AUDIO_CACHE: Map<string, string> = new Map();
 const AUDIO_REQUESTS: Map<string, Promise<string>> = new Map();
 
+type FileSystemModule = {
+    cacheDirectory?: string | null;
+    documentDirectory?: string | null;
+    writeAsStringAsync?: (uri: string, contents: string, options?: { encoding?: string }) => Promise<void>;
+    getInfoAsync?: (uri: string) => Promise<{ exists: boolean }>;
+    EncodingType?: { Base64?: string };
+};
+
+function getFileSystemModule(): FileSystemModule | null {
+    try {
+        return require("expo-file-system") as FileSystemModule;
+    } catch {
+        return null;
+    }
+}
+
 function normalizeWord(input: string) {
     return input.trim().toLowerCase();
 }
 
 function resolveDirectory(): string | null {
-    const fileSystemWithDirs = FileSystem as unknown as {
-        cacheDirectory?: string | null;
-        documentDirectory?: string | null;
-    };
-    const directory = fileSystemWithDirs.cacheDirectory ?? fileSystemWithDirs.documentDirectory;
+    const fileSystem = getFileSystemModule();
+    const directory = fileSystem?.cacheDirectory ?? fileSystem?.documentDirectory;
     if (!directory) {
         return null;
     }
@@ -33,12 +44,9 @@ function resolveDirectory(): string | null {
 
 async function writeAudioToFile(base64Data: string, key: string) {
     const directory = resolveDirectory();
-    const fileSystemWithWrite = FileSystem as unknown as {
-        writeAsStringAsync?: (uri: string, contents: string, options?: { encoding?: string }) => Promise<void>;
-        EncodingType?: { Base64?: string };
-    };
+    const fileSystemWithWrite = getFileSystemModule();
 
-    if (!directory || typeof fileSystemWithWrite.writeAsStringAsync !== "function") {
+    if (!directory || typeof fileSystemWithWrite?.writeAsStringAsync !== "function") {
         return null;
     }
     const safeKey = key.replace(/[^a-z0-9]/gi, "-");
@@ -60,8 +68,13 @@ async function resolveCachedAudioUri(normalized: string): Promise<string | null>
     }
 
     if (cachedUri.startsWith("file://")) {
+        const fileSystem = getFileSystemModule();
+        if (!fileSystem?.getInfoAsync) {
+            AUDIO_CACHE.delete(normalized);
+            return null;
+        }
         try {
-            const info = await FileSystem.getInfoAsync(cachedUri);
+            const info = await fileSystem.getInfoAsync(cachedUri);
             if (info.exists) {
                 return cachedUri;
             }
