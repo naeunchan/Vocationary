@@ -52,6 +52,10 @@ scripts/automation/*
 !scripts/automation/issues/
 scripts/automation/issues/*
 !scripts/automation/issues/README.md
+!scripts/release/
+scripts/release/*
+!scripts/release/*.js
+!scripts/release/*.mjs
 audit/
 .vscode
 .codex
