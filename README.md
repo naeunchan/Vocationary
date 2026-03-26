@@ -36,6 +36,16 @@
 - `expo.version` is the release version and should be incremented for each production release.
 - `eas.json` sets `APP_ENV=production` for the `production` build profile so `app.config.ts` resolves production defaults during store builds.
 
+## Apps in Toss Release
+
+- The detailed release checklist lives in `docs/release/apps-in-toss-launch-checklist.md`.
+- `npm run build` creates the Apps in Toss bundle as a `.ait` artifact.
+- Set `AIT_APP_NAME`, `AIT_DISPLAY_NAME`, `AIT_APP_ICON_URL`, and `AIT_PRIMARY_COLOR` before cutting a release build.
+- Production defaults are conservative. If the release should include member login, set `EXPO_PUBLIC_FEATURE_ACCOUNT_AUTH=true` explicitly.
+- When `AIT_APP_NAME` is set on the proxy server, `server/index.js` automatically allows these Toss browser origins:
+    - `https://<AIT_APP_NAME>.apps.tossmini.com`
+    - `https://<AIT_APP_NAME>.private-apps.tossmini.com`
+
 ## Android Release Builds
 
 - The first Android `production` EAS build needs a signing keystore configured before any `--non-interactive` build can pass.
@@ -66,6 +76,7 @@
             - `development`: guest account CTA `true`, backup/restore `false`
             - `production`: guest account CTA `false`, backup/restore `false`
         - `APP_ENV` decides the active profile.
+- `.env.example` includes the current Apps in Toss, client runtime, and server release placeholders.
 
 ## Compliance & Security
 

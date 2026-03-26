@@ -1,8 +1,8 @@
-# Release Readiness Checklist (Phase 1–3)
+# Release Readiness Checklist
 
-- Update `app.json` version (`expo.version`) before cutting builds.
-- Set your hosted Privacy/Terms URLs via `app.json -> extra.privacyPolicyUrl` / `extra.termsOfServiceUrl`; if empty, the app falls back to the in-app legal modal. Verify they open from Settings.
-- Configure `OPENAI_PROXY_URL` for AI examples/TTS; if absent, keep store copy/screenshots AI-free.
-- Ensure saved credentials are cleared on logout; smoke-test login → logout → login flows.
-- Run `npm test` and a release build (`expo export --platform web`) before submission.
-- Copy `.env.example` to `.env` (or configure in CI) with Sentry/Dictionary/AI proxy values and any server settings used for release builds.
+- Follow `docs/release/apps-in-toss-launch-checklist.md` for the full Apps in Toss release sequence.
+- Update `app.json` `expo.version` and `extra.versionLabel` before cutting builds.
+- Copy `.env.example` to `.env` and replace every placeholder value used by the release candidate.
+- Set hosted Privacy/Terms URLs and verify they open correctly from Settings.
+- If the release includes member login, set `EXPO_PUBLIC_FEATURE_ACCOUNT_AUTH=true` explicitly.
+- Run `npm run lint -- --max-warnings=0`, `npm test -- --watch=false`, and `npm run build` before submission.
