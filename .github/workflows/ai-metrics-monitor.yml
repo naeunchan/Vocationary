@@ -1,0 +1,42 @@
+name: AI Metrics Monitor
+
+on:
+    schedule:
+        - cron: "*/30 * * * *"
+    workflow_dispatch:
+
+concurrency:
+    group: ai-metrics-monitor
+    cancel-in-progress: false
+
+jobs:
+    monitor:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        env:
+            AI_METRICS_URL: ${{ vars.AI_METRICS_URL }}
+            AI_METRICS_THRESHOLDS_JSON: ${{ vars.AI_METRICS_THRESHOLDS_JSON }}
+            AI_PROXY_KEY: ${{ secrets.AI_PROXY_KEY }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+            - name: Validate monitor configuration
+              id: config
+              shell: bash
+              run: |
+                  if [ -z "${AI_METRICS_URL}" ] || [ -z "${AI_PROXY_KEY}" ]; then
+                    echo "ready=false" >> "$GITHUB_OUTPUT"
+                    echo "AI metrics monitor skipped. Set repository variable AI_METRICS_URL and secret AI_PROXY_KEY." >> "$GITHUB_STEP_SUMMARY"
+                    exit 0
+                  fi
+                  echo "ready=true" >> "$GITHUB_OUTPUT"
+            - name: Install dependencies
+              if: steps.config.outputs.ready == 'true'
+              run: npm ci
+            - name: Check AI metrics
+              if: steps.config.outputs.ready == 'true'
+              run: npm run ai:metrics:check

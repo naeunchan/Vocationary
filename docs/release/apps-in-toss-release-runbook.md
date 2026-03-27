@@ -105,6 +105,7 @@ Monitor the first 24 to 48 hours after release for:
 
 - AI proxy health
 - `npm run ai:metrics:check`
+- GitHub Actions `AI Metrics Monitor`
 - `/dictionary/examples`
 - `/dictionary/tts`
 - login and session regressions
@@ -114,6 +115,16 @@ Monitor the first 24 to 48 hours after release for:
 - crash reports and runtime errors
 
 If AI features are enabled, watch both the proxy logs and the client health state. If `EXPO_PUBLIC_FEATURE_ACCOUNT_AUTH` is enabled, watch for session churn and logout/login loops.
+
+## GitHub Actions Monitor
+
+Configure these repository-level values before relying on the scheduled monitor:
+
+- repository variable `AI_METRICS_URL`
+- repository variable `AI_METRICS_THRESHOLDS_JSON` when custom thresholds are needed
+- repository secret `AI_PROXY_KEY`
+
+The `AI Metrics Monitor` workflow runs every 30 minutes and can also be triggered manually. It skips cleanly when the required variable or secret is missing.
 
 ## Likely Commands
 
