@@ -1,4 +1,9 @@
 import {
+    deletePersistedPronunciationUri,
+    getPersistedPronunciationUri,
+    setPersistedPronunciationUri,
+} from "@/api/dictionary/aiPersistentCache";
+import {
     createAIHttpError,
     createAIInvalidPayloadError,
     createAIUnavailableError,
@@ -10,6 +15,7 @@ import { createAppError } from "@/errors/AppError";
 const TTS_MODEL = "gpt-4o-mini-tts";
 const TTS_VOICE = "alloy";
 const TTS_FORMAT = "mp3";
+const AUDIO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const AUDIO_CACHE: Map<string, string> = new Map();
 const AUDIO_REQUESTS: Map<string, Promise<string>> = new Map();
 
@@ -64,6 +70,23 @@ async function writeAudioToFile(base64Data: string, key: string) {
 async function resolveCachedAudioUri(normalized: string): Promise<string | null> {
     const cachedUri = AUDIO_CACHE.get(normalized);
     if (!cachedUri) {
+        const persisted = await getPersistedPronunciationUri(normalized);
+        if (!persisted || !persisted.isFresh) {
+            if (persisted) {
+                await deletePersistedPronunciationUri(normalized);
+            }
+            return null;
+        }
+
+        AUDIO_CACHE.set(normalized, persisted.value);
+        return await validateCachedAudioUri(normalized, persisted.value);
+    }
+
+    return await validateCachedAudioUri(normalized, cachedUri);
+}
+
+async function validateCachedAudioUri(normalized: string, cachedUri: string): Promise<string | null> {
+    if (!cachedUri) {
         return null;
     }
 
@@ -82,10 +105,15 @@ async function resolveCachedAudioUri(normalized: string): Promise<string | null>
             // Ignore and refresh cache below.
         }
         AUDIO_CACHE.delete(normalized);
+        await deletePersistedPronunciationUri(normalized);
         return null;
     }
 
     return cachedUri;
+}
+
+function shouldPersistAudioUri(uri: string): boolean {
+    return uri.startsWith("http://") || uri.startsWith("https://") || uri.startsWith("file://");
 }
 
 async function requestPronunciationAudio(normalized: string): Promise<string> {
@@ -135,6 +163,7 @@ async function requestPronunciationAudio(normalized: string): Promise<string> {
 
     if (directUrl) {
         AUDIO_CACHE.set(normalized, directUrl);
+        await setPersistedPronunciationUri(normalized, directUrl, AUDIO_CACHE_TTL_MS);
         return directUrl;
     }
 
@@ -146,6 +175,9 @@ async function requestPronunciationAudio(normalized: string): Promise<string> {
     }
 
     AUDIO_CACHE.set(normalized, finalUri);
+    if (shouldPersistAudioUri(finalUri)) {
+        await setPersistedPronunciationUri(normalized, finalUri, AUDIO_CACHE_TTL_MS);
+    }
     return finalUri;
 }
 
@@ -185,4 +217,15 @@ export async function getPronunciationAudio(word: string) {
 
 export async function prefetchPronunciationAudio(word: string): Promise<string> {
     return await getPronunciationAudio(word);
+}
+
+export async function invalidatePronunciationAudioCache(word: string): Promise<void> {
+    const normalized = normalizeWord(word);
+    if (!normalized) {
+        return;
+    }
+
+    AUDIO_CACHE.delete(normalized);
+    AUDIO_REQUESTS.delete(normalized);
+    await deletePersistedPronunciationUri(normalized);
 }

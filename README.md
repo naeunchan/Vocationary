@@ -77,6 +77,8 @@
             - `production`: guest account CTA `false`, backup/restore `false`
         - `APP_ENV` decides the active profile.
 - `.env.example` includes the current Apps in Toss, client runtime, and server release placeholders.
+- Scheduled proxy monitoring is available via GitHub Actions `AI Metrics Monitor`.
+  Configure repository variable `AI_METRICS_URL` and secret `AI_PROXY_KEY`, then use `npm run ai:metrics:check` locally or let the workflow poll `/metrics` every 30 minutes.
 
 ## Compliance & Security
 

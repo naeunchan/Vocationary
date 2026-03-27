@@ -7,6 +7,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const { OpenAI } = require("openai");
 const { createAiResponseCache } = require("./aiResponseCache");
+const { createAiMetricsStore } = require("./aiMetrics");
 const { logAiRouteMetrics } = require("./aiRouteMetrics");
 const { createCorsOriginResolver, getAllowedCorsOrigins } = require("./corsConfig");
 const { buildStudyPrompt, SUPPORTED_CARD_TYPES } = require("./studyPrompt");
@@ -38,6 +39,7 @@ const exampleResponseCache = createAiResponseCache({ maxEntries: AI_EXAMPLES_CAC
 const ttsResponseCache = createAiResponseCache({ maxEntries: AI_TTS_CACHE_MAX });
 const ttsAssetCache = createAiResponseCache({ maxEntries: AI_TTS_CACHE_MAX });
 const studyCardResponseCache = createAiResponseCache({ maxEntries: AI_STUDY_CACHE_MAX });
+const aiMetricsStore = createAiMetricsStore();
 const aiRuntimeHealth = {
     lastSuccessAt: 0,
     lastFailureAt: 0,
@@ -375,6 +377,10 @@ app.get("/health", (_req, res) => {
     return res.json(getAiRuntimeHealthStatus());
 });
 
+app.get("/metrics", requireApiKey, (_req, res) => {
+    return res.json(aiMetricsStore.snapshot());
+});
+
 app.post("/dictionary/examples", rateLimit, requireApiKey, async (req, res) => {
     if (!ensureApiKey(res)) return;
 
@@ -424,11 +430,16 @@ app.post("/dictionary/examples", rateLimit, requireApiKey, async (req, res) => {
             itemCount: items.length,
             maxTokens,
         });
+        aiMetricsStore.recordSuccess("/dictionary/examples", {
+            cache: cacheHit ? "hit" : "miss",
+            upstreamMs,
+        });
 
         return res.json({ items });
     } catch (error) {
         console.error("Failed to generate dictionary examples", error);
         markAiFailure("/dictionary/examples", error);
+        aiMetricsStore.recordFailure("/dictionary/examples", error);
         return res.status(500).json({ message: "예문을 생성하지 못했어요." });
     }
 });
@@ -487,6 +498,10 @@ app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
             format,
             base64Chars: asset.audioBase64.length,
         });
+        aiMetricsStore.recordSuccess("/dictionary/tts", {
+            cache: cacheHit ? "hit" : "miss",
+            upstreamMs,
+        });
         return res.json({
             audioBase64: null,
             audioUrl: buildTtsAssetUrl(req, asset.token, PORT),
@@ -494,6 +509,7 @@ app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
     } catch (error) {
         console.error("Failed to synthesize audio", error);
         markAiFailure("/dictionary/tts", error);
+        aiMetricsStore.recordFailure("/dictionary/tts", error);
         return res.status(500).json({ message: "발음 오디오를 준비하지 못했어요." });
     }
 });
@@ -588,10 +604,15 @@ app.post("/study/cards", rateLimit, requireApiKey, async (req, res) => {
             promptChars,
             maxTokens,
         });
+        aiMetricsStore.recordSuccess("/study/cards", {
+            cache: cacheHit ? "hit" : "miss",
+            upstreamMs,
+        });
         return res.json({ cards });
     } catch (error) {
         console.error("Failed to generate study cards", error);
         markAiFailure("/study/cards", error);
+        aiMetricsStore.recordFailure("/study/cards", error);
         return res.status(500).json({ message: "학습 카드를 준비하지 못했어요." });
     }
 });

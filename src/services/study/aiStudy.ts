@@ -1,7 +1,12 @@
 import { generateStudyCards } from "@/api/dictionary/studyCardGenerator";
 import { createAppError } from "@/errors/AppError";
 import { MeaningEntry } from "@/services/dictionary/types/WordResult";
-import { buildStudyCacheKey, getCachedStudySession, setCachedStudySession } from "@/services/study/cache";
+import {
+    buildStudyCacheKey,
+    getCachedStudySession,
+    peekCachedStudySession,
+    setCachedStudySession,
+} from "@/services/study/cache";
 import { DEFAULT_STUDY_CARD_TYPES, StudyCard, StudyCardType, StudySession } from "@/services/study/types";
 
 type LoadAIStudySessionOptions = {
@@ -9,6 +14,8 @@ type LoadAIStudySessionOptions = {
     cardTypes?: StudyCardType[];
     cardCount?: number;
 };
+
+const inFlightStudySessionLoads = new Map<string, Promise<StudySession>>();
 
 function clampCardCount(value: number | undefined): number {
     if (!Number.isFinite(value)) {
@@ -39,6 +46,36 @@ function normalizeAnswer(value: string): string {
     return value.trim().toLowerCase();
 }
 
+async function loadFreshStudySession(
+    cacheKey: string,
+    normalizedWord: string,
+    meanings: MeaningEntry[],
+    cardTypes: StudyCardType[],
+    cardCount: number,
+): Promise<StudySession> {
+    const pending = inFlightStudySessionLoads.get(cacheKey);
+    if (pending) {
+        return await pending;
+    }
+
+    const task = generateStudyCards(normalizedWord, meanings, { cardTypes, cardCount })
+        .then((cards) => {
+            const session = {
+                word: normalizedWord,
+                cards,
+                generatedAt: Date.now(),
+            };
+            setCachedStudySession(cacheKey, session);
+            return getCachedStudySession(cacheKey) ?? session;
+        })
+        .finally(() => {
+            inFlightStudySessionLoads.delete(cacheKey);
+        });
+
+    inFlightStudySessionLoads.set(cacheKey, task);
+    return await task;
+}
+
 export async function loadAIStudySession(
     word: string,
     meanings: MeaningEntry[],
@@ -64,20 +101,18 @@ export async function loadAIStudySession(
     const cacheKey = buildStudyCacheKey(normalizedWord, meanings, cardTypes, cardCount);
 
     if (!options.forceFresh) {
-        const cached = getCachedStudySession(cacheKey);
-        if (cached) {
-            return cached;
+        const snapshot = peekCachedStudySession(cacheKey);
+        if (snapshot) {
+            if (snapshot.isFresh) {
+                return snapshot.session;
+            }
+
+            void loadFreshStudySession(cacheKey, normalizedWord, meanings, cardTypes, cardCount).catch(() => {});
+            return snapshot.session;
         }
     }
 
-    const cards = await generateStudyCards(normalizedWord, meanings, { cardTypes, cardCount });
-    const session = {
-        word: normalizedWord,
-        cards,
-        generatedAt: Date.now(),
-    };
-    setCachedStudySession(cacheKey, session);
-    return session;
+    return await loadFreshStudySession(cacheKey, normalizedWord, meanings, cardTypes, cardCount);
 }
 
 export function isStudyAnswerCorrect(card: Pick<StudyCard, "answer">, submittedAnswer: string): boolean {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import { normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
-import { getPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
+import { getPronunciationAudio, invalidatePronunciationAudioCache } from "@/api/dictionary/getPronunciationAudio";
 import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
 import { getRuntimeConfig } from "@/config/runtime";
@@ -216,6 +216,7 @@ export function useAppScreen(): AppScreenHookResult {
             const uri = await getPronunciationAudio(currentWord);
             await playRemoteAudio(uri);
         } catch (error) {
+            await invalidatePronunciationAudioCache(currentWord);
             const appError = reportAiAssistError(error, "tts");
             showAudioErrorAlert(appError, () => {
                 void playPronunciationAsync();
@@ -243,6 +244,7 @@ export function useAppScreen(): AppScreenHookResult {
                 const uri = await getPronunciationAudio(target);
                 await playRemoteAudio(uri);
             } catch (error) {
+                await invalidatePronunciationAudioCache(target);
                 const appError = reportAiAssistError(error, "tts");
                 showAudioErrorAlert(appError, () => {
                     void handlePlayWordAudioAsync(word);

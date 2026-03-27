@@ -2,6 +2,7 @@ import {
     buildStudyCacheKey,
     clearStudySessionCache,
     getCachedStudySession,
+    peekCachedStudySession,
     setCachedStudySession,
 } from "@/services/study/cache";
 import { StudySession } from "@/services/study/types";
@@ -64,5 +65,15 @@ describe("study cache", () => {
         setCachedStudySession(cacheKey, session, 1000);
 
         expect(getCachedStudySession(cacheKey, 1000 + 1000 * 60 * 20 + 1)).toBeNull();
+    });
+
+    it("peeks stale cached sessions without deleting them", () => {
+        const cacheKey = buildStudyCacheKey("focus", meanings);
+        setCachedStudySession(cacheKey, session, 1000);
+
+        expect(peekCachedStudySession(cacheKey, 1000 + 1000 * 60 * 20 + 1)).toEqual({
+            isFresh: false,
+            session,
+        });
     });
 });

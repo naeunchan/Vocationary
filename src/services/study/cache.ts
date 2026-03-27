@@ -8,6 +8,11 @@ type CacheEntry = {
     value: StudySession;
 };
 
+export type CachedStudySessionSnapshot = {
+    isFresh: boolean;
+    session: StudySession;
+};
+
 const studySessionCache = new Map<string, CacheEntry>();
 
 function cloneStudyCards(cards: StudyCard[]): StudyCard[] {
@@ -60,6 +65,18 @@ export function getCachedStudySession(cacheKey: string, now = Date.now()): Study
     }
 
     return cloneStudySession(cached.value);
+}
+
+export function peekCachedStudySession(cacheKey: string, now = Date.now()): CachedStudySessionSnapshot | null {
+    const cached = studySessionCache.get(cacheKey);
+    if (!cached) {
+        return null;
+    }
+
+    return {
+        isFresh: cached.expiresAt > now,
+        session: cloneStudySession(cached.value),
+    };
 }
 
 export function setCachedStudySession(cacheKey: string, session: StudySession, now = Date.now()): void {

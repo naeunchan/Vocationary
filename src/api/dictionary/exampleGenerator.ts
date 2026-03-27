@@ -1,5 +1,6 @@
 import QuickLRU from "quick-lru";
 
+import { getPersistedExampleUpdates, setPersistedExampleUpdates } from "@/api/dictionary/aiPersistentCache";
 import { createAIHttpError, createAIInvalidPayloadError, normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
 import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_KEY, OPENAI_PROXY_URL } from "@/config/openAI";
 import { MeaningEntry } from "@/services/dictionary/types/WordResult";
@@ -23,6 +24,7 @@ type CacheEntry = {
 
 const EXAMPLE_CACHE_TTL_MS = 1000 * 60 * 30;
 const exampleCache = new QuickLRU<string, CacheEntry>({ maxSize: 1000 });
+const inFlightExampleRequests = new Map<string, Promise<ExampleUpdate[]>>();
 
 type DefinitionDescriptor = {
     meaningIndex: number;
@@ -135,6 +137,34 @@ function maxOutputTokensFor(count: number): number {
     return Math.min(300, Math.max(80, count * 40));
 }
 
+function cloneExampleUpdates(updates: ExampleUpdate[]): ExampleUpdate[] {
+    return updates.map((update) => ({ ...update }));
+}
+
+function peekCachedExampleUpdates(
+    cacheKey: string,
+    now = Date.now(),
+): { isFresh: boolean; value: ExampleUpdate[] } | null {
+    const cached = exampleCache.get(cacheKey);
+    if (!cached) {
+        return null;
+    }
+
+    return {
+        isFresh: cached.expiresAt > now,
+        value: cloneExampleUpdates(cached.value),
+    };
+}
+
+function setCachedExampleUpdates(cacheKey: string, updates: ExampleUpdate[], now = Date.now()): ExampleUpdate[] {
+    const value = cloneExampleUpdates(updates);
+    exampleCache.set(cacheKey, {
+        value,
+        expiresAt: now + EXAMPLE_CACHE_TTL_MS,
+    });
+    return cloneExampleUpdates(value);
+}
+
 async function requestOpenAI(word: string, descriptors: DefinitionDescriptor[]): Promise<ExampleUpdate[]> {
     if (!OPENAI_FEATURE_ENABLED || !OPENAI_PROXY_URL) {
         return [];
@@ -187,6 +217,30 @@ async function requestOpenAI(word: string, descriptors: DefinitionDescriptor[]):
     }
 }
 
+async function loadFreshExampleUpdates(
+    cacheKey: string,
+    word: string,
+    descriptors: DefinitionDescriptor[],
+): Promise<ExampleUpdate[]> {
+    const pending = inFlightExampleRequests.get(cacheKey);
+    if (pending) {
+        return await pending;
+    }
+
+    const task = requestOpenAI(word, descriptors)
+        .then(async (updates) => {
+            const value = setCachedExampleUpdates(cacheKey, updates);
+            await setPersistedExampleUpdates(cacheKey, value, EXAMPLE_CACHE_TTL_MS);
+            return value;
+        })
+        .finally(() => {
+            inFlightExampleRequests.delete(cacheKey);
+        });
+
+    inFlightExampleRequests.set(cacheKey, task);
+    return await task;
+}
+
 export async function generateDefinitionExamples(
     word: string,
     meanings: MeaningEntry[],
@@ -198,21 +252,32 @@ export async function generateDefinitionExamples(
 
     const cacheKey = buildCacheKey(word, descriptors);
     const now = Date.now();
-    const cached = exampleCache.get(cacheKey);
     const forceFresh = options.forceFresh === true;
 
-    if (!forceFresh && cached && cached.expiresAt > now) {
-        (async () => {
-            try {
-                const fresh = await requestOpenAI(word, descriptors);
-                exampleCache.set(cacheKey, { value: fresh, expiresAt: Date.now() + EXAMPLE_CACHE_TTL_MS });
-            } catch (_) {}
-        })();
-        return cached.value;
+    if (!forceFresh) {
+        const snapshot = peekCachedExampleUpdates(cacheKey, now);
+        if (snapshot) {
+            if (!snapshot.isFresh) {
+                void loadFreshExampleUpdates(cacheKey, word, descriptors).catch(() => {});
+            }
+
+            return snapshot.value;
+        }
+
+        const persisted = await getPersistedExampleUpdates(cacheKey, now);
+        if (persisted) {
+            exampleCache.set(cacheKey, {
+                value: cloneExampleUpdates(persisted.value),
+                expiresAt: persisted.expiresAt,
+            });
+
+            if (!persisted.isFresh) {
+                void loadFreshExampleUpdates(cacheKey, word, descriptors).catch(() => {});
+            }
+
+            return cloneExampleUpdates(persisted.value);
+        }
     }
 
-    const updates = await requestOpenAI(word, descriptors);
-    exampleCache.set(cacheKey, { value: updates, expiresAt: now + EXAMPLE_CACHE_TTL_MS });
-
-    return updates;
+    return await loadFreshExampleUpdates(cacheKey, word, descriptors);
 }

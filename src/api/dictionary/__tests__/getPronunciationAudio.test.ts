@@ -5,6 +5,7 @@ type OpenAIConfigMock = {
 };
 
 const originalFetch = global.fetch;
+const preferenceStore: Record<string, string> = {};
 
 function loadModule(config: OpenAIConfigMock) {
     let loaded: typeof import("@/api/dictionary/getPronunciationAudio");
@@ -12,6 +13,14 @@ function loadModule(config: OpenAIConfigMock) {
     jest.resetModules();
     jest.isolateModules(() => {
         jest.doMock("@/config/openAI", () => config);
+        jest.doMock("@/services/database", () => ({
+            getPreferenceValue: jest.fn(async (key: string) =>
+                Object.prototype.hasOwnProperty.call(preferenceStore, key) ? preferenceStore[key] : null,
+            ),
+            setPreferenceValue: jest.fn(async (key: string, value: string) => {
+                preferenceStore[key] = value;
+            }),
+        }));
         jest.doMock("expo-file-system", () => ({
             cacheDirectory: "file:///tmp/",
             documentDirectory: "file:///tmp/",
@@ -34,6 +43,9 @@ describe("getPronunciationAudio", () => {
     afterEach(() => {
         jest.clearAllMocks();
         jest.resetModules();
+        Object.keys(preferenceStore).forEach((key) => {
+            delete preferenceStore[key];
+        });
         (global as unknown as { fetch: typeof fetch }).fetch = originalFetch;
     });
 
@@ -96,5 +108,39 @@ describe("getPronunciationAudio", () => {
             "YWJj",
             expect.objectContaining({ encoding: "base64" }),
         );
+    });
+
+    it("reuses a persisted audio URL after the module reloads", async () => {
+        const firstModule = loadModule({
+            OPENAI_FEATURE_ENABLED: true,
+            OPENAI_PROXY_URL: "https://example.com/",
+            OPENAI_PROXY_KEY: "secret",
+        });
+        const firstFetchMock = jest.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                audioBase64: null,
+                audioUrl: "https://example.com/dictionary/tts/abc123",
+            }),
+        });
+        mockFetch(firstFetchMock);
+
+        await expect(firstModule.getPronunciationAudio("apple")).resolves.toBe(
+            "https://example.com/dictionary/tts/abc123",
+        );
+        expect(firstFetchMock).toHaveBeenCalledTimes(1);
+
+        const secondModule = loadModule({
+            OPENAI_FEATURE_ENABLED: true,
+            OPENAI_PROXY_URL: "https://example.com/",
+            OPENAI_PROXY_KEY: "secret",
+        });
+        const secondFetchMock = jest.fn();
+        mockFetch(secondFetchMock);
+
+        await expect(secondModule.getPronunciationAudio("apple")).resolves.toBe(
+            "https://example.com/dictionary/tts/abc123",
+        );
+        expect(secondFetchMock).not.toHaveBeenCalled();
     });
 });
