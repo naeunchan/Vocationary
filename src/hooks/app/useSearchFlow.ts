@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { getAIProxyHealth, isBackgroundAIWarmupAllowed } from "@/api/dictionary/aiHealth";
 import { normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
 import { generateDefinitionExamples } from "@/api/dictionary/exampleGenerator";
 import { prefetchPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
@@ -181,6 +182,14 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
         };
     }, [clearPronunciationWarmup]);
 
+    useEffect(() => {
+        if (!pronunciationAvailable) {
+            return;
+        }
+
+        void getAIProxyHealth();
+    }, [pronunciationAvailable]);
+
     const clearAutocomplete = useCallback(() => {
         if (autocompleteRemoteQueryRef.current) {
             autocompleteRemoteQueryRef.current = "";
@@ -300,7 +309,14 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
 
             pronunciationWarmupTimeoutRef.current = setTimeout(() => {
                 pronunciationWarmupTimeoutRef.current = null;
-                void warmUpPronunciationAsync(word, lookupId);
+                void (async () => {
+                    const health = await getAIProxyHealth();
+                    if (!isBackgroundAIWarmupAllowed(health) || lookupId !== activeLookupRef.current) {
+                        return;
+                    }
+
+                    await warmUpPronunciationAsync(word, lookupId);
+                })();
             }, PRONUNCIATION_WARMUP_DELAY_MS);
         },
         [clearPronunciationWarmup, pronunciationAvailable, warmUpPronunciationAsync],

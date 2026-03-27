@@ -7,6 +7,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const { OpenAI } = require("openai");
 const { createAiResponseCache } = require("./aiResponseCache");
+const { logAiRouteMetrics } = require("./aiRouteMetrics");
 const { createCorsOriginResolver, getAllowedCorsOrigins } = require("./corsConfig");
 const { buildStudyPrompt, SUPPORTED_CARD_TYPES } = require("./studyPrompt");
 const { buildTtsAssetToken, buildTtsAssetUrl } = require("./ttsAsset");
@@ -388,9 +389,11 @@ app.post("/dictionary/examples", rateLimit, requireApiKey, async (req, res) => {
     const cacheKey = buildExamplesCacheKey({ prompt, descriptors, maxTokens });
 
     try {
-        const { value: items } = await exampleResponseCache.getOrCreate(
+        let upstreamMs = null;
+        const { value: items, cacheHit } = await exampleResponseCache.getOrCreate(
             cacheKey,
             async () => {
+                const upstreamStartedAt = Date.now();
                 const completion = await openai.chat.completions.create({
                     model: MODEL,
                     messages: [
@@ -404,6 +407,7 @@ app.post("/dictionary/examples", rateLimit, requireApiKey, async (req, res) => {
                     response_format: { type: "json_schema", json_schema: schema },
                     max_tokens: maxTokens,
                 });
+                upstreamMs = Date.now() - upstreamStartedAt;
 
                 const content = completion.choices?.[0]?.message?.content ?? "";
                 const raw = content ? JSON.parse(content) : { items: [] };
@@ -412,6 +416,14 @@ app.post("/dictionary/examples", rateLimit, requireApiKey, async (req, res) => {
             { ttlMs: AI_EXAMPLES_CACHE_TTL_MS },
         );
         markAiSuccess();
+        logAiRouteMetrics("/dictionary/examples", {
+            cache: cacheHit ? "hit" : "miss",
+            upstreamMs,
+            promptChars: prompt.length,
+            descriptorCount: descriptors.length,
+            itemCount: items.length,
+            maxTokens,
+        });
 
         return res.json({ items });
     } catch (error) {
@@ -435,9 +447,11 @@ app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
     const cacheKey = buildTtsCacheKey({ text, model, voice, format });
 
     try {
-        const { value: asset } = await ttsResponseCache.getOrCreate(
+        let upstreamMs = null;
+        const { value: asset, cacheHit } = await ttsResponseCache.getOrCreate(
             cacheKey,
             async () => {
+                const upstreamStartedAt = Date.now();
                 const audio = await openai.audio.speech.create({
                     model,
                     voice,
@@ -446,6 +460,7 @@ app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
                 });
 
                 const buffer = Buffer.from(await audio.arrayBuffer());
+                upstreamMs = Date.now() - upstreamStartedAt;
                 const token = buildTtsAssetToken(cacheKey, process.env.OPENAI_API_KEY);
                 return {
                     token,
@@ -465,6 +480,13 @@ app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
             AI_TTS_CACHE_TTL_MS,
         );
         markAiSuccess();
+        logAiRouteMetrics("/dictionary/tts", {
+            cache: cacheHit ? "hit" : "miss",
+            upstreamMs,
+            textChars: text.length,
+            format,
+            base64Chars: asset.audioBase64.length,
+        });
         return res.json({
             audioBase64: null,
             audioUrl: buildTtsAssetUrl(req, asset.token, PORT),
@@ -514,7 +536,9 @@ app.post("/study/cards", rateLimit, requireApiKey, async (req, res) => {
     });
 
     try {
-        const { value: cards } = await studyCardResponseCache.getOrCreate(
+        let promptChars = null;
+        let upstreamMs = null;
+        const { value: cards, cacheHit } = await studyCardResponseCache.getOrCreate(
             cacheKey,
             async () => {
                 const prompt = buildStudyPrompt({
@@ -523,6 +547,8 @@ app.post("/study/cards", rateLimit, requireApiKey, async (req, res) => {
                     cardTypes,
                     cardCount,
                 });
+                promptChars = prompt.length;
+                const upstreamStartedAt = Date.now();
                 const completion = await openai.chat.completions.create({
                     model: MODEL,
                     messages: [
@@ -536,6 +562,7 @@ app.post("/study/cards", rateLimit, requireApiKey, async (req, res) => {
                     response_format: { type: "json_schema", json_schema: STUDY_CARD_SCHEMA },
                     max_tokens: maxTokens,
                 });
+                upstreamMs = Date.now() - upstreamStartedAt;
 
                 const content = completion.choices?.[0]?.message?.content ?? "";
                 const raw = content ? JSON.parse(content) : { cards: [] };
@@ -550,6 +577,17 @@ app.post("/study/cards", rateLimit, requireApiKey, async (req, res) => {
         );
 
         markAiSuccess();
+        logAiRouteMetrics("/study/cards", {
+            cache: cacheHit ? "hit" : "miss",
+            upstreamMs,
+            wordChars: word.length,
+            contextCount: context.length,
+            cardTypeCount: cardTypes.length,
+            requestedCardCount: cardCount,
+            cardCount: cards.length,
+            promptChars,
+            maxTokens,
+        });
         return res.json({ cards });
     } catch (error) {
         console.error("Failed to generate study cards", error);

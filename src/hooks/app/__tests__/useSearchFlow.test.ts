@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 
+import { getAIProxyHealth } from "@/api/dictionary/aiHealth";
 import { generateDefinitionExamples } from "@/api/dictionary/exampleGenerator";
 import { prefetchPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
 import { getWordData } from "@/api/dictionary/getWordData";
@@ -25,6 +26,11 @@ jest.mock("@/api/dictionary/getPronunciationAudio", () => ({
     prefetchPronunciationAudio: jest.fn(),
 }));
 
+jest.mock("@/api/dictionary/aiHealth", () => ({
+    getAIProxyHealth: jest.fn(),
+    isBackgroundAIWarmupAllowed: jest.fn((health: { status?: string }) => health.status === "ok"),
+}));
+
 jest.mock("@/utils/audio", () => ({
     prefetchRemoteAudio: jest.fn(),
 }));
@@ -47,6 +53,7 @@ const mockFetchWordSuggestions = fetchWordSuggestions as jest.MockedFunction<typ
 const mockGetSearchHistoryEntries = database.getSearchHistoryEntries as jest.MockedFunction<
     typeof database.getSearchHistoryEntries
 >;
+const mockGetAIProxyHealth = getAIProxyHealth as jest.MockedFunction<typeof getAIProxyHealth>;
 const mockPrefetchPronunciationAudio = prefetchPronunciationAudio as jest.MockedFunction<
     typeof prefetchPronunciationAudio
 >;
@@ -75,6 +82,10 @@ describe("useSearchFlow", () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockGetSearchHistoryEntries.mockResolvedValue([]);
+        mockGetAIProxyHealth.mockResolvedValue({
+            status: "ok",
+            checkedAt: Date.now(),
+        });
         mockSaveSearchHistoryEntries.mockResolvedValue(undefined);
         mockFetchWordSuggestions.mockResolvedValue([]);
         mockGenerateDefinitionExamples.mockResolvedValue([]);
@@ -303,6 +314,55 @@ describe("useSearchFlow", () => {
             act(() => {
                 result.current.onChangeSearchTerm("banana");
                 jest.advanceTimersByTime(1000);
+            });
+
+            expect(mockPrefetchPronunciationAudio).not.toHaveBeenCalled();
+            expect(mockPrefetchRemoteAudio).not.toHaveBeenCalled();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it("skips pronunciation warmup when AI proxy health is degraded", async () => {
+        jest.useFakeTimers();
+        mockGetWordData.mockResolvedValue({
+            base: baseResult,
+            examplesPromise: Promise.resolve([]),
+        });
+        mockGetAIProxyHealth.mockResolvedValue({
+            status: "degraded",
+            checkedAt: Date.now(),
+            lastFailureAt: Date.now(),
+            lastFailureRoute: "/dictionary/tts",
+        });
+
+        try {
+            const { result } = renderHook(() =>
+                useSearchFlow({
+                    favorites: [],
+                    pronunciationAvailable: true,
+                }),
+            );
+
+            await waitFor(() => {
+                expect(mockGetSearchHistoryEntries).toHaveBeenCalled();
+            });
+
+            act(() => {
+                result.current.onChangeSearchTerm("apple");
+            });
+
+            act(() => {
+                result.current.onSubmitSearch();
+            });
+
+            await waitFor(() => {
+                expect(result.current.result?.word).toBe("apple");
+            });
+
+            await act(async () => {
+                jest.advanceTimersByTime(1300);
+                await Promise.resolve();
             });
 
             expect(mockPrefetchPronunciationAudio).not.toHaveBeenCalled();
