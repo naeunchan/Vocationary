@@ -9,6 +9,7 @@ const { OpenAI } = require("openai");
 const { createAiResponseCache } = require("./aiResponseCache");
 const { createCorsOriginResolver, getAllowedCorsOrigins } = require("./corsConfig");
 const { buildStudyPrompt, SUPPORTED_CARD_TYPES } = require("./studyPrompt");
+const { buildTtsAssetToken, buildTtsAssetUrl } = require("./ttsAsset");
 
 // Load env values from both project root and server folder (server/.env overrides).
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
@@ -34,6 +35,7 @@ const app = express();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const exampleResponseCache = createAiResponseCache({ maxEntries: AI_EXAMPLES_CACHE_MAX });
 const ttsResponseCache = createAiResponseCache({ maxEntries: AI_TTS_CACHE_MAX });
+const ttsAssetCache = createAiResponseCache({ maxEntries: AI_TTS_CACHE_MAX });
 const studyCardResponseCache = createAiResponseCache({ maxEntries: AI_STUDY_CACHE_MAX });
 const aiRuntimeHealth = {
     lastSuccessAt: 0,
@@ -433,7 +435,7 @@ app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
     const cacheKey = buildTtsCacheKey({ text, model, voice, format });
 
     try {
-        const { value: payload } = await ttsResponseCache.getOrCreate(
+        const { value: asset } = await ttsResponseCache.getOrCreate(
             cacheKey,
             async () => {
                 const audio = await openai.audio.speech.create({
@@ -444,20 +446,50 @@ app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
                 });
 
                 const buffer = Buffer.from(await audio.arrayBuffer());
+                const token = buildTtsAssetToken(cacheKey, process.env.OPENAI_API_KEY);
                 return {
+                    token,
+                    format,
+                    contentType: `audio/${format}`,
                     audioBase64: buffer.toString("base64"),
-                    audioUrl: null,
                 };
             },
             { ttlMs: AI_TTS_CACHE_TTL_MS },
         );
+        ttsAssetCache.set(
+            asset.token,
+            {
+                audioBase64: asset.audioBase64,
+                contentType: asset.contentType,
+            },
+            AI_TTS_CACHE_TTL_MS,
+        );
         markAiSuccess();
-        return res.json(payload);
+        return res.json({
+            audioBase64: null,
+            audioUrl: buildTtsAssetUrl(req, asset.token, PORT),
+        });
     } catch (error) {
         console.error("Failed to synthesize audio", error);
         markAiFailure("/dictionary/tts", error);
         return res.status(500).json({ message: "발음 오디오를 준비하지 못했어요." });
     }
+});
+
+app.get("/dictionary/tts/:token", (req, res) => {
+    const token = normalizeText(req.params?.token);
+    if (!token) {
+        return res.status(404).end();
+    }
+
+    const asset = ttsAssetCache.get(token);
+    if (!asset?.audioBase64 || !asset?.contentType) {
+        return res.status(404).end();
+    }
+
+    res.setHeader("Content-Type", asset.contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    return res.send(Buffer.from(asset.audioBase64, "base64"));
 });
 
 app.post("/study/cards", rateLimit, requireApiKey, async (req, res) => {
