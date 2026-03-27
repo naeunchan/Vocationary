@@ -56,6 +56,9 @@ scripts/automation/issues/*
 scripts/release/*
 !scripts/release/*.js
 !scripts/release/*.mjs
+!scripts/ops/
+scripts/ops/*
+!scripts/ops/*.js
 audit/
 .vscode
 .codex

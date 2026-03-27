@@ -104,6 +104,7 @@ Rollback means reverting to the last approved release candidate or disabling the
 Monitor the first 24 to 48 hours after release for:
 
 - AI proxy health
+- `npm run ai:metrics:check`
 - `/dictionary/examples`
 - `/dictionary/tts`
 - login and session regressions
@@ -120,6 +121,7 @@ If AI features are enabled, watch both the proxy logs and the client health stat
 cp .env.example .env
 npm run lint -- --max-warnings=0
 npm test -- --watch=false
+npm run ai:metrics:check
 npm run build
 ```
 
