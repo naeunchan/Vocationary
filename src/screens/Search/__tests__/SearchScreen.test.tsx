@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 
 import { SearchScreen } from "@/screens/Search/SearchScreen";
@@ -11,6 +11,14 @@ jest.mock("@expo/vector-icons/Ionicons", () => {
     const { Text } = require("react-native");
     return (props: { name: string }) => <Text>{props.name}</Text>;
 });
+
+jest.mock("@/components/TextField", () => ({
+    TextField: ({ value, onChangeText, placeholder }: any) => {
+        const React = require("react");
+        const { TextInput } = require("react-native");
+        return <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} />;
+    },
+}));
 
 jest.mock("@/screens/Search/components/SearchResults", () => ({
     SearchResults: (props: unknown) => {
@@ -54,6 +62,11 @@ const baseProps = {
     onClearRecentSearches: jest.fn(),
     onRetry: jest.fn(),
     onRegenerateExamples: jest.fn(),
+    collectionsEnabled: false,
+    collections: [],
+    currentCollectionId: null,
+    onAssignCurrentWordToCollection: jest.fn().mockResolvedValue(undefined),
+    onCreateCollectionForCurrentWord: jest.fn().mockResolvedValue("collection_toeic"),
 };
 
 describe("SearchScreen", () => {
@@ -131,5 +144,43 @@ describe("SearchScreen", () => {
 
         fireEvent.press(getByText("apple"));
         expect(props.onSelectAutocomplete).toHaveBeenCalledWith("apple");
+    });
+
+    it("renders collection assignment when the current result is already saved", async () => {
+        const props = {
+            ...baseProps,
+            result: { word: "apple", phonetic: null, audioUrl: null, meanings: [] },
+            isCurrentFavorite: true,
+            collectionsEnabled: true,
+            collections: [
+                {
+                    id: "toeic",
+                    name: "TOEIC",
+                    createdAt: "2026-03-22T00:00:00.000Z",
+                    updatedAt: "2026-03-22T00:00:00.000Z",
+                    wordKeys: ["apple"],
+                },
+            ],
+            currentCollectionId: "toeic",
+            onAssignCurrentWordToCollection: jest.fn().mockResolvedValue(undefined),
+            onCreateCollectionForCurrentWord: jest.fn().mockResolvedValue("business"),
+        };
+
+        const { getByText, getByPlaceholderText, getByLabelText } = render(<SearchScreen {...props} />, { wrapper });
+
+        expect(getByText("컬렉션")).toBeTruthy();
+        expect(getByText('"TOEIC" 컬렉션에 담겨 있어요.')).toBeTruthy();
+
+        fireEvent.press(getByLabelText("컬렉션 미지정"));
+        expect(props.onAssignCurrentWordToCollection).toHaveBeenCalledWith(null);
+
+        fireEvent.changeText(getByPlaceholderText("새 컬렉션 이름"), "Business");
+        await act(async () => {
+            fireEvent.press(getByText("새 컬렉션 만들고 담기"));
+        });
+
+        await waitFor(() => {
+            expect(props.onCreateCollectionForCurrentWord).toHaveBeenCalledWith("Business");
+        });
     });
 });

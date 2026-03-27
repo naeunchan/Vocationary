@@ -1,4 +1,5 @@
 import type { AppError } from "@/errors/AppError";
+import type { CollectionRecord } from "@/services/collections/types";
 import { WordResult } from "@/services/dictionary/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
 
@@ -26,4 +27,9 @@ export type SearchScreenProps = {
     onRetry?: () => void;
     onRetryAiAssist?: () => void;
     onRegenerateExamples?: () => void;
+    collectionsEnabled: boolean;
+    collections: CollectionRecord[];
+    currentCollectionId: string | null;
+    onAssignCurrentWordToCollection: (collectionId: string | null) => Promise<void>;
+    onCreateCollectionForCurrentWord: (name: string) => Promise<string | null>;
 };

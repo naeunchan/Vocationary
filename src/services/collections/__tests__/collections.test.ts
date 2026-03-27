@@ -1,8 +1,10 @@
 import {
     assignWordsToCollection,
+    cloneCollections,
     createCollection,
     deleteCollection,
     getCollectionMembershipMap,
+    mergeCollectionsByName,
     removeWordsFromCollections,
     renameCollection,
 } from "@/services/collections";
@@ -60,5 +62,32 @@ describe("collections domain", () => {
                 updatedAt: "2026-03-24T00:00:00.000Z",
             }),
         ]);
+    });
+
+    it("merges collections by name and keeps single membership", () => {
+        const base = [
+            {
+                ...createCollection("TOEIC", { id: "toeic", createdAt: "2026-03-23T00:00:00.000Z" }),
+                wordKeys: ["apple"],
+            },
+        ];
+        const incoming = [
+            {
+                ...createCollection(" toeic ", { id: "guest-toeic", createdAt: "2026-03-24T00:00:00.000Z" }),
+                wordKeys: ["banana"],
+            },
+            {
+                ...createCollection("Travel", { id: "travel", createdAt: "2026-03-24T00:00:00.000Z" }),
+                wordKeys: ["apple"],
+            },
+        ];
+
+        const merged = mergeCollectionsByName(base, incoming, "2026-03-25T00:00:00.000Z");
+
+        expect(cloneCollections(merged)).toHaveLength(2);
+        expect(getCollectionMembershipMap(merged)).toEqual({
+            apple: "travel",
+            banana: "toeic",
+        });
     });
 });

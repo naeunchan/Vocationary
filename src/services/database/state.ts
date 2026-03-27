@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { cloneCollections } from "@/services/collections";
+import type { CollectionRecord } from "@/services/collections/types";
 import type { DictionaryMode } from "@/services/dictionary/types";
 import type { FavoriteWordEntry } from "@/services/favorites/types";
 import type { ReviewOutcome, ReviewProgressEntry, ReviewProgressMap } from "@/services/review/types";
@@ -66,6 +68,7 @@ export type PasswordResetByEmailStatus = "success" | "email_not_found" | "invali
 type MemoryState = {
     users: UserRow[];
     favoritesByUser: Record<number, FavoriteWordEntry[]>;
+    collectionsByUser: Record<number, CollectionRecord[]>;
     reviewProgressByUser: Record<number, ReviewProgressMap>;
     searchHistory: SearchHistoryEntry[];
     session: SessionState | null;
@@ -83,6 +86,7 @@ function createInitialMemoryState(): MemoryState {
     return {
         users: [],
         favoritesByUser: {},
+        collectionsByUser: {},
         reviewProgressByUser: {},
         searchHistory: [],
         session: null,
@@ -234,6 +238,12 @@ export function cloneMemoryState(state: MemoryState): MemoryState {
         favoritesByUser: Object.fromEntries(
             Object.entries(state.favoritesByUser).map(([userId, entries]) => [Number(userId), cloneFavorites(entries)]),
         ),
+        collectionsByUser: Object.fromEntries(
+            Object.entries(state.collectionsByUser).map(([userId, collections]) => [
+                Number(userId),
+                cloneCollections(collections),
+            ]),
+        ),
         reviewProgressByUser: Object.fromEntries(
             Object.entries(state.reviewProgressByUser).map(([userId, progress]) => [
                 Number(userId),
@@ -252,6 +262,7 @@ function replaceMemoryState(nextState: MemoryState) {
     const normalized = cloneMemoryState(nextState);
     memoryState.users = normalized.users;
     memoryState.favoritesByUser = normalized.favoritesByUser;
+    memoryState.collectionsByUser = normalized.collectionsByUser;
     memoryState.reviewProgressByUser = normalized.reviewProgressByUser;
     memoryState.searchHistory = normalized.searchHistory;
     memoryState.session = normalized.session;
@@ -303,6 +314,46 @@ export function normalizePersistedFavorites(value: unknown): Record<number, Favo
         Object.entries(value)
             .filter(([key, entries]) => Number.isFinite(Number(key)) && Array.isArray(entries))
             .map(([key, entries]) => [Number(key), cloneFavorites(entries as FavoriteWordEntry[])]),
+    );
+}
+
+function normalizePersistedCollection(collection: unknown): CollectionRecord | null {
+    if (!collection || typeof collection !== "object" || Array.isArray(collection)) {
+        return null;
+    }
+
+    const candidate = collection as Partial<CollectionRecord>;
+    if (
+        typeof candidate.id !== "string" ||
+        typeof candidate.name !== "string" ||
+        typeof candidate.createdAt !== "string" ||
+        typeof candidate.updatedAt !== "string" ||
+        !Array.isArray(candidate.wordKeys)
+    ) {
+        return null;
+    }
+
+    return {
+        id: candidate.id,
+        name: candidate.name.trim(),
+        createdAt: candidate.createdAt,
+        updatedAt: candidate.updatedAt,
+        wordKeys: candidate.wordKeys.filter((wordKey): wordKey is string => typeof wordKey === "string"),
+    };
+}
+
+export function normalizePersistedCollectionsByUser(value: unknown): Record<number, CollectionRecord[]> {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(value)
+            .filter(([key, collections]) => Number.isFinite(Number(key)) && Array.isArray(collections))
+            .map(([key, collections]) => [
+                Number(key),
+                cloneCollections((collections as CollectionRecord[]).map(normalizePersistedCollection).filter(Boolean)),
+            ]),
     );
 }
 
@@ -454,6 +505,7 @@ export function normalizePersistedState(value: unknown): MemoryState {
     return {
         users: normalizePersistedUsers(state.users),
         favoritesByUser: normalizePersistedFavorites(state.favoritesByUser),
+        collectionsByUser: normalizePersistedCollectionsByUser(state.collectionsByUser),
         reviewProgressByUser: normalizePersistedReviewProgressByUser(state.reviewProgressByUser),
         searchHistory: normalizedSearchHistory,
         session: normalizePersistedSession(state.session),

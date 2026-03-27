@@ -1,8 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { TextField } from "@/components/TextField";
 import { SearchBar } from "@/screens/Search/components/SearchBar";
 import { SearchResults } from "@/screens/Search/components/SearchResults";
 import { createSearchScreenStyles } from "@/screens/Search/SearchScreen.styles";
@@ -35,13 +36,50 @@ export function SearchScreen({
     onRetry,
     onRetryAiAssist,
     onRegenerateExamples,
+    collectionsEnabled,
+    collections,
+    currentCollectionId,
+    onAssignCurrentWordToCollection,
+    onCreateCollectionForCurrentWord,
 }: SearchScreenProps) {
     const styles = useThemedStyles(createSearchScreenStyles);
     const { theme } = useAppAppearance();
+    const [collectionName, setCollectionName] = useState("");
     const showPlaceholder = !hasSearched && !loading && !error && !result;
     const showEmptyState = hasSearched && !loading && !error && !result;
     const showAutocomplete = autocompleteSuggestions.length > 0 || autocompleteLoading;
     const hasRecentSearches = recentSearches.length > 0 && !showAutocomplete;
+    const currentCollection = useMemo(
+        () => collections.find((collection) => collection.id === currentCollectionId) ?? null,
+        [collections, currentCollectionId],
+    );
+    const showCollectionCard = collectionsEnabled && Boolean(result) && isCurrentFavorite;
+
+    const handleAssignCollection = useCallback(
+        (collectionId: string | null) => {
+            void onAssignCurrentWordToCollection(collectionId).catch((error: unknown) => {
+                const message = error instanceof Error ? error.message : "컬렉션을 저장하지 못했어요.";
+                Alert.alert("컬렉션 저장 실패", message);
+            });
+        },
+        [onAssignCurrentWordToCollection],
+    );
+
+    const handleCreateCollection = useCallback(() => {
+        const nextName = collectionName.trim();
+        if (!nextName) {
+            return;
+        }
+
+        void onCreateCollectionForCurrentWord(nextName)
+            .then(() => {
+                setCollectionName("");
+            })
+            .catch((error: unknown) => {
+                const message = error instanceof Error ? error.message : "컬렉션을 만들지 못했어요.";
+                Alert.alert("컬렉션 생성 실패", message);
+            });
+    }, [collectionName, onCreateCollectionForCurrentWord]);
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -92,6 +130,86 @@ export function SearchScreen({
                         />
                     )}
                 </View>
+
+                {showCollectionCard ? (
+                    <View style={styles.collectionCard}>
+                        <View style={styles.collectionHeader}>
+                            <Text style={styles.sectionLabel}>컬렉션</Text>
+                            <Text style={styles.collectionDescription}>
+                                {currentCollection
+                                    ? `"${currentCollection.name}" 컬렉션에 담겨 있어요.`
+                                    : "아직 컬렉션이 지정되지 않았어요."}
+                            </Text>
+                        </View>
+
+                        <View style={styles.collectionChipRow}>
+                            <Pressable
+                                style={[
+                                    styles.collectionChip,
+                                    currentCollectionId == null && styles.collectionChipActive,
+                                ]}
+                                onPress={() => {
+                                    handleAssignCollection(null);
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel="컬렉션 미지정"
+                            >
+                                <Text
+                                    style={[
+                                        styles.collectionChipText,
+                                        currentCollectionId == null && styles.collectionChipTextActive,
+                                    ]}
+                                >
+                                    미지정
+                                </Text>
+                            </Pressable>
+                            {collections.map((collection) => {
+                                const isSelected = collection.id === currentCollectionId;
+                                return (
+                                    <Pressable
+                                        key={collection.id}
+                                        style={[styles.collectionChip, isSelected && styles.collectionChipActive]}
+                                        onPress={() => {
+                                            handleAssignCollection(collection.id);
+                                        }}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`${collection.name} 컬렉션 선택`}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.collectionChipText,
+                                                isSelected && styles.collectionChipTextActive,
+                                            ]}
+                                        >
+                                            {collection.name}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+
+                        <TextField
+                            value={collectionName}
+                            onChangeText={setCollectionName}
+                            placeholder="새 컬렉션 이름"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+
+                        <TouchableOpacity
+                            style={[
+                                styles.collectionActionButton,
+                                !collectionName.trim() && styles.collectionActionButtonDisabled,
+                            ]}
+                            onPress={handleCreateCollection}
+                            disabled={!collectionName.trim()}
+                            accessibilityRole="button"
+                            accessibilityLabel="새 컬렉션 만들고 현재 단어에 담기"
+                        >
+                            <Text style={styles.collectionActionButtonText}>새 컬렉션 만들고 담기</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
 
                 {hasRecentSearches && (
                     <View style={styles.historyCard}>

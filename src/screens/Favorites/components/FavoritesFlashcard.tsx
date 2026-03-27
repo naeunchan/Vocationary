@@ -16,6 +16,7 @@ export function FavoritesFlashcard({
     onRemoveFavorite,
     onPlayAudio,
     pronunciationAvailable,
+    onVisibleWordChange,
 }: FavoritesFlashcardProps) {
     const styles = useThemedStyles(createFavoritesFlashcardStyles);
     const { theme } = useAppAppearance();
@@ -53,6 +54,10 @@ export function FavoritesFlashcard({
     }, [entries, shuffleIndices]);
 
     const currentEntry = entries[currentIndex];
+
+    useEffect(() => {
+        onVisibleWordChange?.(currentEntry?.word.word ?? null);
+    }, [currentEntry, onVisibleWordChange]);
 
     const phonetic = useMemo(() => currentEntry?.word.phonetic ?? null, [currentEntry]);
     const hasAudio = useMemo(

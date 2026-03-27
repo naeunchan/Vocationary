@@ -23,4 +23,22 @@ describe("SummaryCard", () => {
 
         expect(getByText(SUMMARY_CARD_TEXT.defaultGreeting)).toBeTruthy();
     });
+
+    it("renders the review dashboard CTA when review data is provided", () => {
+        const onStartReview = jest.fn();
+        const { getByText } = render(
+            <SummaryCard
+                {...baseProps}
+                reviewDashboard={{
+                    dueCount: 4,
+                    canStartReview: true,
+                    onStartReview,
+                }}
+            />,
+        );
+
+        expect(getByText(SUMMARY_CARD_TEXT.reviewTitle)).toBeTruthy();
+        expect(getByText(SUMMARY_CARD_TEXT.reviewReadyBody(4))).toBeTruthy();
+        expect(getByText(SUMMARY_CARD_TEXT.reviewAction)).toBeTruthy();
+    });
 });

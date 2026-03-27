@@ -23,6 +23,10 @@ function cloneCollection(record: CollectionRecord): CollectionRecord {
     };
 }
 
+export function cloneCollections(collections: CollectionRecord[]): CollectionRecord[] {
+    return collections.map(cloneCollection);
+}
+
 export function createCollection(
     name: string,
     options?: { id?: string; createdAt?: string; updatedAt?: string },
@@ -110,4 +114,42 @@ export function removeWordsFromCollections(
             updatedAt: nextWordKeys.length !== collection.wordKeys.length ? updatedAt : collection.updatedAt,
         };
     });
+}
+
+function normalizeCollectionLookupName(name: string): string {
+    return normalizeCollectionName(name).toLowerCase();
+}
+
+export function mergeCollectionsByName(
+    base: CollectionRecord[],
+    incoming: CollectionRecord[],
+    updatedAt: string = new Date().toISOString(),
+): CollectionRecord[] {
+    let nextCollections = cloneCollections(base);
+    const collectionIdByName = new Map(
+        nextCollections.map((collection) => [normalizeCollectionLookupName(collection.name), collection.id]),
+    );
+
+    incoming.forEach((collection) => {
+        const normalizedName = normalizeCollectionLookupName(collection.name);
+        if (!normalizedName) {
+            return;
+        }
+
+        let targetCollectionId = collectionIdByName.get(normalizedName);
+        if (!targetCollectionId) {
+            const created = createCollection(collection.name, {
+                id: collection.id,
+                createdAt: collection.createdAt,
+                updatedAt: collection.updatedAt,
+            });
+            nextCollections = [...nextCollections, { ...created, wordKeys: normalizeWordKeys(collection.wordKeys) }];
+            targetCollectionId = created.id;
+            collectionIdByName.set(normalizedName, targetCollectionId);
+        }
+
+        nextCollections = assignWordsToCollection(nextCollections, targetCollectionId, collection.wordKeys, updatedAt);
+    });
+
+    return nextCollections;
 }

@@ -7,6 +7,7 @@ import { HomeHeader } from "@/screens/Home/components/HomeHeader";
 import { SummaryCard } from "@/screens/Home/components/SummaryCard";
 import { createHomeScreenStyles } from "@/screens/Home/styles/HomeScreen.styles";
 import { HomeScreenProps } from "@/screens/Home/types/HomeScreen.types";
+import { ReviewSessionScreen } from "@/screens/Review/ReviewSessionScreen";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
 export function HomeScreen({
@@ -15,6 +16,12 @@ export function HomeScreen({
     userName,
     onPlayWordAudio,
     pronunciationAvailable,
+    reviewEnabled,
+    reviewSummary,
+    reviewSession,
+    onStartReviewSession,
+    onCloseReviewSession,
+    onApplyReviewOutcome,
 }: HomeScreenProps) {
     const styles = useThemedStyles(createHomeScreenStyles);
     const { toMemorizeEntries, counts } = useMemo(() => {
@@ -43,16 +50,38 @@ export function HomeScreen({
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <HomeHeader userName={userName} />
-                <SummaryCard userName={userName} counts={counts} />
-                <FavoritesList
-                    entries={toMemorizeEntries}
-                    emptyMessage="외울 단어장에 저장된 단어가 없어요."
-                    onMoveToReview={(word) => {
-                        onMoveToStatus(word, "review");
-                    }}
-                    onPlayAudio={onPlayWordAudio}
-                    pronunciationAvailable={pronunciationAvailable}
-                />
+                {reviewEnabled && reviewSession ? (
+                    <ReviewSessionScreen
+                        session={reviewSession}
+                        onApplyOutcome={onApplyReviewOutcome}
+                        onClose={onCloseReviewSession}
+                    />
+                ) : (
+                    <>
+                        <SummaryCard
+                            userName={userName}
+                            counts={counts}
+                            reviewDashboard={
+                                reviewEnabled
+                                    ? {
+                                          dueCount: reviewSummary.dueCount,
+                                          canStartReview: reviewSummary.canStartReview,
+                                          onStartReview: onStartReviewSession,
+                                      }
+                                    : undefined
+                            }
+                        />
+                        <FavoritesList
+                            entries={toMemorizeEntries}
+                            emptyMessage="외울 단어장에 저장된 단어가 없어요."
+                            onMoveToReview={(word) => {
+                                onMoveToStatus(word, "review");
+                            }}
+                            onPlayAudio={onPlayWordAudio}
+                            pronunciationAvailable={pronunciationAvailable}
+                        />
+                    </>
+                )}
             </ScrollView>
         </SafeAreaView>
     );

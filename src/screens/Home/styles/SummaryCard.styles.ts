@@ -68,4 +68,35 @@ export const createSummaryCardStyles = (theme: AppThemeColors, fontScale: number
             fontWeight: "800",
             color: theme.textPrimary,
         },
+        reviewPanel: {
+            backgroundColor: theme.cardMuted,
+            borderRadius: 22,
+            padding: 18,
+            gap: 14,
+        },
+        reviewPanelText: {
+            gap: 6,
+        },
+        reviewTitle: {
+            fontSize: scaleFont(17, fontScale),
+            fontWeight: "800",
+            color: theme.textPrimary,
+        },
+        reviewBody: {
+            fontSize: scaleFont(14, fontScale),
+            lineHeight: scaleFont(20, fontScale),
+            color: theme.textSecondary,
+        },
+        reviewButton: {
+            backgroundColor: theme.accent,
+            borderRadius: 16,
+            paddingVertical: 14,
+            alignItems: "center",
+            justifyContent: "center",
+        },
+        reviewButtonText: {
+            fontSize: scaleFont(15, fontScale),
+            fontWeight: "800",
+            color: theme.surface,
+        },
     });

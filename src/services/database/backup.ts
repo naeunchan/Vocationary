@@ -1,5 +1,7 @@
 import { createRestoreSuccess, type RestoreResult } from "@/services/backup/restoreResult";
 import { validateBackupPayload } from "@/services/backup/validateBackupPayload";
+import { cloneCollections } from "@/services/collections";
+import type { CollectionRecord } from "@/services/collections/types";
 import { getSearchHistoryState, setSearchHistoryState } from "@/services/database/searchHistory";
 import {
     cloneFavorites,
@@ -36,6 +38,7 @@ export type BackupPayloadV1 = BackupPayloadBase & {
 
 export type BackupPayloadV2 = BackupPayloadBase & {
     version: 2;
+    collections?: Record<string, CollectionRecord[]>;
     reviewProgress?: Record<string, ReviewProgressMap>;
 };
 
@@ -55,9 +58,11 @@ export async function exportBackup(): Promise<BackupPayloadV2> {
     }));
 
     const favorites: Record<string, FavoriteWordEntry[]> = {};
+    const collections: Record<string, CollectionRecord[]> = {};
     const reviewProgress: Record<string, ReviewProgressMap> = {};
     for (const user of userRows) {
         favorites[user.username] = cloneFavorites(memoryState.favoritesByUser[user.id] ?? []);
+        collections[user.username] = cloneCollections(memoryState.collectionsByUser[user.id] ?? []);
         reviewProgress[user.username] = cloneReviewProgressMap(memoryState.reviewProgressByUser[user.id] ?? {});
     }
 
@@ -66,6 +71,7 @@ export async function exportBackup(): Promise<BackupPayloadV2> {
         exportedAt: new Date().toISOString(),
         users,
         favorites,
+        collections,
         reviewProgress,
         searchHistory: getSearchHistoryState(),
     };
@@ -90,6 +96,7 @@ export async function importBackup(payload: BackupPayload): Promise<RestoreResul
         oauth_sub: string | null;
     }[] = [];
     const nextFavoritesByUser: Record<number, FavoriteWordEntry[]> = {};
+    const nextCollectionsByUser: Record<number, CollectionRecord[]> = {};
     const nextReviewProgressByUser: Record<number, ReviewProgressMap> = {};
 
     let localNextUserId = 1;
@@ -107,6 +114,7 @@ export async function importBackup(payload: BackupPayload): Promise<RestoreResul
         });
 
         nextFavoritesByUser[id] = cloneFavorites(parsed.favorites[normalizeUsername(user.username)] ?? []);
+        nextCollectionsByUser[id] = cloneCollections(parsed.collections[normalizeUsername(user.username)] ?? []);
         nextReviewProgressByUser[id] = cloneReviewProgressMap(
             parsed.reviewProgress[normalizeUsername(user.username)] ?? {},
         );
@@ -114,6 +122,7 @@ export async function importBackup(payload: BackupPayload): Promise<RestoreResul
 
     memoryState.users = nextUsers;
     memoryState.favoritesByUser = nextFavoritesByUser;
+    memoryState.collectionsByUser = nextCollectionsByUser;
     memoryState.reviewProgressByUser = nextReviewProgressByUser;
     memoryState.session = null;
     memoryState.autoLogin = null;
