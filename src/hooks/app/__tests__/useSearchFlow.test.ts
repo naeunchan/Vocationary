@@ -1,10 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 
+import { generateDefinitionExamples } from "@/api/dictionary/exampleGenerator";
+import { prefetchPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
 import { getWordData } from "@/api/dictionary/getWordData";
 import { fetchWordSuggestions } from "@/api/dictionary/wordSuggestionClient";
 import { useSearchFlow } from "@/hooks/app/useSearchFlow";
 import * as database from "@/services/database";
 import type { WordResult } from "@/services/dictionary/types";
+import { prefetchRemoteAudio } from "@/utils/audio";
 
 jest.mock("@/api/dictionary/getWordData", () => ({
     getWordData: jest.fn(),
@@ -37,10 +40,17 @@ jest.mock("@/services/database", () => ({
 }));
 
 const mockGetWordData = getWordData as jest.MockedFunction<typeof getWordData>;
+const mockGenerateDefinitionExamples = generateDefinitionExamples as jest.MockedFunction<
+    typeof generateDefinitionExamples
+>;
 const mockFetchWordSuggestions = fetchWordSuggestions as jest.MockedFunction<typeof fetchWordSuggestions>;
 const mockGetSearchHistoryEntries = database.getSearchHistoryEntries as jest.MockedFunction<
     typeof database.getSearchHistoryEntries
 >;
+const mockPrefetchPronunciationAudio = prefetchPronunciationAudio as jest.MockedFunction<
+    typeof prefetchPronunciationAudio
+>;
+const mockPrefetchRemoteAudio = prefetchRemoteAudio as jest.MockedFunction<typeof prefetchRemoteAudio>;
 const mockSaveSearchHistoryEntries = database.saveSearchHistoryEntries as jest.MockedFunction<
     typeof database.saveSearchHistoryEntries
 >;
@@ -67,6 +77,9 @@ describe("useSearchFlow", () => {
         mockGetSearchHistoryEntries.mockResolvedValue([]);
         mockSaveSearchHistoryEntries.mockResolvedValue(undefined);
         mockFetchWordSuggestions.mockResolvedValue([]);
+        mockGenerateDefinitionExamples.mockResolvedValue([]);
+        mockPrefetchPronunciationAudio.mockResolvedValue("file://cached-audio.mp3");
+        mockPrefetchRemoteAudio.mockResolvedValue(undefined);
     });
 
     it("adds successful searches to recent history", async () => {
@@ -187,5 +200,115 @@ describe("useSearchFlow", () => {
 
         expect(result.current.searchTerm).toBe("apple");
         expect(result.current.autocompleteSuggestions).toEqual([]);
+    });
+
+    it("loads AI examples only after the user opens the example panel", async () => {
+        mockGetWordData.mockResolvedValue({
+            base: {
+                ...baseResult,
+                meanings: [
+                    {
+                        partOfSpeech: "noun",
+                        definitions: [{ definition: "Fruit" }],
+                    },
+                ],
+            },
+            examplesPromise: Promise.resolve([]),
+        });
+        mockGenerateDefinitionExamples.mockResolvedValue([
+            {
+                meaningIndex: 0,
+                definitionIndex: 0,
+                example: "An apple a day helps.",
+            },
+        ]);
+
+        const { result } = renderHook(() =>
+            useSearchFlow({
+                favorites: [],
+                pronunciationAvailable: false,
+            }),
+        );
+
+        await waitFor(() => {
+            expect(mockGetSearchHistoryEntries).toHaveBeenCalled();
+        });
+
+        act(() => {
+            result.current.onChangeSearchTerm("apple");
+        });
+
+        act(() => {
+            result.current.onSubmitSearch();
+        });
+
+        await waitFor(() => {
+            expect(result.current.result?.word).toBe("apple");
+        });
+
+        expect(mockGenerateDefinitionExamples).not.toHaveBeenCalled();
+
+        act(() => {
+            result.current.onToggleExamples();
+        });
+
+        await waitFor(() => {
+            expect(result.current.result?.meanings[0]?.definitions[0]?.example).toBe("An apple a day helps.");
+        });
+
+        expect(mockGenerateDefinitionExamples).toHaveBeenCalledWith(
+            "apple",
+            expect.any(Array),
+            expect.objectContaining({ forceFresh: false }),
+        );
+    });
+
+    it("delays pronunciation warmup and cancels it when the query changes", async () => {
+        jest.useFakeTimers();
+        mockGetWordData.mockResolvedValue({
+            base: baseResult,
+            examplesPromise: Promise.resolve([]),
+        });
+
+        try {
+            const { result } = renderHook(() =>
+                useSearchFlow({
+                    favorites: [],
+                    pronunciationAvailable: true,
+                }),
+            );
+
+            await waitFor(() => {
+                expect(mockGetSearchHistoryEntries).toHaveBeenCalled();
+            });
+
+            act(() => {
+                result.current.onChangeSearchTerm("apple");
+            });
+
+            act(() => {
+                result.current.onSubmitSearch();
+            });
+
+            await waitFor(() => {
+                expect(result.current.result?.word).toBe("apple");
+            });
+
+            act(() => {
+                jest.advanceTimersByTime(1000);
+            });
+
+            expect(mockPrefetchPronunciationAudio).not.toHaveBeenCalled();
+
+            act(() => {
+                result.current.onChangeSearchTerm("banana");
+                jest.advanceTimersByTime(1000);
+            });
+
+            expect(mockPrefetchPronunciationAudio).not.toHaveBeenCalled();
+            expect(mockPrefetchRemoteAudio).not.toHaveBeenCalled();
+        } finally {
+            jest.useRealTimers();
+        }
     });
 });
