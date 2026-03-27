@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, Linking, ScrollView } from "react-native";
+import { Alert, Linking, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FEATURE_FLAGS } from "@/config/featureFlags";
@@ -7,12 +7,15 @@ import { LEGAL_DOCUMENTS, type LegalDocumentId } from "@/legal/legalDocuments";
 import { MISSING_USER_ERROR_MESSAGE } from "@/screens/App/AppScreen.constants";
 import { AuthenticatedActions } from "@/screens/Settings/components/AuthenticatedActions";
 import { BackupPassphraseModal } from "@/screens/Settings/components/BackupPassphraseModal";
+import { GoalSettingsCard } from "@/screens/Settings/components/GoalSettingsCard";
 import { LegalDocumentModal } from "@/screens/Settings/components/LegalDocumentModal";
+import { ReminderSettingsCard } from "@/screens/Settings/components/ReminderSettingsCard";
 import { SettingsBackupSection } from "@/screens/Settings/components/SettingsBackupSection";
 import { SettingsDisplaySection } from "@/screens/Settings/components/SettingsDisplaySection";
 import { SettingsGeneralSection } from "@/screens/Settings/components/SettingsGeneralSection";
 import { SettingsGuestAccountSection } from "@/screens/Settings/components/SettingsGuestAccountSection";
 import { SettingsProfileCard } from "@/screens/Settings/components/SettingsProfileCard";
+import { SettingsSection } from "@/screens/Settings/components/SettingsSection";
 import { createStyles } from "@/screens/Settings/SettingsScreen.styles";
 import { SettingsScreenProps } from "@/screens/Settings/SettingsScreen.types";
 import { buildSupportMailtoUrl, SETTINGS_SUPPORT_EMAIL } from "@/screens/Settings/utils/settingsSupport";
@@ -38,11 +41,22 @@ export function SettingsScreen({
     fontScale,
     onNavigateThemeSettings,
     onNavigateFontSettings,
+    dailyGoalSettings,
+    dailyGoalProgress,
+    reviewStreak,
+    reviewReminderSettings,
+    nextReminderLabel,
+    onToggleDailyGoal,
+    onSelectDailyGoalTarget,
+    onToggleReviewReminder,
+    onSelectReviewReminderTime,
+    onToggleReviewReminderWeekday,
 }: SettingsScreenProps) {
     const styles = useThemedStyles(createStyles);
     const showAccountAuth = FEATURE_FLAGS.accountAuth;
     const showGuestAccountCta = isGuest && showAccountAuth && FEATURE_FLAGS.guestAccountCta;
     const showBackupRestore = FEATURE_FLAGS.backupRestore;
+    const showGoalManagement = FEATURE_FLAGS.dailyGoal || FEATURE_FLAGS.reviewReminder;
     const handleLogoutPress = useCallback(() => {
         if (!canLogout) {
             return;
@@ -182,6 +196,31 @@ export function SettingsScreen({
                     onContactSupport={handleContactSupport}
                     onOpenDocument={handleOpenDocument}
                 />
+
+                {showGoalManagement ? (
+                    <SettingsSection label="학습 관리" useCard={false}>
+                        <View style={styles.managementStack}>
+                            {FEATURE_FLAGS.dailyGoal ? (
+                                <GoalSettingsCard
+                                    settings={dailyGoalSettings}
+                                    progress={dailyGoalProgress}
+                                    streak={reviewStreak}
+                                    onToggleEnabled={onToggleDailyGoal}
+                                    onSelectTarget={onSelectDailyGoalTarget}
+                                />
+                            ) : null}
+                            {FEATURE_FLAGS.reviewReminder ? (
+                                <ReminderSettingsCard
+                                    settings={reviewReminderSettings}
+                                    nextReminderLabel={nextReminderLabel}
+                                    onToggleEnabled={onToggleReviewReminder}
+                                    onSelectTime={onSelectReviewReminderTime}
+                                    onToggleWeekday={onToggleReviewReminderWeekday}
+                                />
+                            ) : null}
+                        </View>
+                    </SettingsSection>
+                ) : null}
 
                 <SettingsDisplaySection
                     themeModeLabel={themeModeLabel}

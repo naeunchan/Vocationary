@@ -78,6 +78,35 @@ describe("SettingsScreen", () => {
         fontScale: 1,
         onNavigateThemeSettings: jest.fn(),
         onNavigateFontSettings: jest.fn(),
+        dailyGoalSettings: {
+            enabled: false,
+            targetCount: 10,
+            updatedAt: null,
+        },
+        dailyGoalProgress: {
+            completedCount: 0,
+            targetCount: 10,
+            remainingCount: 10,
+            isComplete: false,
+        },
+        reviewStreak: {
+            currentStreak: 0,
+            longestStreak: 0,
+            lastCompletedDate: null,
+        },
+        reviewReminderSettings: {
+            enabled: false,
+            hour: 20,
+            minute: 0,
+            weekdays: [1, 2, 3, 4, 5, 6, 0],
+            updatedAt: null,
+        },
+        nextReminderLabel: null,
+        onToggleDailyGoal: jest.fn(),
+        onSelectDailyGoalTarget: jest.fn(),
+        onToggleReviewReminder: jest.fn(),
+        onSelectReviewReminderTime: jest.fn(),
+        onToggleReviewReminderWeekday: jest.fn(),
     };
 
     beforeEach(() => {
@@ -85,6 +114,8 @@ describe("SettingsScreen", () => {
         FEATURE_FLAGS.accountAuth = true;
         FEATURE_FLAGS.backupRestore = false;
         FEATURE_FLAGS.guestAccountCta = true;
+        FEATURE_FLAGS.dailyGoal = false;
+        FEATURE_FLAGS.reviewReminder = false;
     });
 
     afterEach(() => {
@@ -206,5 +237,35 @@ describe("SettingsScreen", () => {
 
         fireEvent.press(getByText("비밀번호 변경"));
         expect(baseProps.onNavigatePassword).toHaveBeenCalled();
+    });
+
+    it("renders goal and reminder controls when the study management flags are enabled", () => {
+        FEATURE_FLAGS.dailyGoal = true;
+        FEATURE_FLAGS.reviewReminder = true;
+
+        const props = {
+            ...baseProps,
+            reviewReminderSettings: {
+                ...baseProps.reviewReminderSettings,
+                enabled: true,
+            },
+            nextReminderLabel: "오후 8:00",
+        };
+
+        const { getByLabelText, getByText } = render(<SettingsScreen {...props} />);
+
+        expect(getByText("학습 관리")).toBeTruthy();
+
+        fireEvent.press(getByLabelText("오늘 목표 켜기"));
+        expect(baseProps.onToggleDailyGoal).toHaveBeenCalledWith(true);
+
+        fireEvent.press(getByLabelText("20개 목표 선택"));
+        expect(baseProps.onSelectDailyGoalTarget).toHaveBeenCalledWith(20);
+
+        fireEvent.press(getByLabelText("오후 9:00 알림 시간 선택"));
+        expect(baseProps.onSelectReviewReminderTime).toHaveBeenCalledWith(21, 0);
+
+        fireEvent.press(getByLabelText("월요일 알림 토글"));
+        expect(baseProps.onToggleReviewReminderWeekday).toHaveBeenCalledWith(1);
     });
 });

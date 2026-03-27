@@ -1,5 +1,6 @@
 import type { ReviewSessionViewModel } from "@/screens/Review/ReviewSessionScreen.types";
 import { FavoriteWordEntry, MemorizationStatus } from "@/services/favorites/types";
+import type { DailyGoalProgress, ReviewStreakState } from "@/services/goals";
 import type { ReviewOutcome } from "@/services/review/types";
 
 export type HomeScreenProps = {
@@ -17,4 +18,10 @@ export type HomeScreenProps = {
     onStartReviewSession: () => void;
     onCloseReviewSession: () => void;
     onApplyReviewOutcome: (outcome: ReviewOutcome) => void;
+    goalSummary?: {
+        showGoal: boolean;
+        progress: DailyGoalProgress;
+        streak: ReviewStreakState;
+        reminderLabel: string | null;
+    };
 };

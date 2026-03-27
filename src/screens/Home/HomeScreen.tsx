@@ -3,6 +3,7 @@ import { ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FavoritesList } from "@/screens/Home/components/FavoritesList";
+import { GoalProgressCard } from "@/screens/Home/components/GoalProgressCard";
 import { HomeHeader } from "@/screens/Home/components/HomeHeader";
 import { SummaryCard } from "@/screens/Home/components/SummaryCard";
 import { createHomeScreenStyles } from "@/screens/Home/styles/HomeScreen.styles";
@@ -22,6 +23,7 @@ export function HomeScreen({
     onStartReviewSession,
     onCloseReviewSession,
     onApplyReviewOutcome,
+    goalSummary,
 }: HomeScreenProps) {
     const styles = useThemedStyles(createHomeScreenStyles);
     const { toMemorizeEntries, counts } = useMemo(() => {
@@ -71,6 +73,14 @@ export function HomeScreen({
                                     : undefined
                             }
                         />
+                        {goalSummary ? (
+                            <GoalProgressCard
+                                showGoal={goalSummary.showGoal}
+                                progress={goalSummary.progress}
+                                streak={goalSummary.streak}
+                                reminderLabel={goalSummary.reminderLabel}
+                            />
+                        ) : null}
                         <FavoritesList
                             entries={toMemorizeEntries}
                             emptyMessage="외울 단어장에 저장된 단어가 없어요."

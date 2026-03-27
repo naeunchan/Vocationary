@@ -1,3 +1,5 @@
+import { getPreferenceValue, setPreferenceValue } from "@/services/database";
+
 export type ReviewReminderSettings = {
     enabled: boolean;
     hour: number;
@@ -61,6 +63,31 @@ export function normalizeReviewReminderSettings(value: unknown): ReviewReminderS
         weekdays: normalizeWeekdays(candidate.weekdays),
         updatedAt: typeof candidate.updatedAt === "string" ? candidate.updatedAt : null,
     };
+}
+
+function parseJsonPreference(value: string | null): unknown {
+    if (!value) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(value);
+    } catch {
+        return null;
+    }
+}
+
+export async function loadReviewReminderSettings(): Promise<ReviewReminderSettings> {
+    const rawValue = await getPreferenceValue(REVIEW_REMINDER_SETTINGS_PREFERENCE_KEY);
+    const parsed = parseJsonPreference(rawValue);
+    return parsed ? normalizeReviewReminderSettings(parsed) : createDefaultReviewReminderSettings();
+}
+
+export async function saveReviewReminderSettings(settings: ReviewReminderSettings): Promise<void> {
+    await setPreferenceValue(
+        REVIEW_REMINDER_SETTINGS_PREFERENCE_KEY,
+        JSON.stringify(normalizeReviewReminderSettings(settings)),
+    );
 }
 
 export function getNextReviewReminderAt(settings: ReviewReminderSettings, options?: { from?: Date }): Date | null {

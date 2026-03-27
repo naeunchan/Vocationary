@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import { normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
@@ -22,6 +22,25 @@ import {
 import type { AppScreenHookResult } from "@/screens/App/AppScreen.types";
 import type { StudyModeSource, StudyModeViewModel } from "@/screens/StudyMode/StudyModeScreen.types";
 import type { WordResult } from "@/services/dictionary/types";
+import {
+    computeDailyGoalProgress,
+    createDefaultDailyGoalSettings,
+    createDefaultReviewStreakState,
+    type DailyGoalSettings,
+    loadDailyGoalSettings,
+    loadReviewStreakState,
+    type ReviewStreakState,
+    saveDailyGoalSettings,
+    saveReviewStreakState,
+    updateReviewStreak,
+} from "@/services/goals";
+import {
+    createDefaultReviewReminderSettings,
+    getNextReviewReminderAt,
+    loadReviewReminderSettings,
+    type ReviewReminderSettings,
+    saveReviewReminderSettings,
+} from "@/services/notifications";
 import type { ReviewOutcome, ReviewQueueItem } from "@/services/review";
 import { createReviewProgressKey, deriveReviewQueue } from "@/services/review";
 import {
@@ -86,6 +105,25 @@ type StudySessionState =
     | CompleteStudySessionState
     | null;
 
+function isSameCalendarDate(left: Date, right: Date): boolean {
+    return (
+        left.getFullYear() === right.getFullYear() &&
+        left.getMonth() === right.getMonth() &&
+        left.getDate() === right.getDate()
+    );
+}
+
+function formatReminderLabel(value: Date | null): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const period = value.getHours() >= 12 ? "오후" : "오전";
+    const hour = value.getHours() % 12 || 12;
+    const minute = `${value.getMinutes()}`.padStart(2, "0");
+    return `${period} ${hour}:${minute}`;
+}
+
 export function useAppScreen(): AppScreenHookResult {
     const [versionLabel] = useState(() => {
         return getRuntimeConfig().versionLabel ?? DEFAULT_VERSION_LABEL;
@@ -110,6 +148,13 @@ export function useAppScreen(): AppScreenHookResult {
     };
 
     const hasShownPronunciationInfoRef = useRef(false);
+    const [dailyGoalSettings, setDailyGoalSettings] = useState<DailyGoalSettings>(createDefaultDailyGoalSettings);
+    const [reviewStreakState, setReviewStreakState] = useState<ReviewStreakState>(createDefaultReviewStreakState);
+    const [reviewReminderSettings, setReviewReminderSettings] = useState<ReviewReminderSettings>(
+        createDefaultReviewReminderSettings,
+    );
+    const reviewStreakStateRef = useRef(reviewStreakState);
+    reviewStreakStateRef.current = reviewStreakState;
 
     const reportAiAssistError = useCallback((error: unknown, scope: "examples" | "tts"): AppError => {
         const appError = normalizeAIProxyError(error, scope);
@@ -128,6 +173,28 @@ export function useAppScreen(): AppScreenHookResult {
             return;
         }
         Alert.alert(AUDIO_PLAY_ERROR_MESSAGE, appError.message);
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        void Promise.all([loadDailyGoalSettings(), loadReviewStreakState(), loadReviewReminderSettings()])
+            .then(([loadedDailyGoalSettings, loadedReviewStreakState, loadedReminderSettings]) => {
+                if (cancelled) {
+                    return;
+                }
+
+                setDailyGoalSettings(loadedDailyGoalSettings);
+                setReviewStreakState(loadedReviewStreakState);
+                setReviewReminderSettings(loadedReminderSettings);
+            })
+            .catch(() => {
+                // Fallback to defaults when local preferences are missing or malformed.
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     const playPronunciationAsync = useCallback(async () => {
@@ -212,11 +279,39 @@ export function useAppScreen(): AppScreenHookResult {
     const studyEntryEnabled = FEATURE_FLAGS.aiStudyMode && FEATURE_FLAGS.aiStudyEntryPoints;
     const studySessionEnabled = FEATURE_FLAGS.aiStudyMode && FEATURE_FLAGS.aiStudySessionUi;
     const studyAvailable = studyEntryEnabled && studySessionEnabled && OPENAI_FEATURE_ENABLED;
+    const dailyGoalEnabled = FEATURE_FLAGS.dailyGoal;
+    const reviewReminderEnabled = FEATURE_FLAGS.reviewReminder;
     const dueReviewQueue = useMemo(
         () => deriveReviewQueue(sessionFlow.favorites, sessionFlow.reviewProgress),
         [sessionFlow.favorites, sessionFlow.reviewProgress],
     );
     const dueReviewCount = dueReviewQueue.length;
+    const completedTodayCount = useMemo(() => {
+        const today = new Date();
+        return Object.values(sessionFlow.reviewProgress).reduce((total, progress) => {
+            if (!progress.lastReviewedAt) {
+                return total;
+            }
+
+            const reviewedAt = new Date(progress.lastReviewedAt);
+            if (!Number.isFinite(reviewedAt.getTime())) {
+                return total;
+            }
+
+            return isSameCalendarDate(reviewedAt, today) ? total + 1 : total;
+        }, 0);
+    }, [sessionFlow.reviewProgress]);
+    const dailyGoalProgress = useMemo(
+        () => computeDailyGoalProgress(completedTodayCount, dailyGoalSettings),
+        [completedTodayCount, dailyGoalSettings],
+    );
+    const nextReminderLabel = useMemo(
+        () =>
+            reviewReminderSettings.enabled
+                ? formatReminderLabel(getNextReviewReminderAt(reviewReminderSettings))
+                : null,
+        [reviewReminderSettings],
+    );
 
     const handleStartReviewSession = useCallback(() => {
         if (!reviewDashboardEnabled || !reviewSessionEnabled || dueReviewQueue.length === 0) {
@@ -363,6 +458,107 @@ export function useAppScreen(): AppScreenHookResult {
         });
     }, []);
 
+    const handleToggleDailyGoal = useCallback(
+        (enabled: boolean) => {
+            const previousSettings = dailyGoalSettings;
+            const nextSettings: DailyGoalSettings = {
+                ...dailyGoalSettings,
+                enabled,
+                updatedAt: new Date().toISOString(),
+            };
+
+            setDailyGoalSettings(nextSettings);
+            void saveDailyGoalSettings(nextSettings).catch((error) => {
+                setDailyGoalSettings(previousSettings);
+                Alert.alert("오늘 목표", error instanceof Error ? error.message : "목표 설정을 저장하지 못했어요.");
+            });
+        },
+        [dailyGoalSettings],
+    );
+
+    const handleSelectDailyGoalTarget = useCallback(
+        (targetCount: number) => {
+            const previousSettings = dailyGoalSettings;
+            const nextSettings: DailyGoalSettings = {
+                ...dailyGoalSettings,
+                enabled: true,
+                targetCount,
+                updatedAt: new Date().toISOString(),
+            };
+
+            setDailyGoalSettings(nextSettings);
+            void saveDailyGoalSettings(nextSettings).catch((error) => {
+                setDailyGoalSettings(previousSettings);
+                Alert.alert("오늘 목표", error instanceof Error ? error.message : "목표 설정을 저장하지 못했어요.");
+            });
+        },
+        [dailyGoalSettings],
+    );
+
+    const handleToggleReviewReminder = useCallback(
+        (enabled: boolean) => {
+            const previousSettings = reviewReminderSettings;
+            const nextSettings: ReviewReminderSettings = {
+                ...reviewReminderSettings,
+                enabled,
+                updatedAt: new Date().toISOString(),
+            };
+
+            setReviewReminderSettings(nextSettings);
+            void saveReviewReminderSettings(nextSettings).catch((error) => {
+                setReviewReminderSettings(previousSettings);
+                Alert.alert("리마인더", error instanceof Error ? error.message : "리마인더 설정을 저장하지 못했어요.");
+            });
+        },
+        [reviewReminderSettings],
+    );
+
+    const handleSelectReviewReminderTime = useCallback(
+        (hour: number, minute: number) => {
+            const previousSettings = reviewReminderSettings;
+            const nextSettings: ReviewReminderSettings = {
+                ...reviewReminderSettings,
+                enabled: true,
+                hour,
+                minute,
+                updatedAt: new Date().toISOString(),
+            };
+
+            setReviewReminderSettings(nextSettings);
+            void saveReviewReminderSettings(nextSettings).catch((error) => {
+                setReviewReminderSettings(previousSettings);
+                Alert.alert("리마인더", error instanceof Error ? error.message : "리마인더 설정을 저장하지 못했어요.");
+            });
+        },
+        [reviewReminderSettings],
+    );
+
+    const handleToggleReviewReminderWeekday = useCallback(
+        (weekday: number) => {
+            const previousSettings = reviewReminderSettings;
+            const alreadySelected = reviewReminderSettings.weekdays.includes(weekday);
+            const nextWeekdays = alreadySelected
+                ? reviewReminderSettings.weekdays.length === 1
+                    ? reviewReminderSettings.weekdays
+                    : reviewReminderSettings.weekdays.filter((entry) => entry !== weekday)
+                : [...reviewReminderSettings.weekdays, weekday];
+            const orderedWeekdays = [1, 2, 3, 4, 5, 6, 0].filter((entry) => nextWeekdays.includes(entry));
+            const nextSettings: ReviewReminderSettings = {
+                ...reviewReminderSettings,
+                enabled: true,
+                weekdays: orderedWeekdays,
+                updatedAt: new Date().toISOString(),
+            };
+
+            setReviewReminderSettings(nextSettings);
+            void saveReviewReminderSettings(nextSettings).catch((error) => {
+                setReviewReminderSettings(previousSettings);
+                Alert.alert("리마인더", error instanceof Error ? error.message : "리마인더 설정을 저장하지 못했어요.");
+            });
+        },
+        [reviewReminderSettings],
+    );
+
     const handleCreateCollectionForCurrentWord = useCallback(
         async (name: string) => {
             const currentWord = searchFlow.result?.word?.trim();
@@ -412,6 +608,12 @@ export function useAppScreen(): AppScreenHookResult {
             void (async () => {
                 try {
                     await sessionFlow.onApplyReviewOutcome(currentItem.entry.word.word, outcome);
+                    const nextStreakState = updateReviewStreak(reviewStreakStateRef.current, { completedCount: 1 });
+                    setReviewStreakState(nextStreakState);
+                    reviewStreakStateRef.current = nextStreakState;
+                    void saveReviewStreakState(nextStreakState).catch(() => {
+                        // Keep the in-memory streak optimistic even if the preference write fails.
+                    });
                     const completedCount = currentSession.completedCount + 1;
                     const correctCount = currentSession.correctCount + (outcome === "again" ? 0 : 1);
                     const incorrectCount = currentSession.incorrectCount + (outcome === "again" ? 1 : 0);
@@ -541,6 +743,15 @@ export function useAppScreen(): AppScreenHookResult {
                 onStartReviewSession: handleStartReviewSession,
                 onCloseReviewSession: handleCloseReviewSession,
                 onApplyReviewOutcome: handleApplyReviewOutcome,
+                goalSummary:
+                    dailyGoalEnabled || reviewReminderEnabled
+                        ? {
+                              showGoal: dailyGoalSettings.enabled,
+                              progress: dailyGoalProgress,
+                              streak: reviewStreakState,
+                              reminderLabel: reviewReminderEnabled ? nextReminderLabel : null,
+                          }
+                        : undefined,
             },
             favorites: {
                 favorites: sessionFlow.favorites,
@@ -632,6 +843,16 @@ export function useAppScreen(): AppScreenHookResult {
                 onThemeModeChange: appearanceFlow.onThemeModeChange,
                 fontScale: appearanceFlow.fontScale,
                 onFontScaleChange: appearanceFlow.onFontScaleChange,
+                dailyGoalSettings,
+                dailyGoalProgress,
+                reviewStreak: reviewStreakState,
+                reviewReminderSettings,
+                nextReminderLabel,
+                onToggleDailyGoal: handleToggleDailyGoal,
+                onSelectDailyGoalTarget: handleSelectDailyGoalTarget,
+                onToggleReviewReminder: handleToggleReviewReminder,
+                onSelectReviewReminderTime: handleSelectReviewReminderTime,
+                onToggleReviewReminderWeekday: handleToggleReviewReminderWeekday,
             },
         }),
         [
@@ -642,6 +863,9 @@ export function useAppScreen(): AppScreenHookResult {
             appearanceFlow.themeMode,
             collectionsEnabled,
             currentResultCollectionId,
+            dailyGoalEnabled,
+            dailyGoalProgress,
+            dailyGoalSettings,
             dueReviewCount,
             handleApplyReviewOutcome,
             handleAssignCurrentWordToCollection,
@@ -650,6 +874,11 @@ export function useAppScreen(): AppScreenHookResult {
             handleCloseStudySession,
             handleCreateCollectionForCurrentWord,
             handlePlayWordAudioAsync,
+            handleSelectDailyGoalTarget,
+            handleSelectReviewReminderTime,
+            handleToggleDailyGoal,
+            handleToggleReviewReminder,
+            handleToggleReviewReminderWeekday,
             handleRegenerateStudySession,
             handleRetryStudySession,
             handleStartReviewSession,
@@ -659,8 +888,11 @@ export function useAppScreen(): AppScreenHookResult {
             favoritesStudySessionViewModel,
             playPronunciationAsync,
             reviewDashboardEnabled,
+            reviewReminderEnabled,
+            reviewReminderSettings,
             reviewSessionEnabled,
             reviewSessionViewModel,
+            reviewStreakState,
             searchStudySessionViewModel,
             searchFlow.aiAssistError,
             searchFlow.autocompleteLoading,
@@ -709,6 +941,7 @@ export function useAppScreen(): AppScreenHookResult {
             studyAvailable,
             studyEntryEnabled,
             studySessionEnabled,
+            nextReminderLabel,
             versionLabel,
         ],
     );

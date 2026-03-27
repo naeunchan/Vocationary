@@ -2,11 +2,14 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 
 import { getWordData } from "@/api/dictionary/getWordData";
 import { fetchWordSuggestions } from "@/api/dictionary/wordSuggestionClient";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { createAppError } from "@/errors/AppError";
 import { useAppScreen } from "@/hooks/useAppScreen";
 import * as database from "@/services/database";
 import type { WordResult } from "@/services/dictionary/types";
 import type { FavoriteWordEntry } from "@/services/favorites/types";
+import { DAILY_GOAL_SETTINGS_PREFERENCE_KEY, REVIEW_STREAK_STATE_PREFERENCE_KEY } from "@/services/goals";
+import { REVIEW_REMINDER_SETTINGS_PREFERENCE_KEY } from "@/services/notifications";
 import {
     FONT_SCALE_PREFERENCE_KEY,
     GUEST_FAVORITES_PREFERENCE_KEY,
@@ -213,6 +216,8 @@ describe("useAppScreen search history", () => {
             code: "OK",
             restored: { users: 0, favorites: 0, searchHistory: 0 },
         });
+        FEATURE_FLAGS.dailyGoal = false;
+        FEATURE_FLAGS.reviewReminder = false;
         mockLoadAIStudySession.mockReset();
         mockFetchWordSuggestions.mockResolvedValue([]);
     });
@@ -733,6 +738,102 @@ describe("useAppScreen search history", () => {
                 correctCount: 1,
                 totalCount: 1,
             }),
+        );
+    });
+
+    it("exposes daily goal and reminder state through home and settings props", async () => {
+        FEATURE_FLAGS.dailyGoal = true;
+        FEATURE_FLAGS.reviewReminder = true;
+        mockGetActiveSession.mockResolvedValue({ isGuest: false, user: loggedInUser });
+        mockGetFavoritesByUser.mockResolvedValue([createFavorite("apple", "2026-03-22T00:00:00.000Z")]);
+        mockGetReviewProgressByUser.mockResolvedValue({
+            apple: {
+                word: "apple",
+                lastReviewedAt: new Date().toISOString(),
+                nextReviewAt: null,
+                reviewCount: 1,
+                correctStreak: 1,
+                incorrectCount: 0,
+                lastOutcome: "good",
+            },
+        });
+        mockGetPreferenceValue.mockImplementation(async (key: string) => {
+            if (key === GUEST_FAVORITES_PREFERENCE_KEY) {
+                return "[]";
+            }
+            if (key === ONBOARDING_PREFERENCE_KEY) {
+                return "true";
+            }
+            if (key === GUEST_USED_PREFERENCE_KEY) {
+                return "false";
+            }
+            if (key === THEME_MODE_PREFERENCE_KEY) {
+                return null;
+            }
+            if (key === FONT_SCALE_PREFERENCE_KEY) {
+                return null;
+            }
+            if (key === DAILY_GOAL_SETTINGS_PREFERENCE_KEY) {
+                return JSON.stringify({
+                    enabled: true,
+                    targetCount: 5,
+                    updatedAt: "2026-03-27T00:00:00.000Z",
+                });
+            }
+            if (key === REVIEW_STREAK_STATE_PREFERENCE_KEY) {
+                return JSON.stringify({
+                    currentStreak: 2,
+                    longestStreak: 5,
+                    lastCompletedDate: "2026-03-26",
+                });
+            }
+            if (key === REVIEW_REMINDER_SETTINGS_PREFERENCE_KEY) {
+                return JSON.stringify({
+                    enabled: true,
+                    hour: 20,
+                    minute: 0,
+                    weekdays: [1, 2, 3, 4, 5],
+                    updatedAt: "2026-03-27T00:00:00.000Z",
+                });
+            }
+            return null;
+        });
+
+        const { result } = renderHook(() => useAppScreen());
+        await waitForHookReady(result);
+
+        await waitFor(() => {
+            expect(result.current.navigatorProps.home.goalSummary).toEqual(
+                expect.objectContaining({
+                    showGoal: true,
+                    progress: expect.objectContaining({
+                        completedCount: 1,
+                        targetCount: 5,
+                        remainingCount: 4,
+                    }),
+                    streak: expect.objectContaining({
+                        currentStreak: 2,
+                        longestStreak: 5,
+                    }),
+                    reminderLabel: "오후 8:00",
+                }),
+            );
+        });
+
+        act(() => {
+            result.current.navigatorProps.settings.onSelectDailyGoalTarget(20);
+            result.current.navigatorProps.settings.onToggleReviewReminder(false);
+        });
+
+        await waitFor(() => {
+            expect(mockSetPreferenceValue).toHaveBeenCalledWith(
+                DAILY_GOAL_SETTINGS_PREFERENCE_KEY,
+                expect.stringContaining('"targetCount":20'),
+            );
+        });
+        expect(mockSetPreferenceValue).toHaveBeenCalledWith(
+            REVIEW_REMINDER_SETTINGS_PREFERENCE_KEY,
+            expect.stringContaining('"enabled":false'),
         );
     });
 });

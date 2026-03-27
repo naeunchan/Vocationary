@@ -33,6 +33,16 @@ export function SettingsNavigator({
     onThemeModeChange,
     fontScale,
     onFontScaleChange,
+    dailyGoalSettings,
+    dailyGoalProgress,
+    reviewStreak,
+    reviewReminderSettings,
+    nextReminderLabel,
+    onToggleDailyGoal,
+    onSelectDailyGoalTarget,
+    onToggleReviewReminder,
+    onSelectReviewReminderTime,
+    onToggleReviewReminderWeekday,
 }: SettingsNavigatorProps) {
     const { theme } = useAppAppearance();
     const baseHeaderOptions = React.useMemo<NativeStackNavigationOptions>(
@@ -117,6 +127,16 @@ export function SettingsNavigator({
                         onNavigateFontSettings={() => {
                             navigation.navigate("FontSizeSettings");
                         }}
+                        dailyGoalSettings={dailyGoalSettings}
+                        dailyGoalProgress={dailyGoalProgress}
+                        reviewStreak={reviewStreak}
+                        reviewReminderSettings={reviewReminderSettings}
+                        nextReminderLabel={nextReminderLabel}
+                        onToggleDailyGoal={onToggleDailyGoal}
+                        onSelectDailyGoalTarget={onSelectDailyGoalTarget}
+                        onToggleReviewReminder={onToggleReviewReminder}
+                        onSelectReviewReminderTime={onSelectReviewReminderTime}
+                        onToggleReviewReminderWeekday={onToggleReviewReminderWeekday}
                     />
                 )}
             </Stack.Screen>

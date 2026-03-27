@@ -97,6 +97,35 @@ const createProps = (): RootTabNavigatorProps => {
             onThemeModeChange: noop,
             fontScale: 1,
             onFontScaleChange: noop,
+            dailyGoalSettings: {
+                enabled: false,
+                targetCount: 10,
+                updatedAt: null,
+            },
+            dailyGoalProgress: {
+                completedCount: 0,
+                targetCount: 10,
+                remainingCount: 10,
+                isComplete: false,
+            },
+            reviewStreak: {
+                currentStreak: 0,
+                longestStreak: 0,
+                lastCompletedDate: null,
+            },
+            reviewReminderSettings: {
+                enabled: false,
+                hour: 20,
+                minute: 0,
+                weekdays: [1, 2, 3, 4, 5, 6, 0],
+                updatedAt: null,
+            },
+            nextReminderLabel: null,
+            onToggleDailyGoal: noop,
+            onSelectDailyGoalTarget: noop,
+            onToggleReviewReminder: noop,
+            onSelectReviewReminderTime: noop,
+            onToggleReviewReminderWeekday: noop,
         },
     };
 };

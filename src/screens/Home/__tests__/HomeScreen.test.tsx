@@ -6,6 +6,7 @@ import { FavoriteWordEntry } from "@/services/favorites/types";
 
 const mockHomeHeader = jest.fn(() => null);
 const mockSummaryCard = jest.fn(() => null);
+const mockGoalProgressCard = jest.fn(() => null);
 const mockFavoritesList = jest.fn(() => null);
 const mockReviewSessionScreen = jest.fn(() => null);
 
@@ -15,6 +16,10 @@ jest.mock("@/screens/Home/components/HomeHeader", () => ({
 
 jest.mock("@/screens/Home/components/SummaryCard", () => ({
     SummaryCard: (props: any) => mockSummaryCard(props),
+}));
+
+jest.mock("@/screens/Home/components/GoalProgressCard", () => ({
+    GoalProgressCard: (props: any) => mockGoalProgressCard(props),
 }));
 
 jest.mock("@/screens/Home/components/FavoritesList", () => ({
@@ -57,6 +62,7 @@ describe("HomeScreen", () => {
         onStartReviewSession: jest.fn(),
         onCloseReviewSession: jest.fn(),
         onApplyReviewOutcome: jest.fn(),
+        goalSummary: undefined,
     };
 
     beforeEach(() => {
@@ -81,6 +87,7 @@ describe("HomeScreen", () => {
                 pronunciationAvailable: baseProps.pronunciationAvailable,
             }),
         );
+        expect(mockGoalProgressCard).not.toHaveBeenCalled();
     });
 
     it("forwards onMoveToStatus handler as review action", () => {
@@ -120,5 +127,37 @@ describe("HomeScreen", () => {
         );
         expect(mockSummaryCard).not.toHaveBeenCalled();
         expect(mockFavoritesList).not.toHaveBeenCalled();
+    });
+
+    it("renders the goal progress card when goal summary is provided", () => {
+        render(
+            <HomeScreen
+                {...baseProps}
+                goalSummary={{
+                    showGoal: true,
+                    progress: {
+                        completedCount: 3,
+                        targetCount: 10,
+                        remainingCount: 7,
+                        isComplete: false,
+                    },
+                    streak: {
+                        currentStreak: 4,
+                        longestStreak: 7,
+                        lastCompletedDate: "2026-03-27",
+                    },
+                    reminderLabel: "오후 8:00",
+                }}
+            />,
+        );
+
+        expect(mockGoalProgressCard).toHaveBeenCalledWith(
+            expect.objectContaining({
+                showGoal: true,
+                progress: expect.objectContaining({ completedCount: 3, targetCount: 10 }),
+                streak: expect.objectContaining({ currentStreak: 4 }),
+                reminderLabel: "오후 8:00",
+            }),
+        );
     });
 });

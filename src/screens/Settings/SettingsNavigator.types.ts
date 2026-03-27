@@ -1,3 +1,5 @@
+import type { DailyGoalProgress, DailyGoalSettings, ReviewStreakState } from "@/services/goals";
+import type { ReviewReminderSettings } from "@/services/notifications";
 import type { ThemeMode } from "@/theme/types";
 
 export type SettingsStackParamList = {
@@ -29,4 +31,14 @@ export type SettingsNavigatorProps = {
     onThemeModeChange: (mode: ThemeMode) => void;
     fontScale: number;
     onFontScaleChange: (scale: number) => void;
+    dailyGoalSettings: DailyGoalSettings;
+    dailyGoalProgress: DailyGoalProgress;
+    reviewStreak: ReviewStreakState;
+    reviewReminderSettings: ReviewReminderSettings;
+    nextReminderLabel: string | null;
+    onToggleDailyGoal: (enabled: boolean) => void;
+    onSelectDailyGoalTarget: (targetCount: number) => void;
+    onToggleReviewReminder: (enabled: boolean) => void;
+    onSelectReviewReminderTime: (hour: number, minute: number) => void;
+    onToggleReviewReminderWeekday: (weekday: number) => void;
 };

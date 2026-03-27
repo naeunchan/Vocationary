@@ -2,6 +2,8 @@ export type { ReviewReminderSettings } from "@/services/notifications/reviewRemi
 export {
     createDefaultReviewReminderSettings,
     getNextReviewReminderAt,
+    loadReviewReminderSettings,
     normalizeReviewReminderSettings,
     REVIEW_REMINDER_SETTINGS_PREFERENCE_KEY,
+    saveReviewReminderSettings,
 } from "@/services/notifications/reviewReminder";

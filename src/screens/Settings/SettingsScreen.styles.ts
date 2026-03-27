@@ -84,6 +84,97 @@ export const createStyles = (theme: AppThemeColors, fontScale: number) =>
             elevation: 3,
             overflow: "hidden",
         },
+        managementStack: {
+            gap: 12,
+        },
+        managementCard: {
+            backgroundColor: theme.surface,
+            borderRadius: 18,
+            padding: 18,
+            gap: 14,
+            shadowColor: theme.shadow,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.06,
+            shadowRadius: 12,
+            elevation: 3,
+        },
+        managementHeader: {
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+        },
+        managementHeaderText: {
+            flex: 1,
+            gap: 4,
+        },
+        managementTitle: {
+            fontSize: scaleFont(16, fontScale),
+            fontWeight: "700",
+            color: theme.textPrimary,
+        },
+        managementDescription: {
+            fontSize: scaleFont(13, fontScale),
+            color: theme.textSecondary,
+            lineHeight: scaleFont(18, fontScale),
+        },
+        statusChip: {
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            backgroundColor: theme.cardMuted,
+        },
+        statusChipActive: {
+            backgroundColor: theme.accent,
+        },
+        statusChipText: {
+            fontSize: scaleFont(13, fontScale),
+            fontWeight: "700",
+            color: theme.textPrimary,
+        },
+        statusChipTextActive: {
+            color: theme.accentContrast,
+        },
+        chipRow: {
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 8,
+        },
+        choiceChip: {
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            backgroundColor: theme.cardMuted,
+            borderWidth: 1,
+            borderColor: theme.border,
+        },
+        choiceChipActive: {
+            backgroundColor: theme.accent,
+            borderColor: theme.accent,
+        },
+        choiceChipText: {
+            fontSize: scaleFont(13, fontScale),
+            fontWeight: "700",
+            color: theme.textPrimary,
+        },
+        choiceChipTextActive: {
+            color: theme.accentContrast,
+        },
+        infoRow: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+        },
+        infoLabel: {
+            fontSize: scaleFont(14, fontScale),
+            color: theme.textSecondary,
+        },
+        infoValue: {
+            fontSize: scaleFont(15, fontScale),
+            fontWeight: "700",
+            color: theme.textPrimary,
+        },
         row: {
             flexDirection: "row",
             alignItems: "center",
