@@ -6,6 +6,7 @@ import { TextField } from "@/components/TextField";
 import { FavoritesFlashcard } from "@/screens/Favorites/components/FavoritesFlashcard";
 import { createFavoritesScreenStyles } from "@/screens/Favorites/FavoritesScreen.styles";
 import { FavoritesScreenProps } from "@/screens/Favorites/FavoritesScreen.types";
+import { StudyModeScreen } from "@/screens/StudyMode/StudyModeScreen";
 import { MEMORIZATION_STATUS_ORDER, MEMORIZATION_STATUSES, MemorizationStatus } from "@/services/favorites/types";
 import { createReviewProgressKey } from "@/services/review";
 import { useThemedStyles } from "@/theme/useThemedStyles";
@@ -23,6 +24,15 @@ export function FavoritesScreen({
     onRenameCollection,
     onDeleteCollection,
     onAssignWordToCollection,
+    studyEnabled,
+    studyAvailable,
+    studySession,
+    onStartStudyMode,
+    onRetryStudyMode,
+    onRegenerateStudyMode,
+    onCloseStudyMode,
+    onSelectStudyChoice,
+    onAdvanceStudyCard,
 }: FavoritesScreenProps) {
     const styles = useThemedStyles(createFavoritesScreenStyles);
     const [activeStatus, setActiveStatus] = useState<MemorizationStatus>("toMemorize");
@@ -68,6 +78,22 @@ export function FavoritesScreen({
         }
         return collectionMemberships[createReviewProgressKey(visibleWord)] ?? null;
     }, [collectionMemberships, visibleWord]);
+    const visibleEntry = useMemo(() => {
+        if (!visibleWord) {
+            return null;
+        }
+
+        const visibleWordKey = createReviewProgressKey(visibleWord);
+        return (
+            filteredEntries.find((entry) => createReviewProgressKey(entry.word.word) === visibleWordKey) ??
+            favorites.find((entry) => createReviewProgressKey(entry.word.word) === visibleWordKey) ??
+            null
+        );
+    }, [favorites, filteredEntries, visibleWord]);
+    const favoritesStudySession = useMemo(
+        () => (studySession?.source === "favorites" ? studySession : null),
+        [studySession],
+    );
 
     useEffect(() => {
         if (activeCollectionId && !collections.some((collection) => collection.id === activeCollectionId)) {
@@ -81,6 +107,23 @@ export function FavoritesScreen({
             setCollectionName("");
         }
     }, [manageCollectionId, selectedCollection]);
+
+    useEffect(() => {
+        if (filteredEntries.length === 0) {
+            setVisibleWord(null);
+            return;
+        }
+
+        const hasVisibleEntry = visibleWord
+            ? filteredEntries.some(
+                  (entry) => createReviewProgressKey(entry.word.word) === createReviewProgressKey(visibleWord),
+              )
+            : false;
+
+        if (!hasVisibleEntry) {
+            setVisibleWord(filteredEntries[0].word.word);
+        }
+    }, [filteredEntries, visibleWord]);
 
     const showCollectionError = useCallback((title: string, error: unknown) => {
         const message = error instanceof Error ? error.message : "컬렉션 작업을 완료하지 못했어요.";
@@ -340,6 +383,41 @@ export function FavoritesScreen({
                         </Text>
                     </View>
                 )}
+
+                {studyEnabled && visibleEntry ? (
+                    <View style={styles.studyCard}>
+                        <Text style={styles.segmentLabel}>학습 모드</Text>
+                        <Text style={styles.studyDescription}>
+                            {studyAvailable
+                                ? `${visibleEntry.word.word} 단어로 짧은 AI 학습을 시작할 수 있어요.`
+                                : "백엔드가 준비되면 AI 학습 모드를 사용할 수 있어요. 지금은 일반 복습을 계속 이용해주세요."}
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.studyButton, !studyAvailable && styles.studyButtonDisabled]}
+                            onPress={() => {
+                                onStartStudyMode(visibleEntry.word);
+                            }}
+                            disabled={!studyAvailable}
+                            accessibilityRole="button"
+                            accessibilityLabel={studyAvailable ? "AI 학습 시작" : "AI 학습 시작 비활성화"}
+                        >
+                            <Text style={styles.studyButtonText}>
+                                {studyAvailable ? "AI 학습 시작" : "백엔드 준비 필요"}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
+
+                {favoritesStudySession ? (
+                    <StudyModeScreen
+                        viewModel={favoritesStudySession}
+                        onClose={onCloseStudyMode}
+                        onRetry={onRetryStudyMode}
+                        onRegenerate={onRegenerateStudyMode}
+                        onSelectChoice={onSelectStudyChoice}
+                        onAdvance={onAdvanceStudyCard}
+                    />
+                ) : null}
 
                 {collectionsEnabled && visibleWord ? (
                     <View style={styles.collectionCard}>

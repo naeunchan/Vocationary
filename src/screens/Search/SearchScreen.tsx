@@ -8,6 +8,7 @@ import { SearchBar } from "@/screens/Search/components/SearchBar";
 import { SearchResults } from "@/screens/Search/components/SearchResults";
 import { createSearchScreenStyles } from "@/screens/Search/SearchScreen.styles";
 import { SearchScreenProps } from "@/screens/Search/SearchScreen.types";
+import { StudyModeScreen } from "@/screens/StudyMode/StudyModeScreen";
 import { t } from "@/shared/i18n";
 import { useAppAppearance } from "@/theme/AppearanceContext";
 import { useThemedStyles } from "@/theme/useThemedStyles";
@@ -41,6 +42,15 @@ export function SearchScreen({
     currentCollectionId,
     onAssignCurrentWordToCollection,
     onCreateCollectionForCurrentWord,
+    studyEnabled,
+    studyAvailable,
+    studySession,
+    onStartStudyMode,
+    onRetryStudyMode,
+    onRegenerateStudyMode,
+    onCloseStudyMode,
+    onSelectStudyChoice,
+    onAdvanceStudyCard,
 }: SearchScreenProps) {
     const styles = useThemedStyles(createSearchScreenStyles);
     const { theme } = useAppAppearance();
@@ -54,6 +64,8 @@ export function SearchScreen({
         [collections, currentCollectionId],
     );
     const showCollectionCard = collectionsEnabled && Boolean(result) && isCurrentFavorite;
+    const searchStudySession = useMemo(() => (studySession?.source === "search" ? studySession : null), [studySession]);
+    const showStudyEntry = studyEnabled && Boolean(result);
 
     const handleAssignCollection = useCallback(
         (collectionId: string | null) => {
@@ -130,6 +142,41 @@ export function SearchScreen({
                         />
                     )}
                 </View>
+
+                {showStudyEntry && result ? (
+                    <View style={styles.studyEntryCard}>
+                        <Text style={styles.sectionLabel}>학습 모드</Text>
+                        <Text style={styles.studyDescription}>
+                            {studyAvailable
+                                ? `${result.word} 단어로 객관식 AI 학습을 시작할 수 있어요.`
+                                : "백엔드가 준비되면 AI 학습 모드를 사용할 수 있어요. 지금은 사전 검색과 일반 복습을 이용해주세요."}
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.studyButton, !studyAvailable && styles.studyButtonDisabled]}
+                            onPress={() => {
+                                onStartStudyMode(result);
+                            }}
+                            disabled={!studyAvailable}
+                            accessibilityRole="button"
+                            accessibilityLabel={studyAvailable ? "AI 학습 시작" : "AI 학습 시작 비활성화"}
+                        >
+                            <Text style={styles.studyButtonText}>
+                                {studyAvailable ? "AI 학습 시작" : "백엔드 준비 필요"}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
+
+                {searchStudySession ? (
+                    <StudyModeScreen
+                        viewModel={searchStudySession}
+                        onClose={onCloseStudyMode}
+                        onRetry={onRetryStudyMode}
+                        onRegenerate={onRegenerateStudyMode}
+                        onSelectChoice={onSelectStudyChoice}
+                        onAdvance={onAdvanceStudyCard}
+                    />
+                ) : null}
 
                 {showCollectionCard ? (
                     <View style={styles.collectionCard}>

@@ -29,6 +29,14 @@ jest.mock("@/screens/Search/components/SearchResults", () => ({
     },
 }));
 
+jest.mock("@/screens/StudyMode/StudyModeScreen", () => ({
+    StudyModeScreen: () => {
+        const React = require("react");
+        const { Text } = require("react-native");
+        return <Text testID="study-mode-screen">StudyModeScreen</Text>;
+    },
+}));
+
 const wrapper: React.ComponentType<React.PropsWithChildren> = ({ children }) => (
     <AppAppearanceProvider
         mode="light"
@@ -67,6 +75,15 @@ const baseProps = {
     currentCollectionId: null,
     onAssignCurrentWordToCollection: jest.fn().mockResolvedValue(undefined),
     onCreateCollectionForCurrentWord: jest.fn().mockResolvedValue("collection_toeic"),
+    studyEnabled: false,
+    studyAvailable: false,
+    studySession: null,
+    onStartStudyMode: jest.fn(),
+    onRetryStudyMode: jest.fn(),
+    onRegenerateStudyMode: jest.fn(),
+    onCloseStudyMode: jest.fn(),
+    onSelectStudyChoice: jest.fn(),
+    onAdvanceStudyCard: jest.fn(),
 };
 
 describe("SearchScreen", () => {
@@ -182,5 +199,20 @@ describe("SearchScreen", () => {
         await waitFor(() => {
             expect(props.onCreateCollectionForCurrentWord).toHaveBeenCalledWith("Business");
         });
+    });
+
+    it("renders study mode entry when AI study is enabled for a result", () => {
+        const props = {
+            ...baseProps,
+            result: { word: "apple", phonetic: null, audioUrl: null, meanings: [] },
+            studyEnabled: true,
+            studyAvailable: true,
+        };
+
+        const { getByText } = render(<SearchScreen {...props} />, { wrapper });
+
+        expect(getByText("학습 모드")).toBeTruthy();
+        fireEvent.press(getByText("AI 학습 시작"));
+        expect(props.onStartStudyMode).toHaveBeenCalledWith(props.result);
     });
 });

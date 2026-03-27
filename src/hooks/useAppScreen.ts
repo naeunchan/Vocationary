@@ -7,7 +7,7 @@ import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { OPENAI_FEATURE_ENABLED } from "@/config/openAI";
 import { getRuntimeConfig } from "@/config/runtime";
 import type { AppError } from "@/errors/AppError";
-import { shouldRetry } from "@/errors/AppError";
+import { isAppError, normalizeError, shouldRetry } from "@/errors/AppError";
 import { useAppearanceFlow } from "@/hooks/app/useAppearanceFlow";
 import { useSearchFlow } from "@/hooks/app/useSearchFlow";
 import type { SearchFlowBridge } from "@/hooks/app/useSessionFlow";
@@ -20,9 +20,16 @@ import {
     DEFAULT_VERSION_LABEL,
 } from "@/screens/App/AppScreen.constants";
 import type { AppScreenHookResult } from "@/screens/App/AppScreen.types";
+import type { StudyModeSource, StudyModeViewModel } from "@/screens/StudyMode/StudyModeScreen.types";
 import type { WordResult } from "@/services/dictionary/types";
 import type { ReviewOutcome, ReviewQueueItem } from "@/services/review";
 import { createReviewProgressKey, deriveReviewQueue } from "@/services/review";
+import {
+    countCorrectStudyAnswers,
+    isStudyAnswerCorrect,
+    loadAIStudySession,
+    type StudySession,
+} from "@/services/study";
 import { playRemoteAudio } from "@/utils/audio";
 
 type ActiveReviewSessionState = {
@@ -44,6 +51,40 @@ type CompleteReviewSessionState = {
 };
 
 type ReviewSessionState = ActiveReviewSessionState | CompleteReviewSessionState | null;
+
+type StudyModeContext = {
+    source: StudyModeSource;
+    word: WordResult;
+};
+
+type LoadingStudySessionState = StudyModeContext & {
+    status: "loading";
+};
+
+type ErrorStudySessionState = StudyModeContext & {
+    status: "error";
+    error: AppError;
+};
+
+type ActiveStudySessionState = StudyModeContext & {
+    status: "active";
+    session: StudySession;
+    currentIndex: number;
+    answers: Record<string, string | undefined>;
+};
+
+type CompleteStudySessionState = StudyModeContext & {
+    status: "complete";
+    session: StudySession;
+    answers: Record<string, string | undefined>;
+};
+
+type StudySessionState =
+    | LoadingStudySessionState
+    | ErrorStudySessionState
+    | ActiveStudySessionState
+    | CompleteStudySessionState
+    | null;
 
 export function useAppScreen(): AppScreenHookResult {
     const [versionLabel] = useState(() => {
@@ -162,9 +203,15 @@ export function useAppScreen(): AppScreenHookResult {
     const [reviewSession, setReviewSession] = useState<ReviewSessionState>(null);
     const reviewSessionRef = useRef<ReviewSessionState>(null);
     reviewSessionRef.current = reviewSession;
+    const [studySession, setStudySession] = useState<StudySessionState>(null);
+    const studySessionRef = useRef<StudySessionState>(null);
+    studySessionRef.current = studySession;
 
     const reviewDashboardEnabled = FEATURE_FLAGS.reviewLoop && FEATURE_FLAGS.reviewHomeDashboard;
     const reviewSessionEnabled = FEATURE_FLAGS.reviewLoop && FEATURE_FLAGS.reviewSessionUi;
+    const studyEntryEnabled = FEATURE_FLAGS.aiStudyMode && FEATURE_FLAGS.aiStudyEntryPoints;
+    const studySessionEnabled = FEATURE_FLAGS.aiStudyMode && FEATURE_FLAGS.aiStudySessionUi;
+    const studyAvailable = studyEntryEnabled && studySessionEnabled && OPENAI_FEATURE_ENABLED;
     const dueReviewQueue = useMemo(
         () => deriveReviewQueue(sessionFlow.favorites, sessionFlow.reviewProgress),
         [sessionFlow.favorites, sessionFlow.reviewProgress],
@@ -189,6 +236,131 @@ export function useAppScreen(): AppScreenHookResult {
 
     const handleCloseReviewSession = useCallback(() => {
         setReviewSession(null);
+    }, []);
+
+    const loadStudySessionAsync = useCallback(async (context: StudyModeContext, options?: { forceFresh?: boolean }) => {
+        setStudySession({
+            status: "loading",
+            ...context,
+        });
+
+        try {
+            const session = await loadAIStudySession(context.word.word, context.word.meanings, {
+                forceFresh: options?.forceFresh,
+            });
+
+            setStudySession({
+                status: "active",
+                ...context,
+                session,
+                currentIndex: 0,
+                answers: {},
+            });
+        } catch (error) {
+            const normalized = isAppError(error)
+                ? error
+                : normalizeError(error, "학습 내용을 불러오지 못했어요. 다시 시도해주세요.");
+
+            setStudySession({
+                status: "error",
+                ...context,
+                error: normalized,
+            });
+        }
+    }, []);
+
+    const handleStartStudySession = useCallback(
+        (source: StudyModeSource, word: WordResult) => {
+            if (!studyAvailable) {
+                return;
+            }
+
+            void loadStudySessionAsync({ source, word });
+        },
+        [loadStudySessionAsync, studyAvailable],
+    );
+
+    const handleRetryStudySession = useCallback(() => {
+        const currentStudySession = studySessionRef.current;
+        if (!currentStudySession) {
+            return;
+        }
+
+        void loadStudySessionAsync(
+            {
+                source: currentStudySession.source,
+                word: currentStudySession.word,
+            },
+            { forceFresh: false },
+        );
+    }, [loadStudySessionAsync]);
+
+    const handleRegenerateStudySession = useCallback(() => {
+        const currentStudySession = studySessionRef.current;
+        if (!currentStudySession) {
+            return;
+        }
+
+        void loadStudySessionAsync(
+            {
+                source: currentStudySession.source,
+                word: currentStudySession.word,
+            },
+            { forceFresh: true },
+        );
+    }, [loadStudySessionAsync]);
+
+    const handleCloseStudySession = useCallback(() => {
+        setStudySession(null);
+    }, []);
+
+    const handleSelectStudyChoice = useCallback((value: string) => {
+        const currentStudySession = studySessionRef.current;
+        if (!currentStudySession || currentStudySession.status !== "active") {
+            return;
+        }
+
+        const currentCard = currentStudySession.session.cards[currentStudySession.currentIndex];
+        if (!currentCard || currentStudySession.answers[currentCard.id] !== undefined) {
+            return;
+        }
+
+        setStudySession({
+            ...currentStudySession,
+            answers: {
+                ...currentStudySession.answers,
+                [currentCard.id]: value,
+            },
+        });
+    }, []);
+
+    const handleAdvanceStudyCard = useCallback(() => {
+        const currentStudySession = studySessionRef.current;
+        if (!currentStudySession || currentStudySession.status !== "active") {
+            return;
+        }
+
+        const currentCard = currentStudySession.session.cards[currentStudySession.currentIndex];
+        if (!currentCard || currentStudySession.answers[currentCard.id] === undefined) {
+            return;
+        }
+
+        const nextIndex = currentStudySession.currentIndex + 1;
+        if (nextIndex >= currentStudySession.session.cards.length) {
+            setStudySession({
+                status: "complete",
+                source: currentStudySession.source,
+                word: currentStudySession.word,
+                session: currentStudySession.session,
+                answers: currentStudySession.answers,
+            });
+            return;
+        }
+
+        setStudySession({
+            ...currentStudySession,
+            currentIndex: nextIndex,
+        });
     }, []);
 
     const handleCreateCollectionForCurrentWord = useCallback(
@@ -297,6 +469,58 @@ export function useAppScreen(): AppScreenHookResult {
             totalCount: reviewSession.queue.length,
         };
     }, [reviewSession]);
+    const studySessionViewModel = useMemo<StudyModeViewModel | null>(() => {
+        if (!studySession) {
+            return null;
+        }
+
+        if (studySession.status === "loading") {
+            return studySession;
+        }
+
+        if (studySession.status === "error") {
+            return {
+                ...studySession,
+                retryable: shouldRetry(studySession.error),
+            };
+        }
+
+        if (studySession.status === "complete") {
+            return {
+                ...studySession,
+                totalCount: studySession.session.cards.length,
+                correctCount: countCorrectStudyAnswers(studySession.session.cards, studySession.answers),
+            };
+        }
+
+        const currentCard = studySession.session.cards[studySession.currentIndex];
+        if (!currentCard) {
+            return null;
+        }
+
+        const selectedAnswer = studySession.answers[currentCard.id] ?? null;
+        return {
+            source: studySession.source,
+            status: "active",
+            word: studySession.word,
+            currentCard,
+            currentIndex: studySession.currentIndex,
+            totalCount: studySession.session.cards.length,
+            completedCount: Object.keys(studySession.answers).length,
+            correctCount: countCorrectStudyAnswers(studySession.session.cards, studySession.answers),
+            selectedAnswer,
+            answerSubmitted: selectedAnswer !== null,
+            isCurrentAnswerCorrect: selectedAnswer !== null ? isStudyAnswerCorrect(currentCard, selectedAnswer) : null,
+        };
+    }, [studySession]);
+    const searchStudySessionViewModel = useMemo(
+        () => (studySessionViewModel?.source === "search" ? studySessionViewModel : null),
+        [studySessionViewModel],
+    );
+    const favoritesStudySessionViewModel = useMemo(
+        () => (studySessionViewModel?.source === "favorites" ? studySessionViewModel : null),
+        [studySessionViewModel],
+    );
 
     const navigatorProps = useMemo<RootTabNavigatorProps>(
         () => ({
@@ -333,6 +557,17 @@ export function useAppScreen(): AppScreenHookResult {
                 onRenameCollection: sessionFlow.onRenameCollection,
                 onDeleteCollection: sessionFlow.onDeleteCollection,
                 onAssignWordToCollection: sessionFlow.onAssignWordToCollection,
+                studyEnabled: studyEntryEnabled && studySessionEnabled,
+                studyAvailable,
+                studySession: favoritesStudySessionViewModel,
+                onStartStudyMode: (word: WordResult) => {
+                    handleStartStudySession("favorites", word);
+                },
+                onRetryStudyMode: handleRetryStudySession,
+                onRegenerateStudyMode: handleRegenerateStudySession,
+                onCloseStudyMode: handleCloseStudySession,
+                onSelectStudyChoice: handleSelectStudyChoice,
+                onAdvanceStudyCard: handleAdvanceStudyCard,
             },
             search: {
                 searchTerm: searchFlow.searchTerm,
@@ -365,6 +600,17 @@ export function useAppScreen(): AppScreenHookResult {
                 currentCollectionId: currentResultCollectionId,
                 onAssignCurrentWordToCollection: handleAssignCurrentWordToCollection,
                 onCreateCollectionForCurrentWord: handleCreateCollectionForCurrentWord,
+                studyEnabled: studyEntryEnabled && studySessionEnabled,
+                studyAvailable,
+                studySession: searchStudySessionViewModel,
+                onStartStudyMode: (word: WordResult) => {
+                    handleStartStudySession("search", word);
+                },
+                onRetryStudyMode: handleRetryStudySession,
+                onRegenerateStudyMode: handleRegenerateStudySession,
+                onCloseStudyMode: handleCloseStudySession,
+                onSelectStudyChoice: handleSelectStudyChoice,
+                onAdvanceStudyCard: handleAdvanceStudyCard,
             },
             settings: {
                 onLogout: sessionFlow.onLogout,
@@ -399,15 +645,23 @@ export function useAppScreen(): AppScreenHookResult {
             dueReviewCount,
             handleApplyReviewOutcome,
             handleAssignCurrentWordToCollection,
+            handleAdvanceStudyCard,
             handleCloseReviewSession,
+            handleCloseStudySession,
             handleCreateCollectionForCurrentWord,
             handlePlayWordAudioAsync,
+            handleRegenerateStudySession,
+            handleRetryStudySession,
             handleStartReviewSession,
+            handleStartStudySession,
+            handleSelectStudyChoice,
             isCurrentFavorite,
+            favoritesStudySessionViewModel,
             playPronunciationAsync,
             reviewDashboardEnabled,
             reviewSessionEnabled,
             reviewSessionViewModel,
+            searchStudySessionViewModel,
             searchFlow.aiAssistError,
             searchFlow.autocompleteLoading,
             searchFlow.autocompleteSuggestions,
@@ -452,6 +706,9 @@ export function useAppScreen(): AppScreenHookResult {
             sessionFlow.profileDisplayName,
             sessionFlow.profileUsername,
             sessionFlow.userName,
+            studyAvailable,
+            studyEntryEnabled,
+            studySessionEnabled,
             versionLabel,
         ],
     );

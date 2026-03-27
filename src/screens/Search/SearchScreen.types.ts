@@ -1,4 +1,5 @@
 import type { AppError } from "@/errors/AppError";
+import type { StudyModeViewModel } from "@/screens/StudyMode/StudyModeScreen.types";
 import type { CollectionRecord } from "@/services/collections/types";
 import { WordResult } from "@/services/dictionary/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
@@ -32,4 +33,13 @@ export type SearchScreenProps = {
     currentCollectionId: string | null;
     onAssignCurrentWordToCollection: (collectionId: string | null) => Promise<void>;
     onCreateCollectionForCurrentWord: (name: string) => Promise<string | null>;
+    studyEnabled: boolean;
+    studyAvailable: boolean;
+    studySession: StudyModeViewModel | null;
+    onStartStudyMode: (word: WordResult) => void;
+    onRetryStudyMode: () => void;
+    onRegenerateStudyMode: () => void;
+    onCloseStudyMode: () => void;
+    onSelectStudyChoice: (value: string) => void;
+    onAdvanceStudyCard: () => void;
 };

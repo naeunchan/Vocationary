@@ -16,7 +16,7 @@ import {
 } from "@/theme/constants";
 
 jest.mock("@/config/openAI", () => ({
-    OPENAI_FEATURE_ENABLED: false,
+    OPENAI_FEATURE_ENABLED: true,
 }));
 
 jest.mock("@/config/featureFlags", () => ({
@@ -31,9 +31,9 @@ jest.mock("@/config/featureFlags", () => ({
         reviewReminder: false,
         collections: true,
         favoritesBatchActions: false,
-        aiStudyMode: false,
-        aiStudyEntryPoints: false,
-        aiStudySessionUi: false,
+        aiStudyMode: true,
+        aiStudyEntryPoints: true,
+        aiStudySessionUi: true,
     },
 }));
 
@@ -62,6 +62,14 @@ jest.mock("@/services/backup/manualBackup", () => ({
     exportBackupToFile: jest.fn(),
     importBackupFromDocument: jest.fn(),
 }));
+
+jest.mock("@/services/study", () => {
+    const actual = jest.requireActual("@/services/study");
+    return {
+        ...actual,
+        loadAIStudySession: jest.fn(),
+    };
+});
 
 jest.mock("@/logging/logger", () => ({
     captureAppError: jest.fn(),
@@ -132,6 +140,7 @@ const mockUpsertReviewProgressForUser = database.upsertReviewProgressForUser as 
 >;
 const mockImportBackupFromDocument = jest.requireMock("@/services/backup/manualBackup")
     .importBackupFromDocument as jest.Mock;
+const mockLoadAIStudySession = jest.requireMock("@/services/study").loadAIStudySession as jest.Mock;
 
 const baseResult: WordResult = {
     word: "apple",
@@ -204,6 +213,7 @@ describe("useAppScreen search history", () => {
             code: "OK",
             restored: { users: 0, favorites: 0, searchHistory: 0 },
         });
+        mockLoadAIStudySession.mockReset();
         mockFetchWordSuggestions.mockResolvedValue([]);
     });
 
@@ -653,5 +663,76 @@ describe("useAppScreen search history", () => {
             expect.objectContaining({ id: "toeic", name: "TOEIC" }),
         ]);
         expect(result.current.navigatorProps.favorites.collectionMemberships).toEqual({ apple: "toeic" });
+    });
+
+    it("starts an AI study session from search and advances to completion", async () => {
+        mockGetWordData.mockResolvedValue({
+            base: baseResult,
+            examplesPromise: Promise.resolve([]),
+        });
+        mockLoadAIStudySession.mockResolvedValue({
+            word: "apple",
+            generatedAt: Date.now(),
+            cards: [
+                {
+                    id: "card-1",
+                    type: "cloze",
+                    prompt: "Stay ____.",
+                    choices: [
+                        { id: "a", label: "apple", value: "apple" },
+                        { id: "b", label: "banana", value: "banana" },
+                    ],
+                    answer: "apple",
+                    explanation: "문맥상 apple이 맞아요.",
+                },
+            ],
+        });
+
+        const { result } = renderHook(() => useAppScreen());
+        await waitForHookReady(result);
+
+        act(() => {
+            result.current.navigatorProps.search.onChangeSearchTerm("apple");
+        });
+
+        act(() => {
+            result.current.navigatorProps.search.onSubmit();
+        });
+
+        await waitFor(() => {
+            expect(result.current.navigatorProps.search.result?.word).toBe("apple");
+        });
+
+        act(() => {
+            result.current.navigatorProps.search.onStartStudyMode(result.current.navigatorProps.search.result!);
+        });
+
+        await waitFor(() => {
+            expect(result.current.navigatorProps.search.studySession?.status).toBe("active");
+        });
+
+        act(() => {
+            result.current.navigatorProps.search.onSelectStudyChoice("apple");
+        });
+
+        expect(result.current.navigatorProps.search.studySession).toEqual(
+            expect.objectContaining({
+                status: "active",
+                selectedAnswer: "apple",
+                isCurrentAnswerCorrect: true,
+            }),
+        );
+
+        act(() => {
+            result.current.navigatorProps.search.onAdvanceStudyCard();
+        });
+
+        expect(result.current.navigatorProps.search.studySession).toEqual(
+            expect.objectContaining({
+                status: "complete",
+                correctCount: 1,
+                totalCount: 1,
+            }),
+        );
     });
 });
