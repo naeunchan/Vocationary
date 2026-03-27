@@ -53,6 +53,15 @@ const buildProps = (): RootTabNavigatorProps => {
             userName: "Alex",
             onPlayWordAudio: noop,
             pronunciationAvailable: false,
+            reviewEnabled: false,
+            reviewSummary: {
+                dueCount: 0,
+                canStartReview: false,
+            },
+            reviewSession: null,
+            onStartReviewSession: noop,
+            onCloseReviewSession: noop,
+            onApplyReviewOutcome: noop,
         },
         favorites: {
             favorites: [],

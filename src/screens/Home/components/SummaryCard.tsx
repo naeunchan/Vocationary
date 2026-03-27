@@ -1,12 +1,12 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { SUMMARY_CARD_TEXT, SUMMARY_STAT_CONFIG } from "@/screens/Home/constants";
 import { createSummaryCardStyles } from "@/screens/Home/styles/SummaryCard.styles";
 import { SummaryCardProps } from "@/screens/Home/types/SummaryCard.types";
 import { useThemedStyles } from "@/theme/useThemedStyles";
 
-export function SummaryCard({ userName, counts }: SummaryCardProps) {
+export function SummaryCard({ userName, counts, reviewDashboard }: SummaryCardProps) {
     const styles = useThemedStyles(createSummaryCardStyles);
     const total = (counts?.toMemorize ?? 0) + (counts?.review ?? 0) + (counts?.mastered ?? 0);
     const statValues = {
@@ -34,6 +34,28 @@ export function SummaryCard({ userName, counts }: SummaryCardProps) {
                     </View>
                 ))}
             </View>
+
+            {reviewDashboard ? (
+                <View style={styles.reviewPanel}>
+                    <View style={styles.reviewPanelText}>
+                        <Text style={styles.reviewTitle}>
+                            {reviewDashboard.dueCount > 0
+                                ? SUMMARY_CARD_TEXT.reviewTitle
+                                : SUMMARY_CARD_TEXT.reviewEmptyTitle}
+                        </Text>
+                        <Text style={styles.reviewBody}>
+                            {reviewDashboard.dueCount > 0
+                                ? SUMMARY_CARD_TEXT.reviewReadyBody(reviewDashboard.dueCount)
+                                : SUMMARY_CARD_TEXT.reviewEmptyBody}
+                        </Text>
+                    </View>
+                    {reviewDashboard.canStartReview ? (
+                        <Pressable style={styles.reviewButton} onPress={reviewDashboard.onStartReview}>
+                            <Text style={styles.reviewButtonText}>{SUMMARY_CARD_TEXT.reviewAction}</Text>
+                        </Pressable>
+                    ) : null}
+                </View>
+            ) : null}
         </View>
     );
 }

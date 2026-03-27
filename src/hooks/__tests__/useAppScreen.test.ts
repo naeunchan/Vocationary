@@ -19,6 +19,24 @@ jest.mock("@/config/openAI", () => ({
     OPENAI_FEATURE_ENABLED: false,
 }));
 
+jest.mock("@/config/featureFlags", () => ({
+    FEATURE_FLAGS: {
+        accountAuth: true,
+        guestAccountCta: false,
+        backupRestore: false,
+        reviewLoop: true,
+        reviewHomeDashboard: true,
+        reviewSessionUi: true,
+        dailyGoal: false,
+        reviewReminder: false,
+        collections: false,
+        favoritesBatchActions: false,
+        aiStudyMode: false,
+        aiStudyEntryPoints: false,
+        aiStudySessionUi: false,
+    },
+}));
+
 jest.mock("@/api/dictionary/getWordData", () => ({
     getWordData: jest.fn(),
 }));
@@ -65,10 +83,12 @@ jest.mock("@/services/database", () => ({
     getActiveSession: jest.fn(),
     getFavoritesByUser: jest.fn(),
     getPreferenceValue: jest.fn(),
+    getReviewProgressByUser: jest.fn(),
     getSearchHistoryEntries: jest.fn(),
     initializeDatabase: jest.fn(),
     isDisplayNameTaken: jest.fn(),
     removeFavoriteForUser: jest.fn(),
+    removeReviewProgressForUser: jest.fn(),
     resetPasswordWithEmailCode: jest.fn(),
     saveAutoLoginCredentials: jest.fn(),
     saveSearchHistoryEntries: jest.fn(),
@@ -79,6 +99,7 @@ jest.mock("@/services/database", () => ({
     updateUserDisplayName: jest.fn(),
     updateUserPassword: jest.fn(),
     upsertFavoriteForUser: jest.fn(),
+    upsertReviewProgressForUser: jest.fn(),
     verifyPasswordHash: jest.fn(),
 }));
 
@@ -88,6 +109,9 @@ const mockGetActiveSession = database.getActiveSession as jest.MockedFunction<ty
 const mockFindUserByUsername = database.findUserByUsername as jest.MockedFunction<typeof database.findUserByUsername>;
 const mockGetFavoritesByUser = database.getFavoritesByUser as jest.MockedFunction<typeof database.getFavoritesByUser>;
 const mockGetPreferenceValue = database.getPreferenceValue as jest.MockedFunction<typeof database.getPreferenceValue>;
+const mockGetReviewProgressByUser = database.getReviewProgressByUser as jest.MockedFunction<
+    typeof database.getReviewProgressByUser
+>;
 const mockGetSearchHistoryEntries = database.getSearchHistoryEntries as jest.MockedFunction<
     typeof database.getSearchHistoryEntries
 >;
@@ -97,6 +121,9 @@ const mockSaveSearchHistoryEntries = database.saveSearchHistoryEntries as jest.M
 const mockSetPreferenceValue = database.setPreferenceValue as jest.MockedFunction<typeof database.setPreferenceValue>;
 const mockUpsertFavoriteForUser = database.upsertFavoriteForUser as jest.MockedFunction<
     typeof database.upsertFavoriteForUser
+>;
+const mockUpsertReviewProgressForUser = database.upsertReviewProgressForUser as jest.MockedFunction<
+    typeof database.upsertReviewProgressForUser
 >;
 const mockImportBackupFromDocument = jest.requireMock("@/services/backup/manualBackup")
     .importBackupFromDocument as jest.Mock;
@@ -160,10 +187,12 @@ describe("useAppScreen search history", () => {
         mockFindUserByUsername.mockResolvedValue(null);
         mockGetFavoritesByUser.mockResolvedValue([]);
         mockGetPreferenceValue.mockResolvedValue(null);
+        mockGetReviewProgressByUser.mockResolvedValue({});
         mockGetSearchHistoryEntries.mockResolvedValue([]);
         mockSaveSearchHistoryEntries.mockResolvedValue(undefined);
         mockSetPreferenceValue.mockResolvedValue(undefined);
         mockUpsertFavoriteForUser.mockResolvedValue(undefined);
+        mockUpsertReviewProgressForUser.mockResolvedValue(undefined);
         mockImportBackupFromDocument.mockResolvedValue({
             ok: true,
             code: "OK",
@@ -411,6 +440,74 @@ describe("useAppScreen search history", () => {
             expect.objectContaining({ word: expect.objectContaining({ word: "banana" }) }),
         );
         expect(mockSetPreferenceValue).toHaveBeenCalledWith(GUEST_FAVORITES_PREFERENCE_KEY, "[]");
+    });
+
+    it("starts a review session from Home and applies the selected outcome", async () => {
+        mockGetActiveSession.mockResolvedValue({ isGuest: false, user: loggedInUser });
+        mockGetFavoritesByUser.mockResolvedValue([createFavorite("apple", "2026-03-22T00:00:00.000Z")]);
+        mockGetPreferenceValue.mockImplementation(async (key: string) => {
+            if (key === GUEST_FAVORITES_PREFERENCE_KEY) {
+                return "[]";
+            }
+            if (key === ONBOARDING_PREFERENCE_KEY) {
+                return "true";
+            }
+            if (key === GUEST_USED_PREFERENCE_KEY) {
+                return "false";
+            }
+            if (key === THEME_MODE_PREFERENCE_KEY) {
+                return null;
+            }
+            if (key === FONT_SCALE_PREFERENCE_KEY) {
+                return null;
+            }
+            return null;
+        });
+
+        const { result } = renderHook(() => useAppScreen());
+        await waitForHookReady(result);
+
+        act(() => {
+            result.current.navigatorProps.home.onStartReviewSession();
+        });
+
+        expect(result.current.navigatorProps.home.reviewSession).toMatchObject({
+            status: "active",
+            currentItem: expect.objectContaining({
+                entry: expect.objectContaining({
+                    word: expect.objectContaining({ word: "apple" }),
+                }),
+            }),
+        });
+
+        await act(async () => {
+            result.current.navigatorProps.home.onApplyReviewOutcome("easy");
+            await Promise.resolve();
+        });
+
+        await waitFor(() => {
+            expect(result.current.navigatorProps.home.reviewSession).toMatchObject({
+                status: "complete",
+                completedCount: 1,
+                correctCount: 1,
+                incorrectCount: 0,
+            });
+        });
+
+        expect(mockUpsertFavoriteForUser).toHaveBeenCalledWith(
+            loggedInUser.id,
+            expect.objectContaining({
+                status: "review",
+                word: expect.objectContaining({ word: "apple" }),
+            }),
+        );
+        expect(mockUpsertReviewProgressForUser).toHaveBeenCalledWith(
+            loggedInUser.id,
+            expect.objectContaining({
+                word: "apple",
+                lastOutcome: "easy",
+            }),
+        );
     });
 
     it("keeps onboarding hidden after guest conversion has already been completed", async () => {

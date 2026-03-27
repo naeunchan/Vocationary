@@ -45,9 +45,11 @@ import {
     getActiveSession,
     getFavoritesByUser,
     getPreferenceValue,
+    getReviewProgressByUser,
     initializeDatabase,
     isDisplayNameTaken,
     removeFavoriteForUser,
+    removeReviewProgressForUser,
     resetPasswordWithEmailCode,
     saveAutoLoginCredentials,
     sendEmailVerificationCode,
@@ -57,6 +59,7 @@ import {
     updateUserDisplayName,
     updateUserPassword,
     upsertFavoriteForUser,
+    upsertReviewProgressForUser,
     type UserRecord,
     verifyPasswordHash,
 } from "@/services/database";
@@ -64,7 +67,14 @@ import type { WordResult } from "@/services/dictionary/types";
 import { clearPendingFlags } from "@/services/dictionary/utils/mergeExampleUpdates";
 import { mergeFavoriteEntries, parseGuestFavoriteEntries } from "@/services/favorites/guestFavorites";
 import { createFavoriteEntry, type FavoriteWordEntry, type MemorizationStatus } from "@/services/favorites/types";
-import { GUEST_FAVORITES_PREFERENCE_KEY, GUEST_USED_PREFERENCE_KEY } from "@/theme/constants";
+import { mergeGuestReviewProgress, parseGuestReviewProgress } from "@/services/review/guestReviewProgress";
+import { applyReviewOutcome, createReviewProgressKey } from "@/services/review/reviewQueue";
+import type { ReviewOutcome, ReviewProgressMap } from "@/services/review/types";
+import {
+    GUEST_FAVORITES_PREFERENCE_KEY,
+    GUEST_REVIEW_PROGRESS_PREFERENCE_KEY,
+    GUEST_USED_PREFERENCE_KEY,
+} from "@/theme/constants";
 import {
     getEmailValidationError,
     getGooglePasswordValidationError,
@@ -92,6 +102,7 @@ type UseSessionFlowResult = {
     isGuest: boolean;
     authLoading: boolean;
     favorites: FavoriteWordEntry[];
+    reviewProgress: ReviewProgressMap;
     userName: string;
     canLogout: boolean;
     profileDisplayName: string | null;
@@ -111,6 +122,7 @@ type UseSessionFlowResult = {
     onToggleFavorite: (word: WordResult) => void;
     onUpdateFavoriteStatus: (word: string, status: MemorizationStatus) => void;
     onRemoveFavorite: (word: string) => void;
+    onApplyReviewOutcome: (word: string, outcome: ReviewOutcome) => Promise<void>;
 };
 
 export function useSessionFlow({
@@ -119,6 +131,7 @@ export function useSessionFlow({
     syncOnboardingVisibilityAfterAuthentication,
 }: UseSessionFlowArgs): UseSessionFlowResult {
     const [favorites, setFavorites] = useState<FavoriteWordEntry[]>([]);
+    const [reviewProgress, setReviewProgress] = useState<ReviewProgressMap>({});
     const [user, setUser] = useState<UserRecord | null>(null);
     const [initializing, setInitializing] = useState(true);
     const [isGuest, setIsGuest] = useState(false);
@@ -151,6 +164,22 @@ export function useSessionFlow({
 
     const resolveAuthMessage = useCallback((error: unknown, fallbackMessage: string): string => {
         return error instanceof Error ? error.message : fallbackMessage;
+    }, []);
+
+    const findFavoriteByWord = useCallback((entries: FavoriteWordEntry[], word: string) => {
+        const key = createReviewProgressKey(word);
+        return entries.find((item) => createReviewProgressKey(item.word.word) === key) ?? null;
+    }, []);
+
+    const removeReviewProgressByWord = useCallback((progress: ReviewProgressMap, word: string): ReviewProgressMap => {
+        const key = createReviewProgressKey(word);
+        if (!key || !progress[key]) {
+            return progress;
+        }
+
+        const next = { ...progress };
+        delete next[key];
+        return next;
     }, []);
 
     const ensurePhoneticForWord = useCallback(async (word: WordResult) => {
@@ -215,6 +244,7 @@ export function useSessionFlow({
         setIsGuest(false);
         setUser(null);
         setFavorites([]);
+        setReviewProgress({});
         resetSearchState();
         setAuthError(null);
         setSignUpError(null);
@@ -228,27 +258,45 @@ export function useSessionFlow({
 
     const parseAndMergeGuestFavorites = useCallback(
         async (userRecord: UserRecord) => {
-            const storedFavorites = await getFavoritesByUser(userRecord.id);
+            const [storedFavorites, storedReviewProgress] = await Promise.all([
+                getFavoritesByUser(userRecord.id),
+                getReviewProgressByUser(userRecord.id),
+            ]);
             const hydratedFavorites = await hydrateFavorites(storedFavorites, userRecord.id);
 
             let nextFavorites = hydratedFavorites;
+            let nextReviewProgress = storedReviewProgress;
             let mergedCount = 0;
             try {
-                const rawGuestFavorites = await getPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY);
+                const [rawGuestFavorites, rawGuestReviewProgress] = await Promise.all([
+                    getPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY),
+                    getPreferenceValue(GUEST_REVIEW_PROGRESS_PREFERENCE_KEY),
+                ]);
                 const guestFavorites = parseGuestFavoriteEntries(rawGuestFavorites);
+                const guestReviewProgress = parseGuestReviewProgress(rawGuestReviewProgress);
                 if (guestFavorites.length > 0) {
                     nextFavorites = mergeFavoriteEntries(hydratedFavorites, guestFavorites);
                     mergedCount = nextFavorites.length - hydratedFavorites.length;
                     await Promise.all(nextFavorites.map((entry) => upsertFavoriteForUser(userRecord.id, entry)));
                     await setPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY, "[]");
                 }
+                if (Object.keys(guestReviewProgress).length > 0) {
+                    nextReviewProgress = mergeGuestReviewProgress(storedReviewProgress, guestReviewProgress);
+                    await Promise.all(
+                        Object.values(nextReviewProgress).map((entry) =>
+                            upsertReviewProgressForUser(userRecord.id, entry),
+                        ),
+                    );
+                    await setPreferenceValue(GUEST_REVIEW_PROGRESS_PREFERENCE_KEY, "{}");
+                }
             } catch (error) {
-                console.warn("게스트 단어장 병합 중 문제가 발생했어요.", error);
+                console.warn("게스트 학습 상태 병합 중 문제가 발생했어요.", error);
             }
 
             setIsGuest(false);
             setUser(userRecord);
             setFavorites(nextFavorites);
+            setReviewProgress(nextReviewProgress);
             resetSearchState();
             setAuthError(null);
             if (mergedCount > 0) {
@@ -267,11 +315,16 @@ export function useSessionFlow({
     const applySignedOutState = useCallback(async () => {
         const session = await getActiveSession();
         if (session?.isGuest) {
-            const rawGuestFavorites = await getPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY);
+            const [rawGuestFavorites, rawGuestReviewProgress] = await Promise.all([
+                getPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY),
+                getPreferenceValue(GUEST_REVIEW_PROGRESS_PREFERENCE_KEY),
+            ]);
             const guestFavorites = await hydrateFavorites(parseGuestFavoriteEntries(rawGuestFavorites));
+            const guestReviewProgress = parseGuestReviewProgress(rawGuestReviewProgress);
             setIsGuest(true);
             setUser(null);
             setFavorites(guestFavorites);
+            setReviewProgress(guestReviewProgress);
             resetSearchState();
             setAuthError(null);
             setSignUpError(null);
@@ -285,6 +338,7 @@ export function useSessionFlow({
         setIsGuest(false);
         setUser(null);
         setFavorites([]);
+        setReviewProgress({});
         resetSearchState();
         setAuthError(null);
         setSignUpError(null);
@@ -335,6 +389,16 @@ export function useSessionFlow({
         });
     }, [favorites, isGuest]);
 
+    useEffect(() => {
+        if (!isGuest) {
+            return;
+        }
+
+        void setPreferenceValue(GUEST_REVIEW_PROGRESS_PREFERENCE_KEY, JSON.stringify(reviewProgress)).catch((error) => {
+            console.warn("게스트 복습 진행도를 저장하는 중 문제가 발생했어요.", error);
+        });
+    }, [isGuest, reviewProgress]);
+
     const removeFavoritePersisted = useCallback(
         async (word: string) => {
             if (!user) {
@@ -343,18 +407,32 @@ export function useSessionFlow({
             }
 
             const previousFavorites = favorites;
-            const nextFavorites = previousFavorites.filter((item) => item.word.word !== word);
+            const previousReviewProgress = reviewProgress;
+            const target = findFavoriteByWord(previousFavorites, word);
+            if (!target) {
+                return;
+            }
+
+            const nextFavorites = previousFavorites.filter(
+                (item) => createReviewProgressKey(item.word.word) !== createReviewProgressKey(target.word.word),
+            );
+            const nextReviewProgress = removeReviewProgressByWord(previousReviewProgress, target.word.word);
             setFavorites(nextFavorites);
+            setReviewProgress(nextReviewProgress);
 
             try {
-                await removeFavoriteForUser(user.id, word);
+                await Promise.all([
+                    removeFavoriteForUser(user.id, target.word.word),
+                    removeReviewProgressForUser(user.id, target.word.word),
+                ]);
             } catch (error) {
                 setFavorites(previousFavorites);
+                setReviewProgress(previousReviewProgress);
                 const message = error instanceof Error ? error.message : REMOVE_FAVORITE_ERROR_MESSAGE;
                 reportSearchError(message);
             }
         },
-        [favorites, reportSearchError, user],
+        [favorites, findFavoriteByWord, removeReviewProgressByWord, reportSearchError, reviewProgress, user],
     );
 
     const toggleFavoriteAsync = useCallback(
@@ -362,7 +440,7 @@ export function useSessionFlow({
             const wordWithPhonetic = await ensurePhoneticForWord(word);
             const normalizedWord = clearPendingFlags(wordWithPhonetic);
             const previousFavorites = favorites;
-            const existingEntry = previousFavorites.find((item) => item.word.word === word.word);
+            const existingEntry = findFavoriteByWord(previousFavorites, word.word);
 
             if (isGuest) {
                 if (!existingEntry && previousFavorites.length >= 10) {
@@ -371,7 +449,14 @@ export function useSessionFlow({
                 }
                 clearSearchError();
                 if (existingEntry) {
-                    setFavorites(previousFavorites.filter((item) => item.word.word !== word.word));
+                    setFavorites(
+                        previousFavorites.filter(
+                            (item) =>
+                                createReviewProgressKey(item.word.word) !==
+                                createReviewProgressKey(existingEntry.word.word),
+                        ),
+                    );
+                    setReviewProgress((previous) => removeReviewProgressByWord(previous, existingEntry.word.word));
                 } else {
                     setFavorites([createFavoriteEntry(normalizedWord), ...previousFavorites]);
                 }
@@ -384,7 +469,7 @@ export function useSessionFlow({
             }
 
             if (existingEntry) {
-                void removeFavoritePersisted(word.word);
+                void removeFavoritePersisted(existingEntry.word.word);
                 return;
             }
 
@@ -400,13 +485,23 @@ export function useSessionFlow({
                 reportSearchError(message);
             }
         },
-        [clearSearchError, ensurePhoneticForWord, favorites, isGuest, removeFavoritePersisted, reportSearchError, user],
+        [
+            clearSearchError,
+            ensurePhoneticForWord,
+            favorites,
+            findFavoriteByWord,
+            isGuest,
+            removeFavoritePersisted,
+            removeReviewProgressByWord,
+            reportSearchError,
+            user,
+        ],
     );
 
     const updateFavoriteStatusAsync = useCallback(
         async (word: string, nextStatus: MemorizationStatus) => {
             const previousFavorites = favorites;
-            const target = previousFavorites.find((item) => item.word.word === word);
+            const target = findFavoriteByWord(previousFavorites, word);
             if (!target) {
                 return;
             }
@@ -416,7 +511,11 @@ export function useSessionFlow({
                 status: nextStatus,
                 updatedAt: new Date().toISOString(),
             };
-            const nextFavorites = previousFavorites.map((item) => (item.word.word === word ? updatedEntry : item));
+            const nextFavorites = previousFavorites.map((item) =>
+                createReviewProgressKey(item.word.word) === createReviewProgressKey(target.word.word)
+                    ? updatedEntry
+                    : item,
+            );
             setFavorites(nextFavorites);
 
             if (isGuest) {
@@ -437,19 +536,78 @@ export function useSessionFlow({
                 reportSearchError(message);
             }
         },
-        [favorites, isGuest, reportSearchError, user],
+        [favorites, findFavoriteByWord, isGuest, reportSearchError, user],
+    );
+
+    const applyReviewOutcomeAsync = useCallback(
+        async (word: string, outcome: ReviewOutcome) => {
+            const previousFavorites = favorites;
+            const previousReviewProgress = reviewProgress;
+            const target = findFavoriteByWord(previousFavorites, word);
+            if (!target) {
+                return;
+            }
+
+            const progressKey = createReviewProgressKey(target.word.word);
+            const currentProgress = previousReviewProgress[progressKey] ?? null;
+            const result = applyReviewOutcome(target, currentProgress, outcome);
+            const updatedAt = result.progress.lastReviewedAt ?? new Date().toISOString();
+            const updatedEntry: FavoriteWordEntry = {
+                ...target,
+                status: result.status,
+                updatedAt,
+            };
+            const nextFavorites = previousFavorites.map((item) =>
+                createReviewProgressKey(item.word.word) === progressKey ? updatedEntry : item,
+            );
+            const nextReviewProgress = {
+                ...previousReviewProgress,
+                [progressKey]: result.progress,
+            };
+
+            setFavorites(nextFavorites);
+            setReviewProgress(nextReviewProgress);
+
+            if (isGuest) {
+                return;
+            }
+
+            if (!user) {
+                setFavorites(previousFavorites);
+                setReviewProgress(previousReviewProgress);
+                throw new Error(MISSING_USER_ERROR_MESSAGE);
+            }
+
+            try {
+                await Promise.all([
+                    upsertFavoriteForUser(user.id, updatedEntry),
+                    upsertReviewProgressForUser(user.id, result.progress),
+                ]);
+            } catch (error) {
+                setFavorites(previousFavorites);
+                setReviewProgress(previousReviewProgress);
+                const message = error instanceof Error ? error.message : UPDATE_STATUS_ERROR_MESSAGE;
+                throw new Error(message);
+            }
+        },
+        [favorites, findFavoriteByWord, isGuest, reviewProgress, user],
     );
 
     const handleRemoveFavorite = useCallback(
         (word: string) => {
             if (isGuest) {
-                setFavorites((previous) => previous.filter((item) => item.word.word !== word));
+                setFavorites((previous) =>
+                    previous.filter(
+                        (item) => createReviewProgressKey(item.word.word) !== createReviewProgressKey(word),
+                    ),
+                );
+                setReviewProgress((previous) => removeReviewProgressByWord(previous, word));
                 return;
             }
 
             void removeFavoritePersisted(word);
         },
-        [isGuest, removeFavoritePersisted],
+        [isGuest, removeFavoritePersisted, removeReviewProgressByWord],
     );
 
     const handleGuestAccessAsync = useCallback(async () => {
@@ -463,6 +621,7 @@ export function useSessionFlow({
             setIsGuest(true);
             setUser(null);
             setFavorites([]);
+            setReviewProgress({});
             resetSearchState();
         } catch (error) {
             const message = error instanceof Error ? error.message : GUEST_ACCESS_ERROR_MESSAGE;
@@ -878,6 +1037,13 @@ export function useSessionFlow({
         [handleRemoveFavorite],
     );
 
+    const onApplyReviewOutcome = useCallback(
+        async (word: string, outcome: ReviewOutcome) => {
+            await applyReviewOutcomeAsync(word, outcome);
+        },
+        [applyReviewOutcomeAsync],
+    );
+
     const isAuthenticated = useMemo(() => isGuest || user !== null, [isGuest, user]);
     const canLogout = user !== null;
     const userName = user?.displayName ?? user?.username ?? DEFAULT_GUEST_NAME;
@@ -917,6 +1083,7 @@ export function useSessionFlow({
         isGuest,
         authLoading,
         favorites,
+        reviewProgress,
         userName,
         canLogout,
         profileDisplayName,
@@ -936,5 +1103,6 @@ export function useSessionFlow({
         onToggleFavorite,
         onUpdateFavoriteStatus,
         onRemoveFavorite,
+        onApplyReviewOutcome,
     };
 }

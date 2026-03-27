@@ -7,6 +7,11 @@ export const HOME_HEADER_TEXT = {
 export const SUMMARY_CARD_TEXT = {
     sectionLabel: "현재 요약",
     defaultGreeting: "내 학습 현황",
+    reviewTitle: "오늘의 리뷰",
+    reviewEmptyTitle: "오늘 바로 시작할 리뷰가 없어요",
+    reviewReadyBody: (count: number) => `지금 복습할 단어 ${count}개가 기다리고 있어요.`,
+    reviewEmptyBody: "검색에서 단어를 저장하면 다음 복습이 여기에 표시돼요.",
+    reviewAction: "복습 시작",
 };
 
 export const SUMMARY_STAT_CONFIG = [

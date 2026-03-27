@@ -7,6 +7,7 @@ import { FavoriteWordEntry } from "@/services/favorites/types";
 const mockHomeHeader = jest.fn(() => null);
 const mockSummaryCard = jest.fn(() => null);
 const mockFavoritesList = jest.fn(() => null);
+const mockReviewSessionScreen = jest.fn(() => null);
 
 jest.mock("@/screens/Home/components/HomeHeader", () => ({
     HomeHeader: (props: any) => mockHomeHeader(props),
@@ -18,6 +19,10 @@ jest.mock("@/screens/Home/components/SummaryCard", () => ({
 
 jest.mock("@/screens/Home/components/FavoritesList", () => ({
     FavoritesList: (props: any) => mockFavoritesList(props),
+}));
+
+jest.mock("@/screens/Review/ReviewSessionScreen", () => ({
+    ReviewSessionScreen: (props: any) => mockReviewSessionScreen(props),
 }));
 
 const buildEntry = (status: FavoriteWordEntry["status"] = "toMemorize"): FavoriteWordEntry => ({
@@ -43,6 +48,15 @@ describe("HomeScreen", () => {
         userName: "Alex",
         onPlayWordAudio: jest.fn(),
         pronunciationAvailable: false,
+        reviewEnabled: false,
+        reviewSummary: {
+            dueCount: 0,
+            canStartReview: false,
+        },
+        reviewSession: null,
+        onStartReviewSession: jest.fn(),
+        onCloseReviewSession: jest.fn(),
+        onApplyReviewOutcome: jest.fn(),
     };
 
     beforeEach(() => {
@@ -57,6 +71,7 @@ describe("HomeScreen", () => {
             expect.objectContaining({
                 userName: baseProps.userName,
                 counts: expect.objectContaining({ toMemorize: 1, review: 1, mastered: 1 }),
+                reviewDashboard: undefined,
             }),
         );
         expect(mockFavoritesList).toHaveBeenCalledWith(
@@ -74,5 +89,36 @@ describe("HomeScreen", () => {
         const favoritesProps = mockFavoritesList.mock.calls[0][0];
         favoritesProps.onMoveToReview("orange");
         expect(baseProps.onMoveToStatus).toHaveBeenCalledWith("orange", "review");
+    });
+
+    it("renders the review session screen when a session is active", () => {
+        render(
+            <HomeScreen
+                {...baseProps}
+                reviewEnabled
+                reviewSession={{
+                    status: "active",
+                    currentIndex: 0,
+                    totalCount: 2,
+                    completedCount: 0,
+                    correctCount: 0,
+                    incorrectCount: 0,
+                    pending: false,
+                    currentItem: {
+                        entry: buildEntry("review"),
+                        progress: null,
+                    },
+                }}
+            />,
+        );
+
+        expect(mockReviewSessionScreen).toHaveBeenCalledWith(
+            expect.objectContaining({
+                onApplyOutcome: baseProps.onApplyReviewOutcome,
+                onClose: baseProps.onCloseReviewSession,
+            }),
+        );
+        expect(mockSummaryCard).not.toHaveBeenCalled();
+        expect(mockFavoritesList).not.toHaveBeenCalled();
     });
 });
