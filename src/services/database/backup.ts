@@ -3,6 +3,7 @@ import { validateBackupPayload } from "@/services/backup/validateBackupPayload";
 import { getSearchHistoryState, setSearchHistoryState } from "@/services/database/searchHistory";
 import {
     cloneFavorites,
+    cloneReviewProgressMap,
     cloneUsers,
     ensureStateLoaded,
     memoryState,
@@ -12,10 +13,10 @@ import {
     setNextUserId,
 } from "@/services/database/state";
 import type { FavoriteWordEntry } from "@/services/favorites/types";
+import type { ReviewProgressMap } from "@/services/review/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
 
-export type BackupPayload = {
-    version: 1;
+type BackupPayloadBase = {
     exportedAt: string;
     users: {
         username: string;
@@ -29,7 +30,18 @@ export type BackupPayload = {
     searchHistory: SearchHistoryEntry[];
 };
 
-export async function exportBackup(): Promise<BackupPayload> {
+export type BackupPayloadV1 = BackupPayloadBase & {
+    version: 1;
+};
+
+export type BackupPayloadV2 = BackupPayloadBase & {
+    version: 2;
+    reviewProgress?: Record<string, ReviewProgressMap>;
+};
+
+export type BackupPayload = BackupPayloadV1 | BackupPayloadV2;
+
+export async function exportBackup(): Promise<BackupPayloadV2> {
     await ensureStateLoaded();
 
     const userRows = cloneUsers(memoryState.users);
@@ -43,15 +55,18 @@ export async function exportBackup(): Promise<BackupPayload> {
     }));
 
     const favorites: Record<string, FavoriteWordEntry[]> = {};
+    const reviewProgress: Record<string, ReviewProgressMap> = {};
     for (const user of userRows) {
         favorites[user.username] = cloneFavorites(memoryState.favoritesByUser[user.id] ?? []);
+        reviewProgress[user.username] = cloneReviewProgressMap(memoryState.reviewProgressByUser[user.id] ?? {});
     }
 
     return {
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         users,
         favorites,
+        reviewProgress,
         searchHistory: getSearchHistoryState(),
     };
 }
@@ -75,6 +90,7 @@ export async function importBackup(payload: BackupPayload): Promise<RestoreResul
         oauth_sub: string | null;
     }[] = [];
     const nextFavoritesByUser: Record<number, FavoriteWordEntry[]> = {};
+    const nextReviewProgressByUser: Record<number, ReviewProgressMap> = {};
 
     let localNextUserId = 1;
     for (const user of parsed.users) {
@@ -91,10 +107,14 @@ export async function importBackup(payload: BackupPayload): Promise<RestoreResul
         });
 
         nextFavoritesByUser[id] = cloneFavorites(parsed.favorites[normalizeUsername(user.username)] ?? []);
+        nextReviewProgressByUser[id] = cloneReviewProgressMap(
+            parsed.reviewProgress[normalizeUsername(user.username)] ?? {},
+        );
     }
 
     memoryState.users = nextUsers;
     memoryState.favoritesByUser = nextFavoritesByUser;
+    memoryState.reviewProgressByUser = nextReviewProgressByUser;
     memoryState.session = null;
     memoryState.autoLogin = null;
     setSearchHistoryState(parsed.searchHistory);

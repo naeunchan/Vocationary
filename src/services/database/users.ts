@@ -131,6 +131,7 @@ export async function createUser(
 
     memoryState.users.push(newUser);
     memoryState.favoritesByUser[newUser.id] = [];
+    memoryState.reviewProgressByUser[newUser.id] = {};
     await persistState();
 
     return mapUserRow(newUser, normalizedDisplayName);
@@ -187,6 +188,7 @@ export async function upsertOAuthUser(profile: OAuthProfilePayload) {
 
     memoryState.users.push(created);
     memoryState.favoritesByUser[created.id] = [];
+    memoryState.reviewProgressByUser[created.id] = {};
     await persistState();
     return mapUserRow(created, normalizedDisplayName);
 }
@@ -283,6 +285,7 @@ export async function deleteUserAccount(userId: number, username: string) {
     const normalizedUsername = normalizeUsername(username);
     memoryState.users = memoryState.users.filter((user) => user.id !== userId);
     delete memoryState.favoritesByUser[userId];
+    delete memoryState.reviewProgressByUser[userId];
     memoryState.session = null;
     memoryState.autoLogin = null;
     clearPreferenceValues();

@@ -3,6 +3,12 @@ export { exportBackup, importBackup } from "@/services/database/backup";
 export { getFavoritesByUser, removeFavoriteForUser, upsertFavoriteForUser } from "@/services/database/favorites";
 export { getPreferenceValue, setPreferenceValue } from "@/services/database/preferences";
 export {
+    getReviewProgressByUser,
+    removeReviewProgressForUser,
+    setReviewProgressForUser,
+    upsertReviewProgressForUser,
+} from "@/services/database/review";
+export {
     clearSearchHistoryEntries,
     getSearchHistoryEntries,
     saveSearchHistoryEntries,

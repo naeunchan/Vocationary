@@ -123,4 +123,68 @@ describe("database migration regressions", () => {
         await expect(verifyPasswordHash(legacyPassword, user?.passwordHash ?? null)).resolves.toBe(true);
         await expect(verifyPasswordHash("wrong-password", user?.passwordHash ?? null)).resolves.toBe(false);
     });
+
+    it("restores review progress from v2 backups while keeping username ownership normalized", async () => {
+        const payload: BackupPayload = {
+            version: 2,
+            exportedAt: "2026-03-02T00:00:00.000Z",
+            users: [
+                {
+                    username: " reviewer@example.com ",
+                    display_name: "Reviewer",
+                    phone_number: null,
+                    password_hash: null,
+                    oauth_provider: null,
+                    oauth_sub: null,
+                },
+            ],
+            favorites: {
+                "reviewer@example.com": [
+                    {
+                        word: {
+                            word: "focus",
+                            meanings: [],
+                        },
+                        status: "review",
+                        updatedAt: "2026-03-02T00:00:00.000Z",
+                    },
+                ],
+            },
+            reviewProgress: {
+                " REVIEWER@EXAMPLE.COM ": {
+                    focus: {
+                        word: "focus",
+                        lastReviewedAt: "2026-03-01T00:00:00.000Z",
+                        nextReviewAt: "2026-03-03T00:00:00.000Z",
+                        reviewCount: 3,
+                        correctStreak: 2,
+                        incorrectCount: 1,
+                        lastOutcome: "good",
+                    },
+                },
+            },
+            searchHistory: [],
+        };
+
+        const result = await importBackup(payload);
+        expect(result).toMatchObject({
+            ok: true,
+            code: "OK",
+            restored: { users: 1, favorites: 1, searchHistory: 0 },
+        });
+
+        const database = require("@/services/database") as typeof import("@/services/database");
+        const user = await findUserByUsername("reviewer@example.com");
+        expect(await database.getReviewProgressByUser(user!.id)).toEqual({
+            focus: {
+                word: "focus",
+                lastReviewedAt: "2026-03-01T00:00:00.000Z",
+                nextReviewAt: "2026-03-03T00:00:00.000Z",
+                reviewCount: 3,
+                correctStreak: 2,
+                incorrectCount: 1,
+                lastOutcome: "good",
+            },
+        });
+    });
 });

@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import type { DictionaryMode } from "@/services/dictionary/types";
 import type { FavoriteWordEntry } from "@/services/favorites/types";
+import type { ReviewOutcome, ReviewProgressEntry, ReviewProgressMap } from "@/services/review/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
 import { SEARCH_HISTORY_LIMIT } from "@/services/searchHistory/types";
 
@@ -65,6 +66,7 @@ export type PasswordResetByEmailStatus = "success" | "email_not_found" | "invali
 type MemoryState = {
     users: UserRow[];
     favoritesByUser: Record<number, FavoriteWordEntry[]>;
+    reviewProgressByUser: Record<number, ReviewProgressMap>;
     searchHistory: SearchHistoryEntry[];
     session: SessionState | null;
     autoLogin: AutoLoginState | null;
@@ -81,6 +83,7 @@ function createInitialMemoryState(): MemoryState {
     return {
         users: [],
         favoritesByUser: {},
+        reviewProgressByUser: {},
         searchHistory: [],
         session: null,
         autoLogin: null,
@@ -154,6 +157,55 @@ export function cloneFavorites(entries: FavoriteWordEntry[]): FavoriteWordEntry[
     return entries.map(cloneFavoriteEntry);
 }
 
+function normalizeReviewWordKey(word: string): string {
+    return word.trim().toLowerCase();
+}
+
+function normalizeReviewMetric(value: unknown): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.max(0, Math.round(value));
+}
+
+function normalizeReviewOutcome(value: unknown): ReviewOutcome | null {
+    return value === "again" || value === "good" || value === "easy" ? value : null;
+}
+
+export function cloneReviewProgressEntry(entry: ReviewProgressEntry): ReviewProgressEntry {
+    return {
+        word: normalizeReviewWordKey(entry.word),
+        lastReviewedAt: entry.lastReviewedAt,
+        nextReviewAt: entry.nextReviewAt,
+        reviewCount: normalizeReviewMetric(entry.reviewCount),
+        correctStreak: normalizeReviewMetric(entry.correctStreak),
+        incorrectCount: normalizeReviewMetric(entry.incorrectCount),
+        lastOutcome: normalizeReviewOutcome(entry.lastOutcome),
+    };
+}
+
+export function cloneReviewProgressMap(progress: ReviewProgressMap): ReviewProgressMap {
+    return Object.fromEntries(
+        Object.entries(progress)
+            .map(([rawKey, entry]) => {
+                const normalizedKey = normalizeReviewWordKey(rawKey || entry.word);
+                if (!normalizedKey) {
+                    return null;
+                }
+
+                return [
+                    normalizedKey,
+                    cloneReviewProgressEntry({
+                        ...entry,
+                        word: normalizedKey,
+                    }),
+                ] satisfies [string, ReviewProgressEntry];
+            })
+            .filter((entry): entry is [string, ReviewProgressEntry] => Boolean(entry)),
+    );
+}
+
 export function cloneSearchHistory(entries: SearchHistoryEntry[]): SearchHistoryEntry[] {
     return entries.map((entry) => ({ ...entry }));
 }
@@ -182,6 +234,12 @@ export function cloneMemoryState(state: MemoryState): MemoryState {
         favoritesByUser: Object.fromEntries(
             Object.entries(state.favoritesByUser).map(([userId, entries]) => [Number(userId), cloneFavorites(entries)]),
         ),
+        reviewProgressByUser: Object.fromEntries(
+            Object.entries(state.reviewProgressByUser).map(([userId, progress]) => [
+                Number(userId),
+                cloneReviewProgressMap(progress),
+            ]),
+        ),
         searchHistory: cloneSearchHistory(state.searchHistory),
         session: state.session ? { ...state.session } : null,
         autoLogin: state.autoLogin ? { ...state.autoLogin } : null,
@@ -194,6 +252,7 @@ function replaceMemoryState(nextState: MemoryState) {
     const normalized = cloneMemoryState(nextState);
     memoryState.users = normalized.users;
     memoryState.favoritesByUser = normalized.favoritesByUser;
+    memoryState.reviewProgressByUser = normalized.reviewProgressByUser;
     memoryState.searchHistory = normalized.searchHistory;
     memoryState.session = normalized.session;
     memoryState.autoLogin = normalized.autoLogin;
@@ -244,6 +303,52 @@ export function normalizePersistedFavorites(value: unknown): Record<number, Favo
         Object.entries(value)
             .filter(([key, entries]) => Number.isFinite(Number(key)) && Array.isArray(entries))
             .map(([key, entries]) => [Number(key), cloneFavorites(entries as FavoriteWordEntry[])]),
+    );
+}
+
+export function normalizePersistedReviewProgress(value: unknown): ReviewProgressMap {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(value)
+            .filter(([, entry]) => Boolean(entry) && typeof entry === "object" && !Array.isArray(entry))
+            .map(([rawKey, entry]) => {
+                const record = entry as Partial<ReviewProgressEntry>;
+                const normalizedKey = normalizeReviewWordKey(
+                    rawKey || (typeof record.word === "string" ? record.word : ""),
+                );
+                if (!normalizedKey) {
+                    return null;
+                }
+
+                return [
+                    normalizedKey,
+                    {
+                        word: normalizedKey,
+                        lastReviewedAt: typeof record.lastReviewedAt === "string" ? record.lastReviewedAt : null,
+                        nextReviewAt: typeof record.nextReviewAt === "string" ? record.nextReviewAt : null,
+                        reviewCount: normalizeReviewMetric(record.reviewCount),
+                        correctStreak: normalizeReviewMetric(record.correctStreak),
+                        incorrectCount: normalizeReviewMetric(record.incorrectCount),
+                        lastOutcome: normalizeReviewOutcome(record.lastOutcome),
+                    },
+                ] satisfies [string, ReviewProgressEntry];
+            })
+            .filter((entry): entry is [string, ReviewProgressEntry] => Boolean(entry)),
+    );
+}
+
+export function normalizePersistedReviewProgressByUser(value: unknown): Record<number, ReviewProgressMap> {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(value)
+            .filter(([key]) => Number.isFinite(Number(key)))
+            .map(([key, progress]) => [Number(key), normalizePersistedReviewProgress(progress)]),
     );
 }
 
@@ -349,6 +454,7 @@ export function normalizePersistedState(value: unknown): MemoryState {
     return {
         users: normalizePersistedUsers(state.users),
         favoritesByUser: normalizePersistedFavorites(state.favoritesByUser),
+        reviewProgressByUser: normalizePersistedReviewProgressByUser(state.reviewProgressByUser),
         searchHistory: normalizedSearchHistory,
         session: normalizePersistedSession(state.session),
         autoLogin: normalizePersistedAutoLogin(state.autoLogin),
