@@ -17,14 +17,26 @@ jest.mock("@/components/TextField", () => ({
 
 jest.mock("@/screens/Favorites/components/FavoritesFlashcard", () => {
     const React = require("react");
+    const { useEffect } = React;
     const { Text } = require("react-native");
     return {
         FavoritesFlashcard: (props: any) => {
             mockFlashcard(props);
+            useEffect(() => {
+                props.onVisibleWordChange?.(props.entries[0]?.word.word ?? null);
+            }, [props.entries, props.onVisibleWordChange]);
             return <Text testID="favorites-flashcard">{props.entries.length}</Text>;
         },
     };
 });
+
+jest.mock("@/screens/StudyMode/StudyModeScreen", () => ({
+    StudyModeScreen: () => {
+        const React = require("react");
+        const { Text } = require("react-native");
+        return <Text testID="study-mode-screen">StudyModeScreen</Text>;
+    },
+}));
 
 const wrapper: React.ComponentType<React.PropsWithChildren> = ({ children }) => (
     <AppAppearanceProvider
@@ -84,6 +96,15 @@ describe("FavoritesScreen", () => {
         onRenameCollection: jest.fn().mockResolvedValue(undefined),
         onDeleteCollection: jest.fn().mockResolvedValue(undefined),
         onAssignWordToCollection: jest.fn().mockResolvedValue(undefined),
+        studyEnabled: true,
+        studyAvailable: true,
+        studySession: null,
+        onStartStudyMode: jest.fn(),
+        onRetryStudyMode: jest.fn(),
+        onRegenerateStudyMode: jest.fn(),
+        onCloseStudyMode: jest.fn(),
+        onSelectStudyChoice: jest.fn(),
+        onAdvanceStudyCard: jest.fn(),
     };
 
     beforeEach(() => {
@@ -126,5 +147,13 @@ describe("FavoritesScreen", () => {
                 entries: [expect.objectContaining({ word: expect.objectContaining({ word: "gamma" }) })],
             }),
         );
+    });
+
+    it("shows an AI study entry for the visible flashcard word", () => {
+        const { getByText } = render(<FavoritesScreen {...props} />, { wrapper });
+
+        expect(getByText("학습 모드")).toBeTruthy();
+        fireEvent.press(getByText("AI 학습 시작"));
+        expect(props.onStartStudyMode).toHaveBeenCalledWith(expect.objectContaining({ word: "alpha" }));
     });
 });

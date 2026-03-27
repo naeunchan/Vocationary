@@ -167,6 +167,36 @@ export const createSearchScreenStyles = (theme: AppThemeColors, fontScale: numbe
             fontWeight: "700",
             color: theme.textPrimary,
         },
+        studyEntryCard: {
+            backgroundColor: theme.surface,
+            borderRadius: 24,
+            padding: 20,
+            gap: 12,
+            shadowColor: theme.shadow,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.06,
+            shadowRadius: 12,
+            elevation: 4,
+        },
+        studyDescription: {
+            fontSize: scaleFont(13, fontScale),
+            color: theme.textSecondary,
+            lineHeight: scaleFont(18, fontScale),
+        },
+        studyButton: {
+            borderRadius: 16,
+            paddingVertical: 12,
+            alignItems: "center",
+            backgroundColor: theme.accent,
+        },
+        studyButtonDisabled: {
+            opacity: 0.45,
+        },
+        studyButtonText: {
+            fontSize: scaleFont(14, fontScale),
+            fontWeight: "700",
+            color: theme.accentContrast,
+        },
         collectionCard: {
             backgroundColor: theme.surface,
             borderRadius: 24,

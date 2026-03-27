@@ -164,6 +164,37 @@ export const createFavoritesScreenStyles = (theme: AppThemeColors, fontScale: nu
             fontSize: scaleFont(13, fontScale),
             color: theme.textSecondary,
         },
+        studyCard: {
+            backgroundColor: theme.surface,
+            borderRadius: 24,
+            padding: 20,
+            gap: 12,
+            shadowColor: theme.shadow,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
+            elevation: 6,
+        },
+        studyDescription: {
+            fontSize: scaleFont(13, fontScale),
+            color: theme.textSecondary,
+            lineHeight: scaleFont(18, fontScale),
+        },
+        studyButton: {
+            borderRadius: 16,
+            paddingVertical: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: theme.accent,
+        },
+        studyButtonDisabled: {
+            opacity: 0.45,
+        },
+        studyButtonText: {
+            fontSize: scaleFont(14, fontScale),
+            fontWeight: "700",
+            color: theme.accentContrast,
+        },
         emptyCard: {
             backgroundColor: theme.surface,
             borderRadius: 24,
