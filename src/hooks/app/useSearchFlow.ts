@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { getAIProxyHealth, isBackgroundAIWarmupAllowed } from "@/api/dictionary/aiHealth";
 import { normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
 import { generateDefinitionExamples } from "@/api/dictionary/exampleGenerator";
 import { prefetchPronunciationAudio } from "@/api/dictionary/getPronunciationAudio";
@@ -18,6 +19,7 @@ import { prefetchRemoteAudio } from "@/utils/audio";
 const AUTOCOMPLETE_LIMIT = 6;
 const AUTOCOMPLETE_MIN_QUERY_LENGTH = 2;
 const AUTOCOMPLETE_DEBOUNCE_MS = 180;
+const PRONUNCIATION_WARMUP_DELAY_MS = 1200;
 
 function getLevenshteinDistance(source: string, target: string) {
     const rows = source.length + 1;
@@ -69,6 +71,24 @@ function compareAutocompleteCandidates(query: string, left: string, right: strin
     }
 
     return normalizedLeft.localeCompare(normalizedRight);
+}
+
+function hasPendingExamples(result: WordResult): boolean {
+    return result.meanings.some((meaning) =>
+        meaning.definitions.some((definition) => Boolean(definition.pendingExample)),
+    );
+}
+
+function needsExampleAssist(result: WordResult): boolean {
+    return result.meanings.some((meaning) =>
+        meaning.definitions.some((definition) => {
+            if (definition.pendingExample) {
+                return true;
+            }
+
+            return !definition.example;
+        }),
+    );
 }
 
 type UseSearchFlowArgs = {
@@ -124,6 +144,7 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
     const autocompleteRemoteQueryRef = useRef("");
     const autocompleteRemoteSuggestionsRef = useRef<string[]>([]);
     const autocompleteLoadingRef = useRef(false);
+    const pronunciationWarmupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const setErrorMessage = useCallback(
         (message: string, kind: AppError["kind"] = "UnknownError", extras?: Partial<AppError>) => {
@@ -134,6 +155,13 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
 
     const clearError = useCallback(() => {
         setError(null);
+    }, []);
+
+    const clearPronunciationWarmup = useCallback(() => {
+        if (pronunciationWarmupTimeoutRef.current) {
+            clearTimeout(pronunciationWarmupTimeoutRef.current);
+            pronunciationWarmupTimeoutRef.current = null;
+        }
     }, []);
 
     const persistSearchHistory = useCallback((entries: SearchHistoryEntry[]) => {
@@ -147,6 +175,20 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
         autocompleteRemoteSuggestionsRef.current = autocompleteRemoteSuggestions;
         autocompleteLoadingRef.current = autocompleteLoading;
     }, [autocompleteLoading, autocompleteRemoteQuery, autocompleteRemoteSuggestions]);
+
+    useEffect(() => {
+        return () => {
+            clearPronunciationWarmup();
+        };
+    }, [clearPronunciationWarmup]);
+
+    useEffect(() => {
+        if (!pronunciationAvailable) {
+            return;
+        }
+
+        void getAIProxyHealth();
+    }, [pronunciationAvailable]);
 
     const clearAutocomplete = useCallback(() => {
         if (autocompleteRemoteQueryRef.current) {
@@ -258,6 +300,28 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
         [pronunciationAvailable],
     );
 
+    const schedulePronunciationWarmup = useCallback(
+        (word: string, lookupId: number) => {
+            clearPronunciationWarmup();
+            if (!pronunciationAvailable) {
+                return;
+            }
+
+            pronunciationWarmupTimeoutRef.current = setTimeout(() => {
+                pronunciationWarmupTimeoutRef.current = null;
+                void (async () => {
+                    const health = await getAIProxyHealth();
+                    if (!isBackgroundAIWarmupAllowed(health) || lookupId !== activeLookupRef.current) {
+                        return;
+                    }
+
+                    await warmUpPronunciationAsync(word, lookupId);
+                })();
+            }, PRONUNCIATION_WARMUP_DELAY_MS);
+        },
+        [clearPronunciationWarmup, pronunciationAvailable, warmUpPronunciationAsync],
+    );
+
     const toPendingExampleState = useCallback((base: WordResult, includeExistingExamples: boolean): WordResult => {
         return {
             ...base,
@@ -281,6 +345,7 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
             const normalizedTerm = term.trim();
             setAutocompleteEnabled(false);
             clearAutocomplete();
+            clearPronunciationWarmup();
             setHasSearched(true);
             if (!normalizedTerm) {
                 activeLookupRef.current += 1;
@@ -301,7 +366,7 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
             setExamplesVisible(false);
 
             try {
-                const { base, examplesPromise } = await getWordData(normalizedTerm);
+                const { base } = await getWordData(normalizedTerm);
                 if (lookupId !== activeLookupRef.current) {
                     return;
                 }
@@ -309,32 +374,7 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
                 updateSearchHistory(normalizedTerm);
                 setResult(base);
                 setLoading(false);
-                void warmUpPronunciationAsync(base.word, lookupId);
-
-                void examplesPromise
-                    .then((updates) => {
-                        if (lookupId !== activeLookupRef.current) {
-                            return;
-                        }
-                        setAiAssistError(null);
-                        setResult((previous) => {
-                            if (!previous) {
-                                return previous;
-                            }
-                            if (updates.length === 0) {
-                                return clearPendingFlags(previous);
-                            }
-                            return applyExampleUpdates(previous, updates);
-                        });
-                    })
-                    .catch((nextError) => {
-                        if (lookupId !== activeLookupRef.current) {
-                            return;
-                        }
-                        const appError = reportAiAssistError(nextError, "examples");
-                        setAiAssistError(appError);
-                        setResult((previous) => (previous ? clearPendingFlags(previous) : previous));
-                    });
+                schedulePronunciationWarmup(base.word, lookupId);
             } catch (nextError) {
                 if (lookupId !== activeLookupRef.current) {
                     return;
@@ -350,7 +390,13 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
                 }
             }
         },
-        [clearAutocomplete, reportAiAssistError, setErrorMessage, updateSearchHistory, warmUpPronunciationAsync],
+        [
+            clearAutocomplete,
+            clearPronunciationWarmup,
+            schedulePronunciationWarmup,
+            setErrorMessage,
+            updateSearchHistory,
+        ],
     );
 
     const normalizedAutocompleteTerm = useMemo(() => searchTerm.trim().toLowerCase(), [searchTerm]);
@@ -503,6 +549,7 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
         (options: ResetSearchStateOptions = {}) => {
             activeLookupRef.current += 1;
             clearAutocomplete();
+            clearPronunciationWarmup();
             setSearchTerm("");
             setResult(null);
             setExamplesVisible(false);
@@ -532,6 +579,7 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
             if (!trimmed) {
                 activeLookupRef.current += 1;
                 clearAutocomplete();
+                clearPronunciationWarmup();
                 setHasSearched(false);
                 setError(null);
                 setAiAssistError(null);
@@ -541,10 +589,11 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
             }
 
             activeLookupRef.current += 1;
+            clearPronunciationWarmup();
             setAiAssistError(null);
             setLoading(false);
         },
-        [clearAutocomplete],
+        [clearAutocomplete, clearPronunciationWarmup],
     );
 
     const onSubmitSearch = useCallback(() => {
@@ -580,8 +629,20 @@ export function useSearchFlow({ favorites, pronunciationAvailable }: UseSearchFl
     );
 
     const onToggleExamples = useCallback(() => {
-        setExamplesVisible((previous) => !previous);
-    }, []);
+        const shouldLoadExamples =
+            result !== null && !hasPendingExamples(result) && needsExampleAssist(result) && !aiAssistError;
+
+        setExamplesVisible((previous) => {
+            const next = !previous;
+            if (next && shouldLoadExamples) {
+                void refreshExamplesAsync({
+                    forceFresh: false,
+                    includeExistingExamples: false,
+                });
+            }
+            return next;
+        });
+    }, [aiAssistError, refreshExamplesAsync, result]);
 
     const onRetryAiAssist = useCallback(() => {
         void refreshExamplesAsync({

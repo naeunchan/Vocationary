@@ -133,8 +133,13 @@ async function requestPronunciationAudio(normalized: string): Promise<string> {
     const base64 = typeof payload.audioBase64 === "string" && payload.audioBase64 ? payload.audioBase64 : null;
     const directUrl = typeof payload.audioUrl === "string" && payload.audioUrl ? payload.audioUrl : null;
 
+    if (directUrl) {
+        AUDIO_CACHE.set(normalized, directUrl);
+        return directUrl;
+    }
+
     const fileUri = base64 ? await writeAudioToFile(base64, normalized) : null;
-    const finalUri = fileUri ?? directUrl ?? (base64 ? `data:audio/${TTS_FORMAT};base64,${base64}` : null);
+    const finalUri = fileUri ?? (base64 ? `data:audio/${TTS_FORMAT};base64,${base64}` : null);
 
     if (!finalUri) {
         throw createAIInvalidPayloadError("tts");

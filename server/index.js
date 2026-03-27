@@ -6,8 +6,11 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const { OpenAI } = require("openai");
+const { createAiResponseCache } = require("./aiResponseCache");
+const { logAiRouteMetrics } = require("./aiRouteMetrics");
 const { createCorsOriginResolver, getAllowedCorsOrigins } = require("./corsConfig");
 const { buildStudyPrompt, SUPPORTED_CARD_TYPES } = require("./studyPrompt");
+const { buildTtsAssetToken, buildTtsAssetUrl } = require("./ttsAsset");
 
 // Load env values from both project root and server folder (server/.env overrides).
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
@@ -22,9 +25,19 @@ const API_KEY = process.env.AI_PROXY_KEY || "";
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 60;
 const AI_HEALTH_DEGRADED_WINDOW_MS = Number(process.env.AI_HEALTH_DEGRADED_WINDOW_MS) || 10 * 60 * 1000;
+const AI_EXAMPLES_CACHE_TTL_MS = Number(process.env.AI_EXAMPLES_CACHE_TTL_MS) || 30 * 60 * 1000;
+const AI_EXAMPLES_CACHE_MAX = Number(process.env.AI_EXAMPLES_CACHE_MAX) || 500;
+const AI_TTS_CACHE_TTL_MS = Number(process.env.AI_TTS_CACHE_TTL_MS) || 24 * 60 * 60 * 1000;
+const AI_TTS_CACHE_MAX = Number(process.env.AI_TTS_CACHE_MAX) || 200;
+const AI_STUDY_CACHE_TTL_MS = Number(process.env.AI_STUDY_CACHE_TTL_MS) || 30 * 60 * 1000;
+const AI_STUDY_CACHE_MAX = Number(process.env.AI_STUDY_CACHE_MAX) || 300;
 
 const app = express();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const exampleResponseCache = createAiResponseCache({ maxEntries: AI_EXAMPLES_CACHE_MAX });
+const ttsResponseCache = createAiResponseCache({ maxEntries: AI_TTS_CACHE_MAX });
+const ttsAssetCache = createAiResponseCache({ maxEntries: AI_TTS_CACHE_MAX });
+const studyCardResponseCache = createAiResponseCache({ maxEntries: AI_STUDY_CACHE_MAX });
 const aiRuntimeHealth = {
     lastSuccessAt: 0,
     lastFailureAt: 0,
@@ -178,6 +191,74 @@ function clampTokens(value, fallback) {
     return Math.min(400, Math.max(80, Math.round(num)));
 }
 
+function normalizeText(value) {
+    return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeDescriptors(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value
+        .map((descriptor) => ({
+            meaningIndex: Number(descriptor?.meaningIndex),
+            definitionIndex: Number(descriptor?.definitionIndex),
+            definition: normalizeText(descriptor?.definition),
+            needsExample: Boolean(descriptor?.needsExample),
+            needsTranslation: Boolean(descriptor?.needsTranslation),
+        }))
+        .filter(
+            (descriptor) =>
+                Number.isInteger(descriptor.meaningIndex) &&
+                Number.isInteger(descriptor.definitionIndex) &&
+                descriptor.definition,
+        );
+}
+
+function normalizeStudyContext(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value
+        .map((entry) => ({
+            definition: normalizeText(entry?.definition),
+            example: normalizeText(entry?.example) || null,
+            partOfSpeech: normalizeText(entry?.partOfSpeech) || null,
+        }))
+        .filter((entry) => entry.definition);
+}
+
+function buildExamplesCacheKey({ prompt, descriptors, maxTokens }) {
+    return JSON.stringify({
+        prompt: normalizeText(prompt),
+        descriptors: normalizeDescriptors(descriptors),
+        maxTokens,
+        model: MODEL,
+    });
+}
+
+function buildTtsCacheKey({ text, model, voice, format }) {
+    return JSON.stringify({
+        text: normalizeText(text),
+        model: normalizeText(model),
+        voice: normalizeText(voice),
+        format: normalizeText(format),
+    });
+}
+
+function buildStudyCardsCacheKey({ word, context, cardTypes, cardCount, maxTokens }) {
+    return JSON.stringify({
+        word: normalizeText(word).toLowerCase(),
+        context: normalizeStudyContext(context),
+        cardTypes: Array.isArray(cardTypes) ? [...cardTypes].map((entry) => normalizeText(entry)).sort() : [],
+        cardCount,
+        maxTokens,
+        model: MODEL,
+    });
+}
+
 function ensureApiKey(res) {
     if (!openai.apiKey) {
         res.status(503).json({ message: "OpenAI API key is missing. Set OPENAI_API_KEY on the server." });
@@ -305,26 +386,44 @@ app.post("/dictionary/examples", rateLimit, requireApiKey, async (req, res) => {
 
     const schema = typeof req.body?.schema === "object" && req.body.schema ? req.body.schema : EXAMPLE_SCHEMA;
     const maxTokens = clampTokens(req.body?.maxTokens, 240);
+    const cacheKey = buildExamplesCacheKey({ prompt, descriptors, maxTokens });
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: MODEL,
-            messages: [
-                {
-                    role: "system",
-                    content:
-                        "You generate concise dictionary examples. Respond ONLY with JSON that matches the provided schema.",
-                },
-                { role: "user", content: prompt },
-            ],
-            response_format: { type: "json_schema", json_schema: schema },
-            max_tokens: maxTokens,
-        });
+        let upstreamMs = null;
+        const { value: items, cacheHit } = await exampleResponseCache.getOrCreate(
+            cacheKey,
+            async () => {
+                const upstreamStartedAt = Date.now();
+                const completion = await openai.chat.completions.create({
+                    model: MODEL,
+                    messages: [
+                        {
+                            role: "system",
+                            content:
+                                "You generate concise dictionary examples. Respond ONLY with JSON that matches the provided schema.",
+                        },
+                        { role: "user", content: prompt },
+                    ],
+                    response_format: { type: "json_schema", json_schema: schema },
+                    max_tokens: maxTokens,
+                });
+                upstreamMs = Date.now() - upstreamStartedAt;
 
-        const content = completion.choices?.[0]?.message?.content ?? "";
-        const raw = content ? JSON.parse(content) : { items: [] };
-        const items = normalizeItems(raw);
+                const content = completion.choices?.[0]?.message?.content ?? "";
+                const raw = content ? JSON.parse(content) : { items: [] };
+                return normalizeItems(raw);
+            },
+            { ttlMs: AI_EXAMPLES_CACHE_TTL_MS },
+        );
         markAiSuccess();
+        logAiRouteMetrics("/dictionary/examples", {
+            cache: cacheHit ? "hit" : "miss",
+            upstreamMs,
+            promptChars: prompt.length,
+            descriptorCount: descriptors.length,
+            itemCount: items.length,
+            maxTokens,
+        });
 
         return res.json({ items });
     } catch (error) {
@@ -345,26 +444,74 @@ app.post("/dictionary/tts", rateLimit, requireApiKey, async (req, res) => {
     const model = typeof req.body?.model === "string" && req.body.model.trim() ? req.body.model.trim() : TTS_MODEL;
     const voice = typeof req.body?.voice === "string" && req.body.voice.trim() ? req.body.voice.trim() : TTS_VOICE;
     const format = typeof req.body?.format === "string" && req.body.format.trim() ? req.body.format.trim() : TTS_FORMAT;
+    const cacheKey = buildTtsCacheKey({ text, model, voice, format });
 
     try {
-        const audio = await openai.audio.speech.create({
-            model,
-            voice,
-            input: text,
-            format,
-        });
+        let upstreamMs = null;
+        const { value: asset, cacheHit } = await ttsResponseCache.getOrCreate(
+            cacheKey,
+            async () => {
+                const upstreamStartedAt = Date.now();
+                const audio = await openai.audio.speech.create({
+                    model,
+                    voice,
+                    input: text,
+                    format,
+                });
 
-        const buffer = Buffer.from(await audio.arrayBuffer());
+                const buffer = Buffer.from(await audio.arrayBuffer());
+                upstreamMs = Date.now() - upstreamStartedAt;
+                const token = buildTtsAssetToken(cacheKey, process.env.OPENAI_API_KEY);
+                return {
+                    token,
+                    format,
+                    contentType: `audio/${format}`,
+                    audioBase64: buffer.toString("base64"),
+                };
+            },
+            { ttlMs: AI_TTS_CACHE_TTL_MS },
+        );
+        ttsAssetCache.set(
+            asset.token,
+            {
+                audioBase64: asset.audioBase64,
+                contentType: asset.contentType,
+            },
+            AI_TTS_CACHE_TTL_MS,
+        );
         markAiSuccess();
+        logAiRouteMetrics("/dictionary/tts", {
+            cache: cacheHit ? "hit" : "miss",
+            upstreamMs,
+            textChars: text.length,
+            format,
+            base64Chars: asset.audioBase64.length,
+        });
         return res.json({
-            audioBase64: buffer.toString("base64"),
-            audioUrl: null,
+            audioBase64: null,
+            audioUrl: buildTtsAssetUrl(req, asset.token, PORT),
         });
     } catch (error) {
         console.error("Failed to synthesize audio", error);
         markAiFailure("/dictionary/tts", error);
         return res.status(500).json({ message: "발음 오디오를 준비하지 못했어요." });
     }
+});
+
+app.get("/dictionary/tts/:token", (req, res) => {
+    const token = normalizeText(req.params?.token);
+    if (!token) {
+        return res.status(404).end();
+    }
+
+    const asset = ttsAssetCache.get(token);
+    if (!asset?.audioBase64 || !asset?.contentType) {
+        return res.status(404).end();
+    }
+
+    res.setHeader("Content-Type", asset.contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    return res.send(Buffer.from(asset.audioBase64, "base64"));
 });
 
 app.post("/study/cards", rateLimit, requireApiKey, async (req, res) => {
@@ -379,37 +526,68 @@ app.post("/study/cards", rateLimit, requireApiKey, async (req, res) => {
         return res.status(400).json({ message: "word와 context가 필요해요." });
     }
 
-    const prompt = buildStudyPrompt({
+    const maxTokens = clampTokens(req.body?.maxTokens, 280);
+    const cacheKey = buildStudyCardsCacheKey({
         word,
         context,
         cardTypes,
         cardCount,
+        maxTokens,
     });
-    const maxTokens = clampTokens(req.body?.maxTokens, 280);
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: MODEL,
-            messages: [
-                {
-                    role: "system",
-                    content:
-                        "You generate objective vocabulary study cards. Respond ONLY with JSON that matches the provided schema.",
-                },
-                { role: "user", content: prompt },
-            ],
-            response_format: { type: "json_schema", json_schema: STUDY_CARD_SCHEMA },
-            max_tokens: maxTokens,
-        });
+        let promptChars = null;
+        let upstreamMs = null;
+        const { value: cards, cacheHit } = await studyCardResponseCache.getOrCreate(
+            cacheKey,
+            async () => {
+                const prompt = buildStudyPrompt({
+                    word,
+                    context,
+                    cardTypes,
+                    cardCount,
+                });
+                promptChars = prompt.length;
+                const upstreamStartedAt = Date.now();
+                const completion = await openai.chat.completions.create({
+                    model: MODEL,
+                    messages: [
+                        {
+                            role: "system",
+                            content:
+                                "You generate objective vocabulary study cards. Respond ONLY with JSON that matches the provided schema.",
+                        },
+                        { role: "user", content: prompt },
+                    ],
+                    response_format: { type: "json_schema", json_schema: STUDY_CARD_SCHEMA },
+                    max_tokens: maxTokens,
+                });
+                upstreamMs = Date.now() - upstreamStartedAt;
 
-        const content = completion.choices?.[0]?.message?.content ?? "";
-        const raw = content ? JSON.parse(content) : { cards: [] };
-        const cards = normalizeStudyCards(raw);
-        if (cards.length === 0) {
-            throw new Error("empty_cards");
-        }
+                const content = completion.choices?.[0]?.message?.content ?? "";
+                const raw = content ? JSON.parse(content) : { cards: [] };
+                const cards = normalizeStudyCards(raw);
+                if (cards.length === 0) {
+                    throw new Error("empty_cards");
+                }
+
+                return cards;
+            },
+            { ttlMs: AI_STUDY_CACHE_TTL_MS },
+        );
 
         markAiSuccess();
+        logAiRouteMetrics("/study/cards", {
+            cache: cacheHit ? "hit" : "miss",
+            upstreamMs,
+            wordChars: word.length,
+            contextCount: context.length,
+            cardTypeCount: cardTypes.length,
+            requestedCardCount: cardCount,
+            cardCount: cards.length,
+            promptChars,
+            maxTokens,
+        });
         return res.json({ cards });
     } catch (error) {
         console.error("Failed to generate study cards", error);

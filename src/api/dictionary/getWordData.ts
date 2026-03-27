@@ -7,6 +7,10 @@ type WordDataResult = {
     examplesPromise: Promise<ExampleUpdate[]>;
 };
 
+type GetWordDataOptions = {
+    prefetchExamples?: boolean;
+};
+
 function validateSearchTerm(searchTerm: string): string {
     const trimmed = searchTerm.trim().toLowerCase();
     if (!trimmed) {
@@ -18,11 +22,12 @@ function validateSearchTerm(searchTerm: string): string {
     return trimmed;
 }
 
-export async function getWordData(searchTerm: string): Promise<WordDataResult> {
+export async function getWordData(searchTerm: string, options: GetWordDataOptions = {}): Promise<WordDataResult> {
     const normalized = validateSearchTerm(searchTerm);
     const base = await fetchDictionaryEntry(normalized);
-
-    const examplesPromise = generateDefinitionExamples(base.word, base.meanings);
+    const examplesPromise = options.prefetchExamples
+        ? generateDefinitionExamples(base.word, base.meanings)
+        : Promise.resolve([]);
 
     return {
         base,
