@@ -75,6 +75,95 @@ export const createFavoritesScreenStyles = (theme: AppThemeColors, fontScale: nu
         segmentButtonTextActive: {
             color: theme.accentContrast,
         },
+        collectionCard: {
+            backgroundColor: theme.surface,
+            borderRadius: 24,
+            padding: 20,
+            gap: 12,
+            shadowColor: theme.shadow,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
+            elevation: 6,
+        },
+        collectionHeader: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+        },
+        collectionDescription: {
+            fontSize: scaleFont(13, fontScale),
+            color: theme.textSecondary,
+            lineHeight: scaleFont(18, fontScale),
+        },
+        collectionChipRow: {
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 8,
+        },
+        collectionChip: {
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: 999,
+            backgroundColor: theme.cardMuted,
+            borderWidth: 1,
+            borderColor: theme.border,
+        },
+        collectionChipActive: {
+            backgroundColor: theme.accent,
+            borderColor: theme.accent,
+        },
+        collectionChipText: {
+            fontSize: scaleFont(13, fontScale),
+            fontWeight: "700",
+            color: theme.textSecondary,
+        },
+        collectionChipTextActive: {
+            color: theme.accentContrast,
+        },
+        collectionActionRow: {
+            flexDirection: "row",
+            gap: 10,
+        },
+        collectionActionButton: {
+            flex: 1,
+            borderRadius: 16,
+            paddingVertical: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: theme.accent,
+        },
+        collectionActionButtonDisabled: {
+            opacity: 0.45,
+        },
+        collectionActionButtonText: {
+            fontSize: scaleFont(14, fontScale),
+            fontWeight: "700",
+            color: theme.accentContrast,
+        },
+        collectionDangerButton: {
+            borderRadius: 16,
+            paddingHorizontal: 18,
+            paddingVertical: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: theme.danger,
+        },
+        collectionDangerButtonText: {
+            fontSize: scaleFont(14, fontScale),
+            fontWeight: "700",
+            color: theme.accentContrast,
+        },
+        collectionResetText: {
+            fontSize: scaleFont(13, fontScale),
+            fontWeight: "700",
+            color: theme.accent,
+        },
+        collectionEmptyText: {
+            fontSize: scaleFont(13, fontScale),
+            color: theme.textSecondary,
+        },
         emptyCard: {
             backgroundColor: theme.surface,
             borderRadius: 24,

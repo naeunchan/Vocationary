@@ -29,7 +29,7 @@ jest.mock("@/config/featureFlags", () => ({
         reviewSessionUi: true,
         dailyGoal: false,
         reviewReminder: false,
-        collections: false,
+        collections: true,
         favoritesBatchActions: false,
         aiStudyMode: false,
         aiStudyEntryPoints: false,
@@ -81,6 +81,7 @@ jest.mock("@/services/database", () => ({
     deleteUserAccount: jest.fn(),
     findUserByUsername: jest.fn(),
     getActiveSession: jest.fn(),
+    getCollectionsByUser: jest.fn(),
     getFavoritesByUser: jest.fn(),
     getPreferenceValue: jest.fn(),
     getReviewProgressByUser: jest.fn(),
@@ -93,6 +94,7 @@ jest.mock("@/services/database", () => ({
     saveAutoLoginCredentials: jest.fn(),
     saveSearchHistoryEntries: jest.fn(),
     sendEmailVerificationCode: jest.fn(),
+    setCollectionsForUser: jest.fn(),
     setGuestSession: jest.fn(),
     setPreferenceValue: jest.fn(),
     setUserSession: jest.fn(),
@@ -107,6 +109,9 @@ const mockGetWordData = getWordData as jest.MockedFunction<typeof getWordData>;
 const mockFetchWordSuggestions = fetchWordSuggestions as jest.MockedFunction<typeof fetchWordSuggestions>;
 const mockGetActiveSession = database.getActiveSession as jest.MockedFunction<typeof database.getActiveSession>;
 const mockFindUserByUsername = database.findUserByUsername as jest.MockedFunction<typeof database.findUserByUsername>;
+const mockGetCollectionsByUser = database.getCollectionsByUser as jest.MockedFunction<
+    typeof database.getCollectionsByUser
+>;
 const mockGetFavoritesByUser = database.getFavoritesByUser as jest.MockedFunction<typeof database.getFavoritesByUser>;
 const mockGetPreferenceValue = database.getPreferenceValue as jest.MockedFunction<typeof database.getPreferenceValue>;
 const mockGetReviewProgressByUser = database.getReviewProgressByUser as jest.MockedFunction<
@@ -185,6 +190,7 @@ describe("useAppScreen search history", () => {
         jest.clearAllMocks();
         mockGetActiveSession.mockResolvedValue(null);
         mockFindUserByUsername.mockResolvedValue(null);
+        mockGetCollectionsByUser.mockResolvedValue([]);
         mockGetFavoritesByUser.mockResolvedValue([]);
         mockGetPreferenceValue.mockResolvedValue(null);
         mockGetReviewProgressByUser.mockResolvedValue({});
@@ -590,5 +596,62 @@ describe("useAppScreen search history", () => {
         expect(mockGetFavoritesByUser).toHaveBeenCalledTimes(2);
         expect(mockGetSearchHistoryEntries).toHaveBeenCalledTimes(2);
         expect(mockImportBackupFromDocument).toHaveBeenCalledWith("secret");
+    });
+
+    it("wires collection props into search and favorites when collections are available", async () => {
+        mockGetActiveSession.mockResolvedValue({ isGuest: false, user: loggedInUser });
+        mockGetFavoritesByUser.mockResolvedValue([createFavorite("apple", "2026-03-22T00:00:00.000Z")]);
+        mockGetCollectionsByUser.mockResolvedValue([
+            {
+                id: "toeic",
+                name: "TOEIC",
+                createdAt: "2026-03-22T00:00:00.000Z",
+                updatedAt: "2026-03-22T00:00:00.000Z",
+                wordKeys: ["apple"],
+            },
+        ]);
+        mockGetPreferenceValue.mockImplementation(async (key: string) => {
+            if (key === GUEST_FAVORITES_PREFERENCE_KEY) {
+                return "[]";
+            }
+            if (key === ONBOARDING_PREFERENCE_KEY) {
+                return "true";
+            }
+            if (key === GUEST_USED_PREFERENCE_KEY) {
+                return "false";
+            }
+            if (key === THEME_MODE_PREFERENCE_KEY) {
+                return null;
+            }
+            if (key === FONT_SCALE_PREFERENCE_KEY) {
+                return null;
+            }
+            return null;
+        });
+        mockGetWordData.mockResolvedValue({
+            base: baseResult,
+            examplesPromise: Promise.resolve([]),
+        });
+
+        const { result } = renderHook(() => useAppScreen());
+        await waitForHookReady(result);
+
+        act(() => {
+            result.current.navigatorProps.search.onChangeSearchTerm("apple");
+        });
+
+        act(() => {
+            result.current.navigatorProps.search.onSubmit();
+        });
+
+        await waitFor(() => {
+            expect(result.current.navigatorProps.search.currentCollectionId).toBe("toeic");
+        });
+
+        expect(result.current.navigatorProps.search.collectionsEnabled).toBe(true);
+        expect(result.current.navigatorProps.search.collections).toEqual([
+            expect.objectContaining({ id: "toeic", name: "TOEIC" }),
+        ]);
+        expect(result.current.navigatorProps.favorites.collectionMemberships).toEqual({ apple: "toeic" });
     });
 });

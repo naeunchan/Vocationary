@@ -22,7 +22,7 @@ import {
 import type { AppScreenHookResult } from "@/screens/App/AppScreen.types";
 import type { WordResult } from "@/services/dictionary/types";
 import type { ReviewOutcome, ReviewQueueItem } from "@/services/review";
-import { deriveReviewQueue } from "@/services/review";
+import { createReviewProgressKey, deriveReviewQueue } from "@/services/review";
 import { playRemoteAudio } from "@/utils/audio";
 
 type ActiveReviewSessionState = {
@@ -150,6 +150,14 @@ export function useAppScreen(): AppScreenHookResult {
         }
         return sessionFlow.favorites.some((item) => item.word.word === searchFlow.result.word);
     }, [searchFlow.result, sessionFlow.favorites]);
+    const collectionsEnabled = FEATURE_FLAGS.collections;
+    const currentResultCollectionId = useMemo(() => {
+        const currentWord = searchFlow.result?.word;
+        if (!currentWord) {
+            return null;
+        }
+        return sessionFlow.collectionMemberships[createReviewProgressKey(currentWord)] ?? null;
+    }, [searchFlow.result?.word, sessionFlow.collectionMemberships]);
 
     const [reviewSession, setReviewSession] = useState<ReviewSessionState>(null);
     const reviewSessionRef = useRef<ReviewSessionState>(null);
@@ -182,6 +190,35 @@ export function useAppScreen(): AppScreenHookResult {
     const handleCloseReviewSession = useCallback(() => {
         setReviewSession(null);
     }, []);
+
+    const handleCreateCollectionForCurrentWord = useCallback(
+        async (name: string) => {
+            const currentWord = searchFlow.result?.word?.trim();
+            if (!currentWord) {
+                throw new Error("검색 결과가 없어요.");
+            }
+
+            const createdCollectionId = await sessionFlow.onCreateCollection(name);
+            if (createdCollectionId) {
+                await sessionFlow.onAssignWordToCollection(currentWord, createdCollectionId);
+            }
+
+            return createdCollectionId;
+        },
+        [searchFlow.result?.word, sessionFlow.onAssignWordToCollection, sessionFlow.onCreateCollection],
+    );
+
+    const handleAssignCurrentWordToCollection = useCallback(
+        async (collectionId: string | null) => {
+            const currentWord = searchFlow.result?.word?.trim();
+            if (!currentWord) {
+                throw new Error("검색 결과가 없어요.");
+            }
+
+            await sessionFlow.onAssignWordToCollection(currentWord, collectionId);
+        },
+        [searchFlow.result?.word, sessionFlow.onAssignWordToCollection],
+    );
 
     const handleApplyReviewOutcome = useCallback(
         (outcome: ReviewOutcome) => {
@@ -289,6 +326,13 @@ export function useAppScreen(): AppScreenHookResult {
                     void handlePlayWordAudioAsync(word);
                 },
                 pronunciationAvailable: OPENAI_FEATURE_ENABLED,
+                collectionsEnabled,
+                collections: sessionFlow.collections,
+                collectionMemberships: sessionFlow.collectionMemberships,
+                onCreateCollection: sessionFlow.onCreateCollection,
+                onRenameCollection: sessionFlow.onRenameCollection,
+                onDeleteCollection: sessionFlow.onDeleteCollection,
+                onAssignWordToCollection: sessionFlow.onAssignWordToCollection,
             },
             search: {
                 searchTerm: searchFlow.searchTerm,
@@ -316,6 +360,11 @@ export function useAppScreen(): AppScreenHookResult {
                 onRetry: searchFlow.onRetrySearch,
                 onRetryAiAssist: searchFlow.onRetryAiAssist,
                 onRegenerateExamples: searchFlow.onRegenerateExamples,
+                collectionsEnabled,
+                collections: sessionFlow.collections,
+                currentCollectionId: currentResultCollectionId,
+                onAssignCurrentWordToCollection: handleAssignCurrentWordToCollection,
+                onCreateCollectionForCurrentWord: handleCreateCollectionForCurrentWord,
             },
             settings: {
                 onLogout: sessionFlow.onLogout,
@@ -345,9 +394,13 @@ export function useAppScreen(): AppScreenHookResult {
             appearanceFlow.onShowOnboarding,
             appearanceFlow.onThemeModeChange,
             appearanceFlow.themeMode,
+            collectionsEnabled,
+            currentResultCollectionId,
             dueReviewCount,
             handleApplyReviewOutcome,
+            handleAssignCurrentWordToCollection,
             handleCloseReviewSession,
+            handleCreateCollectionForCurrentWord,
             handlePlayWordAudioAsync,
             handleStartReviewSession,
             isCurrentFavorite,
@@ -375,18 +428,24 @@ export function useAppScreen(): AppScreenHookResult {
             searchFlow.result,
             searchFlow.searchTerm,
             sessionFlow.canLogout,
+            sessionFlow.collectionMemberships,
+            sessionFlow.collections,
             sessionFlow.favorites,
             sessionFlow.isGuest,
             sessionFlow.onApplyReviewOutcome,
             sessionFlow.onCheckDisplayName,
+            sessionFlow.onCreateCollection,
             sessionFlow.onDeleteAccount,
+            sessionFlow.onDeleteCollection,
             sessionFlow.onExportBackup,
             sessionFlow.onImportBackup,
             sessionFlow.onLogout,
             sessionFlow.onRemoveFavorite,
             sessionFlow.onRequestLogin,
             sessionFlow.onRequestSignUp,
+            sessionFlow.onRenameCollection,
             sessionFlow.onToggleFavorite,
+            sessionFlow.onAssignWordToCollection,
             sessionFlow.onUpdateFavoriteStatus,
             sessionFlow.onUpdatePassword,
             sessionFlow.onUpdateProfile,

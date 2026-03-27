@@ -1,5 +1,6 @@
 export type { BackupPayload } from "@/services/database/backup";
 export { exportBackup, importBackup } from "@/services/database/backup";
+export { getCollectionsByUser, setCollectionsForUser } from "@/services/database/collections";
 export { getFavoritesByUser, removeFavoriteForUser, upsertFavoriteForUser } from "@/services/database/favorites";
 export { getPreferenceValue, setPreferenceValue } from "@/services/database/preferences";
 export {

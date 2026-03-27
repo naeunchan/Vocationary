@@ -7,4 +7,5 @@ export type FavoritesFlashcardProps = {
     onRemoveFavorite: (word: string) => void;
     onPlayAudio: (word: FavoriteWordEntry["word"]) => void;
     pronunciationAvailable: boolean;
+    onVisibleWordChange?: (word: string | null) => void;
 };

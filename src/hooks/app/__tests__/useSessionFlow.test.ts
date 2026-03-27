@@ -26,6 +26,7 @@ jest.mock("@/services/database", () => ({
     deleteUserAccount: jest.fn(),
     findUserByUsername: jest.fn(),
     getActiveSession: jest.fn(),
+    getCollectionsByUser: jest.fn(),
     getFavoritesByUser: jest.fn(),
     getPreferenceValue: jest.fn(),
     getReviewProgressByUser: jest.fn(),
@@ -36,6 +37,7 @@ jest.mock("@/services/database", () => ({
     resetPasswordWithEmailCode: jest.fn(),
     saveAutoLoginCredentials: jest.fn(),
     sendEmailVerificationCode: jest.fn(),
+    setCollectionsForUser: jest.fn(),
     setGuestSession: jest.fn(),
     setPreferenceValue: jest.fn(),
     setUserSession: jest.fn(),
@@ -47,10 +49,16 @@ jest.mock("@/services/database", () => ({
 }));
 
 const mockGetActiveSession = database.getActiveSession as jest.MockedFunction<typeof database.getActiveSession>;
+const mockGetCollectionsByUser = database.getCollectionsByUser as jest.MockedFunction<
+    typeof database.getCollectionsByUser
+>;
 const mockGetFavoritesByUser = database.getFavoritesByUser as jest.MockedFunction<typeof database.getFavoritesByUser>;
 const mockGetPreferenceValue = database.getPreferenceValue as jest.MockedFunction<typeof database.getPreferenceValue>;
 const mockGetReviewProgressByUser = database.getReviewProgressByUser as jest.MockedFunction<
     typeof database.getReviewProgressByUser
+>;
+const mockSetCollectionsForUser = database.setCollectionsForUser as jest.MockedFunction<
+    typeof database.setCollectionsForUser
 >;
 const mockSetPreferenceValue = database.setPreferenceValue as jest.MockedFunction<typeof database.setPreferenceValue>;
 const mockSetGuestSession = database.setGuestSession as jest.MockedFunction<typeof database.setGuestSession>;
@@ -107,9 +115,11 @@ describe("useSessionFlow", () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockGetActiveSession.mockResolvedValue(null);
+        mockGetCollectionsByUser.mockResolvedValue([]);
         mockGetFavoritesByUser.mockResolvedValue([]);
         mockGetPreferenceValue.mockResolvedValue(null);
         mockGetReviewProgressByUser.mockResolvedValue({});
+        mockSetCollectionsForUser.mockResolvedValue(undefined);
         mockSetPreferenceValue.mockResolvedValue(undefined);
         mockSetGuestSession.mockResolvedValue(undefined);
         mockClearSession.mockResolvedValue(undefined);
@@ -309,6 +319,56 @@ describe("useSessionFlow", () => {
         expect(mockUpsertReviewProgressForUser).toHaveBeenCalledWith(
             loggedInUser.id,
             expect.objectContaining({ word: "apple", lastOutcome: "good" }),
+        );
+    });
+
+    it("creates collections and assigns saved words for authenticated users", async () => {
+        mockGetActiveSession.mockResolvedValue({ isGuest: false, user: loggedInUser });
+        mockGetFavoritesByUser.mockResolvedValue([createFavorite("apple", "2026-03-22T00:00:00.000Z")]);
+        mockGetPreferenceValue.mockImplementation(async (key: string) => {
+            if (key === GUEST_FAVORITES_PREFERENCE_KEY) {
+                return "[]";
+            }
+            if (key === ONBOARDING_PREFERENCE_KEY) {
+                return "true";
+            }
+            if (key === GUEST_USED_PREFERENCE_KEY) {
+                return "false";
+            }
+            return null;
+        });
+
+        const bridgeRef = searchBridge();
+        const syncOnboardingVisibilityAfterAuthentication = jest.fn().mockResolvedValue(undefined);
+        const setOnboardingVisible = jest.fn();
+
+        const { result } = renderHook(() =>
+            useSessionFlow({
+                searchFlowBridgeRef: bridgeRef as any,
+                setOnboardingVisible,
+                syncOnboardingVisibilityAfterAuthentication,
+            }),
+        );
+
+        await waitFor(() => {
+            expect(result.current.initializing).toBe(false);
+        });
+
+        let collectionId: string | null = null;
+        await act(async () => {
+            collectionId = await result.current.onCreateCollection("TOEIC");
+        });
+
+        expect(result.current.collections).toEqual([expect.objectContaining({ name: "TOEIC" })]);
+
+        await act(async () => {
+            await result.current.onAssignWordToCollection("apple", collectionId);
+        });
+
+        expect(result.current.collectionMemberships).toEqual({ apple: collectionId });
+        expect(mockSetCollectionsForUser).toHaveBeenLastCalledWith(
+            loggedInUser.id,
+            expect.arrayContaining([expect.objectContaining({ id: collectionId, wordKeys: ["apple"] })]),
         );
     });
 });

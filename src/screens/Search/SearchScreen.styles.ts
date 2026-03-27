@@ -167,4 +167,62 @@ export const createSearchScreenStyles = (theme: AppThemeColors, fontScale: numbe
             fontWeight: "700",
             color: theme.textPrimary,
         },
+        collectionCard: {
+            backgroundColor: theme.surface,
+            borderRadius: 24,
+            padding: 20,
+            gap: 14,
+            shadowColor: theme.shadow,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.06,
+            shadowRadius: 12,
+            elevation: 4,
+        },
+        collectionHeader: {
+            gap: 6,
+        },
+        collectionDescription: {
+            fontSize: scaleFont(13, fontScale),
+            color: theme.textSecondary,
+            lineHeight: scaleFont(18, fontScale),
+        },
+        collectionChipRow: {
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 8,
+        },
+        collectionChip: {
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: 999,
+            backgroundColor: theme.cardMuted,
+            borderWidth: 1,
+            borderColor: theme.border,
+        },
+        collectionChipActive: {
+            backgroundColor: theme.accent,
+            borderColor: theme.accent,
+        },
+        collectionChipText: {
+            fontSize: scaleFont(13, fontScale),
+            fontWeight: "700",
+            color: theme.textSecondary,
+        },
+        collectionChipTextActive: {
+            color: theme.accentContrast,
+        },
+        collectionActionButton: {
+            borderRadius: 16,
+            paddingVertical: 12,
+            alignItems: "center",
+            backgroundColor: theme.accent,
+        },
+        collectionActionButtonDisabled: {
+            opacity: 0.45,
+        },
+        collectionActionButtonText: {
+            fontSize: scaleFont(14, fontScale),
+            fontWeight: "700",
+            color: theme.accentContrast,
+        },
     });

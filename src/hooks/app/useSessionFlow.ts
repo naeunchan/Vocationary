@@ -36,6 +36,17 @@ import {
 } from "@/screens/App/AppScreen.constants";
 import type { LoginScreenProps } from "@/screens/Auth/LoginScreen.types";
 import {
+    assignWordsToCollection,
+    createCollection,
+    deleteCollection,
+    getCollectionMembershipMap,
+    mergeCollectionsByName,
+    removeWordsFromCollections,
+    renameCollection,
+} from "@/services/collections";
+import { mergeGuestCollections, parseGuestCollections } from "@/services/collections/guestCollections";
+import type { CollectionMembershipMap, CollectionRecord } from "@/services/collections/types";
+import {
     clearAutoLoginCredentials,
     clearSearchHistoryEntries,
     clearSession,
@@ -43,6 +54,7 @@ import {
     deleteUserAccount,
     findUserByUsername,
     getActiveSession,
+    getCollectionsByUser,
     getFavoritesByUser,
     getPreferenceValue,
     getReviewProgressByUser,
@@ -53,6 +65,7 @@ import {
     resetPasswordWithEmailCode,
     saveAutoLoginCredentials,
     sendEmailVerificationCode,
+    setCollectionsForUser,
     setGuestSession,
     setPreferenceValue,
     setUserSession,
@@ -71,6 +84,7 @@ import { mergeGuestReviewProgress, parseGuestReviewProgress } from "@/services/r
 import { applyReviewOutcome, createReviewProgressKey } from "@/services/review/reviewQueue";
 import type { ReviewOutcome, ReviewProgressMap } from "@/services/review/types";
 import {
+    GUEST_COLLECTIONS_PREFERENCE_KEY,
     GUEST_FAVORITES_PREFERENCE_KEY,
     GUEST_REVIEW_PROGRESS_PREFERENCE_KEY,
     GUEST_USED_PREFERENCE_KEY,
@@ -102,6 +116,8 @@ type UseSessionFlowResult = {
     isGuest: boolean;
     authLoading: boolean;
     favorites: FavoriteWordEntry[];
+    collections: CollectionRecord[];
+    collectionMemberships: CollectionMembershipMap;
     reviewProgress: ReviewProgressMap;
     userName: string;
     canLogout: boolean;
@@ -123,6 +139,10 @@ type UseSessionFlowResult = {
     onUpdateFavoriteStatus: (word: string, status: MemorizationStatus) => void;
     onRemoveFavorite: (word: string) => void;
     onApplyReviewOutcome: (word: string, outcome: ReviewOutcome) => Promise<void>;
+    onCreateCollection: (name: string) => Promise<string | null>;
+    onRenameCollection: (collectionId: string, name: string) => Promise<void>;
+    onDeleteCollection: (collectionId: string) => Promise<void>;
+    onAssignWordToCollection: (word: string, collectionId: string | null) => Promise<void>;
 };
 
 export function useSessionFlow({
@@ -131,6 +151,7 @@ export function useSessionFlow({
     syncOnboardingVisibilityAfterAuthentication,
 }: UseSessionFlowArgs): UseSessionFlowResult {
     const [favorites, setFavorites] = useState<FavoriteWordEntry[]>([]);
+    const [collections, setCollections] = useState<CollectionRecord[]>([]);
     const [reviewProgress, setReviewProgress] = useState<ReviewProgressMap>({});
     const [user, setUser] = useState<UserRecord | null>(null);
     const [initializing, setInitializing] = useState(true);
@@ -166,6 +187,8 @@ export function useSessionFlow({
         return error instanceof Error ? error.message : fallbackMessage;
     }, []);
 
+    const normalizeCollectionName = useCallback((name: string) => name.trim(), []);
+
     const findFavoriteByWord = useCallback((entries: FavoriteWordEntry[], word: string) => {
         const key = createReviewProgressKey(word);
         return entries.find((item) => createReviewProgressKey(item.word.word) === key) ?? null;
@@ -181,6 +204,27 @@ export function useSessionFlow({
         delete next[key];
         return next;
     }, []);
+
+    const validateCollectionName = useCallback(
+        (name: string, existingCollections: CollectionRecord[], collectionId?: string | null) => {
+            const normalizedName = normalizeCollectionName(name);
+            if (!normalizedName) {
+                throw new Error("컬렉션 이름을 입력해주세요.");
+            }
+
+            const duplicated = existingCollections.some(
+                (collection) =>
+                    collection.id !== collectionId &&
+                    normalizeCollectionName(collection.name).toLowerCase() === normalizedName.toLowerCase(),
+            );
+            if (duplicated) {
+                throw new Error("같은 이름의 컬렉션이 이미 있어요.");
+            }
+
+            return normalizedName;
+        },
+        [normalizeCollectionName],
+    );
 
     const ensurePhoneticForWord = useCallback(async (word: WordResult) => {
         if (word.phonetic?.trim()) {
@@ -244,6 +288,7 @@ export function useSessionFlow({
         setIsGuest(false);
         setUser(null);
         setFavorites([]);
+        setCollections([]);
         setReviewProgress({});
         resetSearchState();
         setAuthError(null);
@@ -258,27 +303,36 @@ export function useSessionFlow({
 
     const parseAndMergeGuestFavorites = useCallback(
         async (userRecord: UserRecord) => {
-            const [storedFavorites, storedReviewProgress] = await Promise.all([
+            const [storedFavorites, storedCollections, storedReviewProgress] = await Promise.all([
                 getFavoritesByUser(userRecord.id),
+                getCollectionsByUser(userRecord.id),
                 getReviewProgressByUser(userRecord.id),
             ]);
             const hydratedFavorites = await hydrateFavorites(storedFavorites, userRecord.id);
 
             let nextFavorites = hydratedFavorites;
+            let nextCollections = storedCollections;
             let nextReviewProgress = storedReviewProgress;
             let mergedCount = 0;
             try {
-                const [rawGuestFavorites, rawGuestReviewProgress] = await Promise.all([
+                const [rawGuestFavorites, rawGuestCollections, rawGuestReviewProgress] = await Promise.all([
                     getPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY),
+                    getPreferenceValue(GUEST_COLLECTIONS_PREFERENCE_KEY),
                     getPreferenceValue(GUEST_REVIEW_PROGRESS_PREFERENCE_KEY),
                 ]);
                 const guestFavorites = parseGuestFavoriteEntries(rawGuestFavorites);
+                const guestCollections = parseGuestCollections(rawGuestCollections);
                 const guestReviewProgress = parseGuestReviewProgress(rawGuestReviewProgress);
                 if (guestFavorites.length > 0) {
                     nextFavorites = mergeFavoriteEntries(hydratedFavorites, guestFavorites);
                     mergedCount = nextFavorites.length - hydratedFavorites.length;
                     await Promise.all(nextFavorites.map((entry) => upsertFavoriteForUser(userRecord.id, entry)));
                     await setPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY, "[]");
+                }
+                if (guestCollections.length > 0) {
+                    nextCollections = mergeGuestCollections(storedCollections, guestCollections);
+                    await setCollectionsForUser(userRecord.id, nextCollections);
+                    await setPreferenceValue(GUEST_COLLECTIONS_PREFERENCE_KEY, "[]");
                 }
                 if (Object.keys(guestReviewProgress).length > 0) {
                     nextReviewProgress = mergeGuestReviewProgress(storedReviewProgress, guestReviewProgress);
@@ -296,6 +350,7 @@ export function useSessionFlow({
             setIsGuest(false);
             setUser(userRecord);
             setFavorites(nextFavorites);
+            setCollections(nextCollections);
             setReviewProgress(nextReviewProgress);
             resetSearchState();
             setAuthError(null);
@@ -315,15 +370,18 @@ export function useSessionFlow({
     const applySignedOutState = useCallback(async () => {
         const session = await getActiveSession();
         if (session?.isGuest) {
-            const [rawGuestFavorites, rawGuestReviewProgress] = await Promise.all([
+            const [rawGuestFavorites, rawGuestCollections, rawGuestReviewProgress] = await Promise.all([
                 getPreferenceValue(GUEST_FAVORITES_PREFERENCE_KEY),
+                getPreferenceValue(GUEST_COLLECTIONS_PREFERENCE_KEY),
                 getPreferenceValue(GUEST_REVIEW_PROGRESS_PREFERENCE_KEY),
             ]);
             const guestFavorites = await hydrateFavorites(parseGuestFavoriteEntries(rawGuestFavorites));
+            const guestCollections = parseGuestCollections(rawGuestCollections);
             const guestReviewProgress = parseGuestReviewProgress(rawGuestReviewProgress);
             setIsGuest(true);
             setUser(null);
             setFavorites(guestFavorites);
+            setCollections(guestCollections);
             setReviewProgress(guestReviewProgress);
             resetSearchState();
             setAuthError(null);
@@ -338,6 +396,7 @@ export function useSessionFlow({
         setIsGuest(false);
         setUser(null);
         setFavorites([]);
+        setCollections([]);
         setReviewProgress({});
         resetSearchState();
         setAuthError(null);
@@ -394,6 +453,16 @@ export function useSessionFlow({
             return;
         }
 
+        void setPreferenceValue(GUEST_COLLECTIONS_PREFERENCE_KEY, JSON.stringify(collections)).catch((error) => {
+            console.warn("게스트 컬렉션을 저장하는 중 문제가 발생했어요.", error);
+        });
+    }, [collections, isGuest]);
+
+    useEffect(() => {
+        if (!isGuest) {
+            return;
+        }
+
         void setPreferenceValue(GUEST_REVIEW_PROGRESS_PREFERENCE_KEY, JSON.stringify(reviewProgress)).catch((error) => {
             console.warn("게스트 복습 진행도를 저장하는 중 문제가 발생했어요.", error);
         });
@@ -407,6 +476,7 @@ export function useSessionFlow({
             }
 
             const previousFavorites = favorites;
+            const previousCollections = collections;
             const previousReviewProgress = reviewProgress;
             const target = findFavoriteByWord(previousFavorites, word);
             if (!target) {
@@ -416,23 +486,35 @@ export function useSessionFlow({
             const nextFavorites = previousFavorites.filter(
                 (item) => createReviewProgressKey(item.word.word) !== createReviewProgressKey(target.word.word),
             );
+            const nextCollections = removeWordsFromCollections(previousCollections, [target.word.word]);
             const nextReviewProgress = removeReviewProgressByWord(previousReviewProgress, target.word.word);
             setFavorites(nextFavorites);
+            setCollections(nextCollections);
             setReviewProgress(nextReviewProgress);
 
             try {
                 await Promise.all([
                     removeFavoriteForUser(user.id, target.word.word),
+                    setCollectionsForUser(user.id, nextCollections),
                     removeReviewProgressForUser(user.id, target.word.word),
                 ]);
             } catch (error) {
                 setFavorites(previousFavorites);
+                setCollections(previousCollections);
                 setReviewProgress(previousReviewProgress);
                 const message = error instanceof Error ? error.message : REMOVE_FAVORITE_ERROR_MESSAGE;
                 reportSearchError(message);
             }
         },
-        [favorites, findFavoriteByWord, removeReviewProgressByWord, reportSearchError, reviewProgress, user],
+        [
+            collections,
+            favorites,
+            findFavoriteByWord,
+            removeReviewProgressByWord,
+            reportSearchError,
+            reviewProgress,
+            user,
+        ],
     );
 
     const toggleFavoriteAsync = useCallback(
@@ -449,6 +531,7 @@ export function useSessionFlow({
                 }
                 clearSearchError();
                 if (existingEntry) {
+                    setCollections((previous) => removeWordsFromCollections(previous, [existingEntry.word.word]));
                     setFavorites(
                         previousFavorites.filter(
                             (item) =>
@@ -596,6 +679,7 @@ export function useSessionFlow({
     const handleRemoveFavorite = useCallback(
         (word: string) => {
             if (isGuest) {
+                setCollections((previous) => removeWordsFromCollections(previous, [word]));
                 setFavorites((previous) =>
                     previous.filter(
                         (item) => createReviewProgressKey(item.word.word) !== createReviewProgressKey(word),
@@ -610,6 +694,120 @@ export function useSessionFlow({
         [isGuest, removeFavoritePersisted, removeReviewProgressByWord],
     );
 
+    const createCollectionAsync = useCallback(
+        async (name: string) => {
+            const normalizedName = validateCollectionName(name, collections);
+            const nextCollection = createCollection(normalizedName);
+            const previousCollections = collections;
+            const nextCollections = [...previousCollections, nextCollection];
+
+            setCollections(nextCollections);
+
+            if (isGuest) {
+                return nextCollection.id;
+            }
+
+            if (!user) {
+                setCollections(previousCollections);
+                throw new Error(MISSING_USER_ERROR_MESSAGE);
+            }
+
+            try {
+                await setCollectionsForUser(user.id, nextCollections);
+                return nextCollection.id;
+            } catch (error) {
+                setCollections(previousCollections);
+                throw new Error(error instanceof Error ? error.message : "컬렉션을 만들지 못했어요.");
+            }
+        },
+        [collections, isGuest, user, validateCollectionName],
+    );
+
+    const renameCollectionAsync = useCallback(
+        async (collectionId: string, name: string) => {
+            const normalizedName = validateCollectionName(name, collections, collectionId);
+            const previousCollections = collections;
+            const nextCollections = renameCollection(previousCollections, collectionId, normalizedName);
+            setCollections(nextCollections);
+
+            if (isGuest) {
+                return;
+            }
+
+            if (!user) {
+                setCollections(previousCollections);
+                throw new Error(MISSING_USER_ERROR_MESSAGE);
+            }
+
+            try {
+                await setCollectionsForUser(user.id, nextCollections);
+            } catch (error) {
+                setCollections(previousCollections);
+                throw new Error(error instanceof Error ? error.message : "컬렉션 이름을 바꾸지 못했어요.");
+            }
+        },
+        [collections, isGuest, user, validateCollectionName],
+    );
+
+    const deleteCollectionAsync = useCallback(
+        async (collectionId: string) => {
+            const previousCollections = collections;
+            const nextCollections = deleteCollection(previousCollections, collectionId);
+            setCollections(nextCollections);
+
+            if (isGuest) {
+                return;
+            }
+
+            if (!user) {
+                setCollections(previousCollections);
+                throw new Error(MISSING_USER_ERROR_MESSAGE);
+            }
+
+            try {
+                await setCollectionsForUser(user.id, nextCollections);
+            } catch (error) {
+                setCollections(previousCollections);
+                throw new Error(error instanceof Error ? error.message : "컬렉션을 삭제하지 못했어요.");
+            }
+        },
+        [collections, isGuest, user],
+    );
+
+    const assignWordToCollectionAsync = useCallback(
+        async (word: string, collectionId: string | null) => {
+            const target = findFavoriteByWord(favorites, word);
+            if (!target) {
+                throw new Error("먼저 단어를 저장한 뒤 컬렉션을 정할 수 있어요.");
+            }
+
+            const previousCollections = collections;
+            const nextCollections =
+                collectionId == null
+                    ? removeWordsFromCollections(previousCollections, [target.word.word])
+                    : assignWordsToCollection(previousCollections, collectionId, [target.word.word]);
+
+            setCollections(nextCollections);
+
+            if (isGuest) {
+                return;
+            }
+
+            if (!user) {
+                setCollections(previousCollections);
+                throw new Error(MISSING_USER_ERROR_MESSAGE);
+            }
+
+            try {
+                await setCollectionsForUser(user.id, nextCollections);
+            } catch (error) {
+                setCollections(previousCollections);
+                throw new Error(error instanceof Error ? error.message : "컬렉션을 저장하지 못했어요.");
+            }
+        },
+        [collections, favorites, findFavoriteByWord, isGuest, user],
+    );
+
     const handleGuestAccessAsync = useCallback(async () => {
         setAuthLoading(true);
         setAuthError(null);
@@ -621,6 +819,7 @@ export function useSessionFlow({
             setIsGuest(true);
             setUser(null);
             setFavorites([]);
+            setCollections([]);
             setReviewProgress({});
             resetSearchState();
         } catch (error) {
@@ -1044,11 +1243,40 @@ export function useSessionFlow({
         [applyReviewOutcomeAsync],
     );
 
+    const onCreateCollection = useCallback(
+        async (name: string) => {
+            return await createCollectionAsync(name);
+        },
+        [createCollectionAsync],
+    );
+
+    const onRenameCollection = useCallback(
+        async (collectionId: string, name: string) => {
+            await renameCollectionAsync(collectionId, name);
+        },
+        [renameCollectionAsync],
+    );
+
+    const onDeleteCollection = useCallback(
+        async (collectionId: string) => {
+            await deleteCollectionAsync(collectionId);
+        },
+        [deleteCollectionAsync],
+    );
+
+    const onAssignWordToCollection = useCallback(
+        async (word: string, collectionId: string | null) => {
+            await assignWordToCollectionAsync(word, collectionId);
+        },
+        [assignWordToCollectionAsync],
+    );
+
     const isAuthenticated = useMemo(() => isGuest || user !== null, [isGuest, user]);
     const canLogout = user !== null;
     const userName = user?.displayName ?? user?.username ?? DEFAULT_GUEST_NAME;
     const profileDisplayName = user?.displayName ?? null;
     const profileUsername = user?.username ?? null;
+    const collectionMemberships = useMemo(() => getCollectionMembershipMap(collections), [collections]);
 
     const loginBindings = useMemo<LoginScreenProps>(
         () => ({
@@ -1083,6 +1311,8 @@ export function useSessionFlow({
         isGuest,
         authLoading,
         favorites,
+        collections,
+        collectionMemberships,
         reviewProgress,
         userName,
         canLogout,
@@ -1104,5 +1334,9 @@ export function useSessionFlow({
         onUpdateFavoriteStatus,
         onRemoveFavorite,
         onApplyReviewOutcome,
+        onCreateCollection,
+        onRenameCollection,
+        onDeleteCollection,
+        onAssignWordToCollection,
     };
 }

@@ -1,9 +1,11 @@
 export { applyCollectionBatchAction } from "@/services/collections/batchActions";
 export {
     assignWordsToCollection,
+    cloneCollections,
     createCollection,
     deleteCollection,
     getCollectionMembershipMap,
+    mergeCollectionsByName,
     removeWordsFromCollections,
     renameCollection,
 } from "@/services/collections/collections";

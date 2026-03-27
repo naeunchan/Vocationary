@@ -7,6 +7,14 @@ import { AppAppearanceProvider } from "@/theme/AppearanceContext";
 
 const mockFlashcard = jest.fn();
 
+jest.mock("@/components/TextField", () => ({
+    TextField: ({ value, onChangeText, placeholder }: any) => {
+        const React = require("react");
+        const { TextInput } = require("react-native");
+        return <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} />;
+    },
+}));
+
 jest.mock("@/screens/Favorites/components/FavoritesFlashcard", () => {
     const React = require("react");
     const { Text } = require("react-native");
@@ -42,11 +50,40 @@ const createEntry = (word: string, status: FavoriteWordEntry["status"]): Favorit
 
 describe("FavoritesScreen", () => {
     const props = {
-        favorites: [createEntry("alpha", "toMemorize"), createEntry("beta", "review")],
+        favorites: [
+            createEntry("alpha", "toMemorize"),
+            createEntry("beta", "review"),
+            createEntry("gamma", "toMemorize"),
+        ],
         onUpdateStatus: jest.fn(),
         onRemoveFavorite: jest.fn(),
         onPlayAudio: jest.fn(),
         pronunciationAvailable: false,
+        collectionsEnabled: true,
+        collections: [
+            {
+                id: "toeic",
+                name: "TOEIC",
+                createdAt: "2026-03-22T00:00:00.000Z",
+                updatedAt: "2026-03-22T00:00:00.000Z",
+                wordKeys: ["alpha"],
+            },
+            {
+                id: "ielts",
+                name: "IELTS",
+                createdAt: "2026-03-22T00:00:00.000Z",
+                updatedAt: "2026-03-22T00:00:00.000Z",
+                wordKeys: ["gamma"],
+            },
+        ],
+        collectionMemberships: {
+            alpha: "toeic",
+            gamma: "ielts",
+        },
+        onCreateCollection: jest.fn().mockResolvedValue("toeic"),
+        onRenameCollection: jest.fn().mockResolvedValue(undefined),
+        onDeleteCollection: jest.fn().mockResolvedValue(undefined),
+        onAssignWordToCollection: jest.fn().mockResolvedValue(undefined),
     };
 
     beforeEach(() => {
@@ -56,10 +93,13 @@ describe("FavoritesScreen", () => {
     it("renders toMemorize entries by default", () => {
         const { getByTestId } = render(<FavoritesScreen {...props} />, { wrapper });
 
-        expect(getByTestId("favorites-flashcard").props.children).toBe(1);
+        expect(getByTestId("favorites-flashcard").props.children).toBe(2);
         expect(mockFlashcard).toHaveBeenLastCalledWith(
             expect.objectContaining({
-                entries: [expect.objectContaining({ word: expect.objectContaining({ word: "alpha" }) })],
+                entries: expect.arrayContaining([
+                    expect.objectContaining({ word: expect.objectContaining({ word: "alpha" }) }),
+                    expect.objectContaining({ word: expect.objectContaining({ word: "gamma" }) }),
+                ]),
             }),
         );
     });
@@ -72,6 +112,18 @@ describe("FavoritesScreen", () => {
         expect(mockFlashcard).toHaveBeenLastCalledWith(
             expect.objectContaining({
                 entries: [expect.objectContaining({ word: expect.objectContaining({ word: "beta" }) })],
+            }),
+        );
+    });
+
+    it("filters visible flashcards by collection", () => {
+        const { getAllByText, getByTestId } = render(<FavoritesScreen {...props} />, { wrapper });
+
+        fireEvent.press(getAllByText("IELTS")[0]);
+        expect(getByTestId("favorites-flashcard").props.children).toBe(1);
+        expect(mockFlashcard).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                entries: [expect.objectContaining({ word: expect.objectContaining({ word: "gamma" }) })],
             }),
         );
     });

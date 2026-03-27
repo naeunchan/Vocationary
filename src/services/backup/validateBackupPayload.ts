@@ -1,3 +1,4 @@
+import type { CollectionRecord } from "@/services/collections/types";
 import { type FavoriteWordEntry, isMemorizationStatus } from "@/services/favorites/types";
 import type { ReviewOutcome, ReviewProgressEntry, ReviewProgressMap } from "@/services/review/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
@@ -18,6 +19,7 @@ export type ValidatedBackupPayload = {
     exportedAt: string;
     users: BackupUserPayload[];
     favorites: Record<string, FavoriteWordEntry[]>;
+    collections: Record<string, CollectionRecord[]>;
     reviewProgress: Record<string, ReviewProgressMap>;
     searchHistory: SearchHistoryEntry[];
 };
@@ -35,6 +37,7 @@ const LATEST_BACKUP_VERSION = 2;
 const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2]);
 const MAX_BACKUP_USERS = 5_000;
 const MAX_BACKUP_FAVORITES = 50_000;
+const MAX_BACKUP_COLLECTIONS = 5_000;
 const MAX_BACKUP_REVIEW_PROGRESS = 50_000;
 const MAX_BACKUP_SEARCH_HISTORY = 1_000;
 
@@ -243,6 +246,105 @@ function validateReviewProgressEntry(
     };
 }
 
+function validateCollectionRecord(value: unknown, username: string, index: number): CollectionRecord | ValidationError {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return invalidPayload("백업 파일의 컬렉션 형식이 올바르지 않아요.", {
+            username,
+            index,
+        });
+    }
+
+    const record = value as Partial<CollectionRecord>;
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    const name = typeof record.name === "string" ? record.name.trim() : "";
+    if (!id || !name) {
+        return invalidPayload("백업 파일의 컬렉션 id 또는 이름이 비어 있어요.", {
+            username,
+            index,
+        });
+    }
+
+    return {
+        id,
+        name,
+        createdAt: typeof record.createdAt === "string" ? record.createdAt : new Date().toISOString(),
+        updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : new Date().toISOString(),
+        wordKeys: Array.isArray(record.wordKeys)
+            ? Array.from(new Set(record.wordKeys.map(normalizeReviewWordKey).filter(Boolean)))
+            : [],
+    };
+}
+
+function validateCollections(
+    collections: unknown,
+    userSet: Set<string>,
+    version: 1 | 2,
+): { collections: Record<string, CollectionRecord[]> } | ValidationError {
+    if (version === 1 || collections == null) {
+        return {
+            collections: Object.fromEntries(Array.from(userSet).map((username) => [username, []])),
+        };
+    }
+
+    if (typeof collections !== "object" || Array.isArray(collections)) {
+        return invalidPayload("백업 파일의 collections 항목이 올바르지 않아요.");
+    }
+
+    const normalizedCollections: Record<string, CollectionRecord[]> = {};
+    let totalCollections = 0;
+
+    for (const [rawUsername, entries] of Object.entries(collections as Record<string, unknown>)) {
+        const normalizedUsername = rawUsername.trim().toLowerCase();
+        if (!normalizedUsername) {
+            return invalidPayload("백업 파일의 collections 사용자 키가 비어 있어요.");
+        }
+        if (!userSet.has(normalizedUsername)) {
+            return invalidPayload("백업 파일의 collections가 존재하지 않는 사용자와 연결되어 있어요.", {
+                username: normalizedUsername,
+            });
+        }
+        if (!Array.isArray(entries)) {
+            return invalidPayload("백업 파일의 collections 항목이 배열이 아니에요.", {
+                username: normalizedUsername,
+            });
+        }
+
+        const collectionIds = new Set<string>();
+        const normalizedEntries: CollectionRecord[] = [];
+        for (let index = 0; index < entries.length; index += 1) {
+            const validated = validateCollectionRecord(entries[index], normalizedUsername, index);
+            if (isValidationError(validated)) {
+                return validated;
+            }
+            if (collectionIds.has(validated.id)) {
+                return invalidPayload("백업 파일의 컬렉션 id가 중복돼 있어요.", {
+                    username: normalizedUsername,
+                    collectionId: validated.id,
+                });
+            }
+
+            collectionIds.add(validated.id);
+            normalizedEntries.push(validated);
+            totalCollections += 1;
+            if (totalCollections > MAX_BACKUP_COLLECTIONS) {
+                return invalidPayload("백업 파일의 컬렉션 수가 너무 많아요.", {
+                    max: MAX_BACKUP_COLLECTIONS,
+                });
+            }
+        }
+
+        normalizedCollections[normalizedUsername] = normalizedEntries;
+    }
+
+    for (const username of userSet) {
+        if (!normalizedCollections[username]) {
+            normalizedCollections[username] = [];
+        }
+    }
+
+    return { collections: normalizedCollections };
+}
+
 function validateReviewProgress(
     reviewProgress: unknown,
     userSet: Set<string>,
@@ -400,6 +502,15 @@ export function validateBackupPayload(payload: unknown): ValidateBackupPayloadRe
         return validatedFavorites;
     }
 
+    const validatedCollections = validateCollections(
+        (record as { collections?: unknown }).collections,
+        validatedUsers.userSet,
+        versionNumber as 1 | 2,
+    );
+    if (isValidationError(validatedCollections)) {
+        return validatedCollections;
+    }
+
     const validatedReviewProgress = validateReviewProgress(
         (record as { reviewProgress?: unknown }).reviewProgress,
         validatedUsers.userSet,
@@ -421,6 +532,7 @@ export function validateBackupPayload(payload: unknown): ValidateBackupPayloadRe
             exportedAt: record.exportedAt,
             users: validatedUsers.users,
             favorites: validatedFavorites.favorites,
+            collections: validatedCollections.collections,
             reviewProgress: validatedReviewProgress.reviewProgress,
             searchHistory: validatedSearchHistory,
         },
