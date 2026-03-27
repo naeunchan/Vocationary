@@ -21,7 +21,7 @@ function normalizeContext(context) {
             partOfSpeech: typeof entry?.partOfSpeech === "string" ? entry.partOfSpeech.trim() : "",
         }))
         .filter((entry) => entry.definition)
-        .slice(0, 8);
+        .slice(0, 6);
 }
 
 function buildStudyPrompt({ word, cardTypes, cardCount, context }) {
@@ -44,14 +44,11 @@ function buildStudyPrompt({ word, cardTypes, cardCount, context }) {
         `CardTypes:${normalizedTypes.join(",")}`,
         `CardCount:${safeCardCount}`,
         `Context:${compactContext}`,
-        "Return objective vocabulary quiz cards only.",
-        "Use these card formats:",
-        "cloze -> prompt with one blank and choices containing the target word.",
-        "definition-choice -> prompt asks for the best definition and choices are definitions only.",
-        "usage-check -> prompt asks for the correct usage and choices are short sentences only.",
-        "Every card must include id, type, prompt, choices[{id,label,value}], answer, explanation.",
-        "Answer must match one choice value exactly.",
-        "Keep copy concise and learner-friendly.",
+        "Return short objective vocabulary quiz cards as JSON only.",
+        "Use only the supplied context.",
+        "cloze=one blank sentence; definition-choice=best definition; usage-check=best short sentence.",
+        "Each card requires id,type,prompt,choices[{id,label,value}],answer,explanation.",
+        "answer must exactly equal one choice.value.",
     ].join("\n");
 }
 

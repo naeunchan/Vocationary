@@ -20,6 +20,11 @@ type StudyContextEntry = {
     partOfSpeech?: string;
 };
 
+const MAX_STUDY_CONTEXT_WITH_EXAMPLES = 4;
+const MAX_STUDY_CONTEXT_WITHOUT_EXAMPLES = 6;
+const MAX_DEFINITION_LENGTH = 96;
+const MAX_EXAMPLE_LENGTH = 88;
+
 function clampCardCount(value: number | undefined): number {
     if (!Number.isFinite(value)) {
         return 3;
@@ -37,16 +42,74 @@ function normalizeCardTypes(cardTypes: StudyCardType[] | undefined): StudyCardTy
     return normalized.length > 0 ? normalized : [...DEFAULT_STUDY_CARD_TYPES];
 }
 
-function buildContext(meanings: MeaningEntry[]): StudyContextEntry[] {
-    return meanings.flatMap((meaning) =>
+function normalizeContextText(value: string, maxLength: number): string {
+    const collapsed = value.replace(/\s+/g, " ").trim();
+    if (collapsed.length <= maxLength) {
+        return collapsed;
+    }
+
+    const sliced = collapsed.slice(0, maxLength).trim();
+    const lastSpaceIndex = sliced.lastIndexOf(" ");
+    if (lastSpaceIndex >= Math.floor(maxLength * 0.6)) {
+        return sliced.slice(0, lastSpaceIndex).trim();
+    }
+
+    return sliced;
+}
+
+function shouldIncludeExamples(cardTypes: readonly StudyCardType[]): boolean {
+    return cardTypes.includes("cloze") || cardTypes.includes("usage-check");
+}
+
+function buildContext(meanings: MeaningEntry[], cardTypes: readonly StudyCardType[]): StudyContextEntry[] {
+    const includeExamples = shouldIncludeExamples(cardTypes);
+    const maxEntries = includeExamples ? MAX_STUDY_CONTEXT_WITH_EXAMPLES : MAX_STUDY_CONTEXT_WITHOUT_EXAMPLES;
+
+    const entries = meanings.flatMap((meaning) =>
         meaning.definitions
-            .map((definition) => ({
-                definition: (definition.originalDefinition ?? definition.definition).trim(),
-                example: definition.example?.trim() || undefined,
-                partOfSpeech: meaning.partOfSpeech?.trim() || undefined,
-            }))
+            .map((definition) => {
+                const baseDefinition = normalizeContextText(
+                    (definition.originalDefinition ?? definition.definition).trim(),
+                    MAX_DEFINITION_LENGTH,
+                );
+                const example = definition.example?.trim()
+                    ? normalizeContextText(definition.example.trim(), MAX_EXAMPLE_LENGTH)
+                    : undefined;
+
+                return {
+                    definition: baseDefinition,
+                    example: includeExamples ? example : undefined,
+                    partOfSpeech: meaning.partOfSpeech?.trim() || undefined,
+                };
+            })
             .filter((entry) => entry.definition),
     );
+
+    return entries
+        .sort((left, right) => {
+            const leftHasExample = Boolean(left.example);
+            const rightHasExample = Boolean(right.example);
+
+            if (leftHasExample !== rightHasExample) {
+                return leftHasExample ? -1 : 1;
+            }
+
+            if (left.definition.length !== right.definition.length) {
+                return left.definition.length - right.definition.length;
+            }
+
+            return left.definition.localeCompare(right.definition);
+        })
+        .slice(0, maxEntries);
+}
+
+function maxTokensFor(cardCount: number, cardTypes: readonly StudyCardType[], contextLength: number): number {
+    const includeExamples = shouldIncludeExamples(cardTypes);
+    const typeComplexity = cardTypes.length >= 3 ? 30 : cardTypes.length === 2 ? 15 : 0;
+    const exampleComplexity = includeExamples ? 20 : 0;
+    const contextComplexity = Math.min(30, contextLength * 5);
+
+    return Math.min(320, Math.max(120, 90 + cardCount * 35 + typeComplexity + exampleComplexity + contextComplexity));
 }
 
 function normalizeChoices(value: unknown): StudyCardChoice[] {
@@ -115,7 +178,9 @@ export async function generateStudyCards(
         });
     }
 
-    const context = buildContext(meanings);
+    const cardTypes = normalizeCardTypes(options.cardTypes);
+    const cardCount = clampCardCount(options.cardCount);
+    const context = buildContext(meanings, cardTypes);
     if (context.length === 0) {
         throw createAppError("ValidationError", "학습 카드에 사용할 뜻이 없어요.", {
             code: "AI_STUDY_EMPTY_CONTEXT",
@@ -144,9 +209,10 @@ export async function generateStudyCards(
             },
             body: JSON.stringify({
                 word: normalizedWord,
-                cardTypes: normalizeCardTypes(options.cardTypes),
-                cardCount: clampCardCount(options.cardCount),
+                cardTypes,
+                cardCount,
                 context,
+                maxTokens: maxTokensFor(cardCount, cardTypes, context.length),
             }),
             signal: controller.signal,
         });
