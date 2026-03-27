@@ -1,5 +1,6 @@
 import QuickLRU from "quick-lru";
 
+import { getPersistedExampleUpdates, setPersistedExampleUpdates } from "@/api/dictionary/aiPersistentCache";
 import { createAIHttpError, createAIInvalidPayloadError, normalizeAIProxyError } from "@/api/dictionary/aiProxyError";
 import { OPENAI_FEATURE_ENABLED, OPENAI_PROXY_KEY, OPENAI_PROXY_URL } from "@/config/openAI";
 import { MeaningEntry } from "@/services/dictionary/types/WordResult";
@@ -227,7 +228,11 @@ async function loadFreshExampleUpdates(
     }
 
     const task = requestOpenAI(word, descriptors)
-        .then((updates) => setCachedExampleUpdates(cacheKey, updates))
+        .then(async (updates) => {
+            const value = setCachedExampleUpdates(cacheKey, updates);
+            await setPersistedExampleUpdates(cacheKey, value, EXAMPLE_CACHE_TTL_MS);
+            return value;
+        })
         .finally(() => {
             inFlightExampleRequests.delete(cacheKey);
         });
@@ -257,6 +262,20 @@ export async function generateDefinitionExamples(
             }
 
             return snapshot.value;
+        }
+
+        const persisted = await getPersistedExampleUpdates(cacheKey, now);
+        if (persisted) {
+            exampleCache.set(cacheKey, {
+                value: cloneExampleUpdates(persisted.value),
+                expiresAt: persisted.expiresAt,
+            });
+
+            if (!persisted.isFresh) {
+                void loadFreshExampleUpdates(cacheKey, word, descriptors).catch(() => {});
+            }
+
+            return cloneExampleUpdates(persisted.value);
         }
     }
 

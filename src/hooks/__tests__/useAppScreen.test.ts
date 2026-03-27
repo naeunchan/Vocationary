@@ -58,6 +58,7 @@ jest.mock("@/api/dictionary/freeDictionaryClient", () => ({
 
 jest.mock("@/api/dictionary/getPronunciationAudio", () => ({
     getPronunciationAudio: jest.fn(),
+    invalidatePronunciationAudioCache: jest.fn(),
     prefetchPronunciationAudio: jest.fn(),
 }));
 

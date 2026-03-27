@@ -6,6 +6,7 @@ type OpenAIConfigMock = {
 
 const originalFetch = global.fetch;
 const EXAMPLE_CACHE_TTL_MS = 1000 * 60 * 30;
+const preferenceStore: Record<string, string> = {};
 
 function loadModule(config: OpenAIConfigMock) {
     let loaded: typeof import("@/api/dictionary/exampleGenerator");
@@ -13,6 +14,14 @@ function loadModule(config: OpenAIConfigMock) {
     jest.resetModules();
     jest.isolateModules(() => {
         jest.doMock("@/config/openAI", () => config);
+        jest.doMock("@/services/database", () => ({
+            getPreferenceValue: jest.fn(async (key: string) =>
+                Object.prototype.hasOwnProperty.call(preferenceStore, key) ? preferenceStore[key] : null,
+            ),
+            setPreferenceValue: jest.fn(async (key: string, value: string) => {
+                preferenceStore[key] = value;
+            }),
+        }));
         jest.doMock("quick-lru", () => ({
             __esModule: true,
             default: class QuickLRUMock<Key, Value> extends Map<Key, Value> {
@@ -47,6 +56,9 @@ describe("exampleGenerator", () => {
         jest.clearAllMocks();
         jest.restoreAllMocks();
         jest.resetModules();
+        Object.keys(preferenceStore).forEach((key) => {
+            delete preferenceStore[key];
+        });
         (global as unknown as { fetch: typeof fetch }).fetch = originalFetch;
     });
 
@@ -159,5 +171,44 @@ describe("exampleGenerator", () => {
 
         await expect(module.generateDefinitionExamples("focus", meanings)).resolves.toEqual([]);
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("reuses persisted example cache after the module reloads", async () => {
+        const firstModule = loadModule({
+            OPENAI_FEATURE_ENABLED: true,
+            OPENAI_PROXY_URL: "https://example.com",
+            OPENAI_PROXY_KEY: "secret",
+        });
+        const firstFetchMock = jest.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                items: [
+                    {
+                        meaningIndex: 0,
+                        definitionIndex: 0,
+                        example: "Keep your focus.",
+                        translatedExample: null,
+                        translatedDefinition: null,
+                    },
+                ],
+            }),
+        });
+        mockFetch(firstFetchMock);
+
+        const first = await firstModule.generateDefinitionExamples("focus", meanings);
+        expect(first[0]?.example).toBe("Keep your focus.");
+        expect(firstFetchMock).toHaveBeenCalledTimes(1);
+
+        const secondModule = loadModule({
+            OPENAI_FEATURE_ENABLED: true,
+            OPENAI_PROXY_URL: "https://example.com",
+            OPENAI_PROXY_KEY: "secret",
+        });
+        const secondFetchMock = jest.fn();
+        mockFetch(secondFetchMock);
+
+        const second = await secondModule.generateDefinitionExamples("focus", meanings);
+        expect(second[0]?.example).toBe("Keep your focus.");
+        expect(secondFetchMock).not.toHaveBeenCalled();
     });
 });
