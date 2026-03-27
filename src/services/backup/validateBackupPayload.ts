@@ -1,4 +1,5 @@
 import { type FavoriteWordEntry, isMemorizationStatus } from "@/services/favorites/types";
+import type { ReviewOutcome, ReviewProgressEntry, ReviewProgressMap } from "@/services/review/types";
 import type { SearchHistoryEntry } from "@/services/searchHistory/types";
 
 import { createRestoreError, type RestoreErr } from "./restoreResult";
@@ -13,10 +14,11 @@ type BackupUserPayload = {
 };
 
 export type ValidatedBackupPayload = {
-    version: 1;
+    version: 1 | 2;
     exportedAt: string;
     users: BackupUserPayload[];
     favorites: Record<string, FavoriteWordEntry[]>;
+    reviewProgress: Record<string, ReviewProgressMap>;
     searchHistory: SearchHistoryEntry[];
 };
 
@@ -29,9 +31,11 @@ type ValidationError = RestoreErr & { ok: false };
 
 export type ValidateBackupPayloadResult = ValidationOk | ValidationError;
 
-const SUPPORTED_BACKUP_VERSION = 1;
+const LATEST_BACKUP_VERSION = 2;
+const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2]);
 const MAX_BACKUP_USERS = 5_000;
 const MAX_BACKUP_FAVORITES = 50_000;
+const MAX_BACKUP_REVIEW_PROGRESS = 50_000;
 const MAX_BACKUP_SEARCH_HISTORY = 1_000;
 
 function invalidPayload(message: string, details?: Record<string, unknown>) {
@@ -54,6 +58,22 @@ function normalizeNullableString(value: unknown) {
         return null;
     }
     return value;
+}
+
+function normalizeReviewOutcome(value: unknown): ReviewOutcome | null {
+    return value === "again" || value === "good" || value === "easy" ? value : null;
+}
+
+function normalizeReviewMetric(value: unknown): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.max(0, Math.round(value));
+}
+
+function normalizeReviewWordKey(value: unknown): string {
+    return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 function validateUsers(users: unknown): { users: BackupUserPayload[]; userSet: Set<string> } | ValidationError {
@@ -191,6 +211,107 @@ function validateFavorites(
     };
 }
 
+function validateReviewProgressEntry(
+    value: unknown,
+    username: string,
+    wordKey: string,
+): ReviewProgressEntry | ValidationError {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return invalidPayload("백업 파일의 복습 진행도 형식이 올바르지 않아요.", {
+            username,
+            wordKey,
+        });
+    }
+
+    const record = value as Partial<ReviewProgressEntry>;
+    const normalizedWord = normalizeReviewWordKey(record.word) || wordKey;
+    if (!normalizedWord) {
+        return invalidPayload("백업 파일의 복습 진행도 단어 키가 올바르지 않아요.", {
+            username,
+            wordKey,
+        });
+    }
+
+    return {
+        word: normalizedWord,
+        lastReviewedAt: typeof record.lastReviewedAt === "string" ? record.lastReviewedAt : null,
+        nextReviewAt: typeof record.nextReviewAt === "string" ? record.nextReviewAt : null,
+        reviewCount: normalizeReviewMetric(record.reviewCount),
+        correctStreak: normalizeReviewMetric(record.correctStreak),
+        incorrectCount: normalizeReviewMetric(record.incorrectCount),
+        lastOutcome: normalizeReviewOutcome(record.lastOutcome),
+    };
+}
+
+function validateReviewProgress(
+    reviewProgress: unknown,
+    userSet: Set<string>,
+    version: 1 | 2,
+): { reviewProgress: Record<string, ReviewProgressMap> } | ValidationError {
+    if (version === 1 || reviewProgress == null) {
+        return {
+            reviewProgress: Object.fromEntries(Array.from(userSet).map((username) => [username, {}])),
+        };
+    }
+
+    if (typeof reviewProgress !== "object" || Array.isArray(reviewProgress)) {
+        return invalidPayload("백업 파일의 reviewProgress 항목이 올바르지 않아요.");
+    }
+
+    const normalizedReviewProgress: Record<string, ReviewProgressMap> = {};
+    let totalEntries = 0;
+
+    for (const [rawUsername, entries] of Object.entries(reviewProgress as Record<string, unknown>)) {
+        const normalizedUsername = rawUsername.trim().toLowerCase();
+        if (!normalizedUsername) {
+            return invalidPayload("백업 파일의 reviewProgress 사용자 키가 비어 있어요.");
+        }
+        if (!userSet.has(normalizedUsername)) {
+            return invalidPayload("백업 파일의 reviewProgress가 존재하지 않는 사용자와 연결되어 있어요.", {
+                username: normalizedUsername,
+            });
+        }
+        if (!entries || typeof entries !== "object" || Array.isArray(entries)) {
+            return invalidPayload("백업 파일의 reviewProgress 항목이 올바르지 않아요.", {
+                username: normalizedUsername,
+            });
+        }
+
+        const normalizedEntries: ReviewProgressMap = {};
+        for (const [rawWordKey, entry] of Object.entries(entries as Record<string, unknown>)) {
+            const normalizedWordKey = normalizeReviewWordKey(rawWordKey);
+            if (!normalizedWordKey) {
+                return invalidPayload("백업 파일의 reviewProgress 단어 키가 비어 있어요.", {
+                    username: normalizedUsername,
+                });
+            }
+
+            const validatedEntry = validateReviewProgressEntry(entry, normalizedUsername, normalizedWordKey);
+            if (isValidationError(validatedEntry)) {
+                return validatedEntry;
+            }
+
+            normalizedEntries[normalizedWordKey] = validatedEntry;
+            totalEntries += 1;
+            if (totalEntries > MAX_BACKUP_REVIEW_PROGRESS) {
+                return invalidPayload("백업 파일의 복습 진행도 항목 수가 너무 많아요.", {
+                    max: MAX_BACKUP_REVIEW_PROGRESS,
+                });
+            }
+        }
+
+        normalizedReviewProgress[normalizedUsername] = normalizedEntries;
+    }
+
+    for (const username of userSet) {
+        if (!normalizedReviewProgress[username]) {
+            normalizedReviewProgress[username] = {};
+        }
+    }
+
+    return { reviewProgress: normalizedReviewProgress };
+}
+
 function validateSearchHistory(searchHistory: unknown): SearchHistoryEntry[] | ValidationError {
     if (!Array.isArray(searchHistory)) {
         return invalidPayload("백업 파일의 searchHistory 항목이 올바르지 않아요.");
@@ -257,10 +378,11 @@ export function validateBackupPayload(payload: unknown): ValidateBackupPayloadRe
         });
     }
 
-    if (versionNumber !== SUPPORTED_BACKUP_VERSION) {
+    if (!SUPPORTED_BACKUP_VERSIONS.has(versionNumber)) {
         return createRestoreError("UNSUPPORTED_VERSION", "지원하지 않는 백업 형식이에요.", {
             version: versionNumber,
-            supportedVersion: SUPPORTED_BACKUP_VERSION,
+            latestVersion: LATEST_BACKUP_VERSION,
+            supportedVersions: Array.from(SUPPORTED_BACKUP_VERSIONS),
         }) as ValidationError;
     }
 
@@ -278,6 +400,15 @@ export function validateBackupPayload(payload: unknown): ValidateBackupPayloadRe
         return validatedFavorites;
     }
 
+    const validatedReviewProgress = validateReviewProgress(
+        (record as { reviewProgress?: unknown }).reviewProgress,
+        validatedUsers.userSet,
+        versionNumber as 1 | 2,
+    );
+    if (isValidationError(validatedReviewProgress)) {
+        return validatedReviewProgress;
+    }
+
     const validatedSearchHistory = validateSearchHistory(record.searchHistory);
     if (isValidationError(validatedSearchHistory)) {
         return validatedSearchHistory;
@@ -286,10 +417,11 @@ export function validateBackupPayload(payload: unknown): ValidateBackupPayloadRe
     return {
         ok: true,
         parsed: {
-            version: 1,
+            version: versionNumber as 1 | 2,
             exportedAt: record.exportedAt,
             users: validatedUsers.users,
             favorites: validatedFavorites.favorites,
+            reviewProgress: validatedReviewProgress.reviewProgress,
             searchHistory: validatedSearchHistory,
         },
     };

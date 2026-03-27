@@ -67,6 +67,15 @@ describe("database persistence", () => {
             status: "toMemorize",
             updatedAt: "2026-03-22T00:00:00.000Z",
         });
+        await database.upsertReviewProgressForUser(createdUser.id, {
+            word: "apple",
+            lastReviewedAt: "2026-03-21T00:00:00.000Z",
+            nextReviewAt: "2026-03-24T00:00:00.000Z",
+            reviewCount: 2,
+            correctStreak: 1,
+            incorrectCount: 0,
+            lastOutcome: "good",
+        });
         await database.saveSearchHistoryEntries([
             {
                 term: "apple",
@@ -96,6 +105,17 @@ describe("database persistence", () => {
                 status: "toMemorize",
             }),
         ]);
+        expect(await reloadedDatabase.getReviewProgressByUser(createdUser.id)).toEqual({
+            apple: {
+                word: "apple",
+                lastReviewedAt: "2026-03-21T00:00:00.000Z",
+                nextReviewAt: "2026-03-24T00:00:00.000Z",
+                reviewCount: 2,
+                correctStreak: 1,
+                incorrectCount: 0,
+                lastOutcome: "good",
+            },
+        });
         expect(await reloadedDatabase.getSearchHistoryEntries()).toEqual([
             {
                 term: "apple",
@@ -126,6 +146,15 @@ describe("database persistence", () => {
             status: "review",
             updatedAt: "2026-03-22T00:00:00.000Z",
         });
+        await database.upsertReviewProgressForUser(createdUser.id, {
+            word: "orange",
+            lastReviewedAt: "2026-03-22T00:00:00.000Z",
+            nextReviewAt: "2026-03-24T00:00:00.000Z",
+            reviewCount: 1,
+            correctStreak: 1,
+            incorrectCount: 0,
+            lastOutcome: "good",
+        });
         await database.saveSearchHistoryEntries([
             {
                 term: "orange",
@@ -141,6 +170,7 @@ describe("database persistence", () => {
         expect(await database.getActiveSession()).toBeNull();
         expect(await database.getAutoLoginCredentials()).toBeNull();
         expect(await database.getFavoritesByUser(createdUser.id)).toEqual([]);
+        expect(await database.getReviewProgressByUser(createdUser.id)).toEqual({});
         expect(await database.getPreferenceValue("settings.theme.mode")).toBeNull();
         expect(await database.getSearchHistoryEntries()).toEqual([
             {
